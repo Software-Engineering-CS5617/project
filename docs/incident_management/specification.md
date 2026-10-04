@@ -29,7 +29,7 @@ The `Incident` class contains the following:
 | **Evidences**        | `List<Evidence>` | List of evidence associated with the `Incident` |
 | **Changes**          | `List<IChange>`  | List of changes associated with the `Incident`  |
 | **Edges**            | `List<Guid>`     | Adjacency list of `Incident` ID                 |
-|**CorrelatedIncidents**| `List<Guid>`    | List of `Incidents` which are correlated to the give incident |
+|**CorrelatedIncidents**| `List<IncidentCorrelation>`    | List of `Incidents` which are correlated to the give incident |
 | **IncidentLocation** | Location         | Address of location of `Incident`               |
 
 **Note:** All `Incident` will be stored in a single XML file during development before integration with cloud.
@@ -144,9 +144,9 @@ Incident Created by Cop X
     +-- Incident B is correaled with this incident.
 ```
 
-### Class Diagram $\color{red}{\text{Needs to be updated}}$
+### Class Diagram
 
-![class diagram](class_diagram_incident_management.png)
+![class diagram](class_diagram_im.png)
 
 ### Correlation Approach
 
@@ -163,7 +163,7 @@ Update from Union-Find
 
 ### Prototype Code
 
-#### Incident $\color{red}{\text{Needs to be updated}}$
+#### Incident
 
 ```csharp
 public enum IncidentStatus { Reported, InProgress, Resolved, .. }
@@ -186,7 +186,7 @@ public class Incident {
     private List<IChanges> changes;
     private List<Guid> edges;
     private location incidentLocations;
-    private List<Guid> correlatedIncidents;
+    private List<IncidentCorrelation> correlatedIncidents;
 
     public Incident(string title ,string description,IncidentCategory category) {
         this.id = Guid.NewGuid();
@@ -198,7 +198,7 @@ public class Incident {
         this.updateTime = this.creationTime;
         this.evidence = new List<Evidence>();
         this.changes  = new List<IChanges>();
-        this.correlatedIncidents = new List<Guid>();
+        this.correlatedIncidents = new List<IncidentCorrelation>();
     }
 
     public Guid GetId() {
@@ -241,7 +241,7 @@ public class Incident {
         return changes;
     }
 
-    public List<Guid> GetCorrelations() {
+    public List<IncidentCorrelation> GetCorrelations() {
         return correlatedIncidents;
     }
 
@@ -328,7 +328,7 @@ public class StatusChange : IChange<IncidentStatus> {
 }
 ```
 
-Similarly other changes ...
+Similarly other changes can be implemented...
 
 
 #### IncidentCorrelation $
@@ -398,21 +398,42 @@ An example of the `Incident`s stored in XML format is shown below:
 
 ```xml
 <IncidentList>
-
     <Incident>
-
         <Id>...</Id>
         <Title>...</Title>
         <Description>...</Description>
-        <Status>...</Status>
-        <Category>...</Category>
+        <Status>Reported</Status>
+        <Category>Accident</Category>
+        <Severity>High</Severity>
+
         <CreationTime>...</CreationTime>
         <UpdateTime>...</UpdateTime>
-        <CorrelationRepresentative>...</CorrelationRepresentative>
+
+        <IncidentLocation>
+            <Latitude>...</Latitude>
+            <Longitude>...</Longitude>
+            <Address>...</Address>
+        </IncidentLocation>
+
+        <Edges>
+            <IncidentId>...</IncidentId>
+            <IncidentId>...</IncidentId>
+        </Edges>
+
+        <CorrelatedIncidents>
+            <IncidentCorrelation>
+                <Id>...</Id>
+                <IncidentId1>...</IncidentId1>
+                <IncidentId2>...</IncidentId2>
+                <CreationTime>...</CreationTime>
+                <CreatedBy>...</CreatedBy>
+            </IncidentCorrelation>
+        </CorrelatedIncidents>
 
         <EvidenceList>
 
             <FileEvidence>
+                <Id>...</Id>
                 <Description>...</Description>
                 <FilePath>...</FilePath>
                 <UploadTime>...</UploadTime>
@@ -420,26 +441,58 @@ An example of the `Incident`s stored in XML format is shown below:
             </FileEvidence>
 
             <CategoryChangeEvidence>
+                <Id>...</Id>
                 <Description>...</Description>
+                <OldValue>Accident</OldValue>
+                <NewValue>Theft</NewValue>
                 <UploadTime>...</UploadTime>
                 <UploadedBy>...</UploadedBy>
             </CategoryChangeEvidence>
 
             <StatusChangeEvidence>
+                <Id>...</Id>
                 <Description>...</Description>
+                <OldValue>Reported</OldValue>
+                <NewValue>InProgress</NewValue>
                 <UploadTime>...</UploadTime>
                 <UploadedBy>...</UploadedBy>
             </StatusChangeEvidence>
 
-            <IncidentCorrelationEvidence>
+            <SeverityChangeEvidence>
+                <Id>...</Id>
                 <Description>...</Description>
+                <OldValue>Medium</OldValue>
+                <NewValue>High</NewValue>
+                <UploadTime>...</UploadTime>
+                <UploadedBy>...</UploadedBy>
+            </SeverityChangeEvidence>
+
+            <LocationChangeEvidence>
+                <Id>...</Id>
+                <Description>...</Description>
+                <OldLocation>
+                    <Latitude>...</Latitude>
+                    <Longitude>...</Longitude>
+                    <Address>...</Address>
+                </OldLocation>
+                <NewLocation>
+                    <Latitude>...</Latitude>
+                    <Longitude>...</Longitude>
+                    <Address>...</Address>
+                </NewLocation>
+                <UploadTime>...</UploadTime>
+                <UploadedBy>...</UploadedBy>
+            </LocationChangeEvidence>
+
+            <IncidentCorrelationEvidence>
+                <Id>...</Id>
+                <Description>...</Description>
+                <RelatedIncidentId>...</RelatedIncidentId>
                 <UploadTime>...</UploadTime>
                 <UploadedBy>...</UploadedBy>
             </IncidentCorrelationEvidence>
 
         </EvidenceList>
-
     </Incident>
-
 </IncidentList>
 ```
