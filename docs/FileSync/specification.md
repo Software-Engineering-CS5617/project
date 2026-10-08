@@ -75,3 +75,41 @@ string evidenceDirectory =
 **NOTE** : *Each module is responsible for managing its own files inside the shared directory. FileSync handles the synchronization of the contents of the shared directory between systems.*
 
 ---
+
+## UI Updates (Event Subscription)
+
+To satisfy Requirement #6 (Reporting progress/results back to the calling module's UI), the FileSync module provides optional event subscriptions. 
+
+Other modules (like Whiteboard or Incident Management) do not command the sync to start. However, if they want to display a "Green Checkmark" or an "Error Popup" on their UI, they can passively tune in to FileSync's events.
+
+```csharp
+public interface ISync
+{
+    string GetDirectory();
+
+    // Optional UI Events for Requirement #6
+    event Action OnSyncComplete;
+    event Action<string> OnSyncError;
+}
+```
+
+### Example Usage by Another Module
+
+```csharp
+// 1. They subscribe their UI functions to our events
+fileSync.OnSyncComplete += ShowGreenCheckmark;
+fileSync.OnSyncError += ShowErrorPopup;
+
+// 2. The UI Functions (Triggered automatically by FileSync's network engine)
+void ShowGreenCheckmark()
+{
+    // Draw a green checkmark on the screen
+}
+
+void ShowErrorPopup(string errorMessage)
+{
+    // Draw a red box with the exact error string (e.g., "Network disconnected")
+}
+```
+
+This guarantees **Separation of Concerns**. The sub-modules act like they are writing to a normal hard drive and just listen to events, while FileSync independently handles all network traversal and conflict logic.

@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Text.Json;
 
 namespace FileSync;
@@ -12,6 +12,11 @@ public sealed class SyncService : ISync
     {
         _root = Path.GetFullPath(root);
         Directory.CreateDirectory(_root);
+    }
+
+    public string GetDirectory()
+    {
+        return _root;
     }
 
     public Task<int> SyncAsync(string peerHost, int peerPort)
