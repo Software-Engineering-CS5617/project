@@ -72,7 +72,6 @@ public interface ISync
 
     bool FileExists(string relativePath);
 
-
 }
 ```
 
@@ -139,8 +138,15 @@ To satisfy Requirement #6 (Reporting progress/results back to the calling module
 Other modules (like Whiteboard or Incident Management) do not command the sync to start. However, if they want to display a "Green Checkmark" or an "Error Popup" on their UI, they can passively tune in to FileSync's events. These events are part of the `ISync` interface:
 
 ```csharp
-event Action OnSyncComplete;
-event Action<string> OnSyncError;
+public interface ISync
+{
+ 
+    // Along with these methords GetDirectory, SaveFile, ReadFile, DeleteFile, UpdateFile, FileExists 
+
+    // Optional UI Events for Requirement #6
+    event Action OnSyncComplete;
+    event Action<string> OnSyncError;
+}
 ```
 
 ### Example Usage by Another Module
