@@ -2,7 +2,7 @@ namespace FileSync;
 
 public class MainForm : Form
 {
-    private readonly ISync _sync;
+    private readonly SyncService _sync;
     private readonly SyncServer _server;
     private readonly int _peerPort;
 
