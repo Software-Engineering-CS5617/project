@@ -5,7 +5,7 @@
     <Project Path="Cloud/Cloud.csproj" />
     <Project Path="Controller/Controller.csproj" />
     <Project Path="FileSync/Filesync.csproj" />
-    <Project Path="FileSync.Test/Filesync.Test.csproj" />
+    <Project Path="Filesync.Test/Filesync.Test.csproj" />
     <Project Path="Incidents/Incidents.csproj" />
     <Project Path="Insights/Insights.csproj" />
     <Project Path="Location/Location.csproj" />
