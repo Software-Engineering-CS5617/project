@@ -15,23 +15,18 @@ To develop a file synchronization module for the Cop project with the following 
 
 ---
 
-## Basic Class Diagram 
+## Class Diagram
 
-```mermaid
-graph TD
-    FileSync -->|inheritance| ISync
-    SyncServer -->|composition| FileSync
-    SyncClient -->|composition| FileSync
-```
+![class diagram](class_diagram.png)
 
 ---
 
+## Shared Directory
 
-## Interface for Other Modules to Use
+Every system has one common shared directory, `Root`. FileSync synchronizes everything inside it (created, modified and deleted files and folders) across connected systems.
 
-FileSync is a low-level module that does not directly interact with any other modules. It exposes a simple interface (`ISync`) through which modules can get the common shared directory present on every system, and save, read, update and delete files inside it.
-
-All modules are free to create their own subdirectories within this shared directory. For example:
+- Default location: `%LocalAppData%/FileSync/Root` (created automatically).
+- Modules may create their own subdirectories inside `Root`:
 
 ```text
 Root/
@@ -40,132 +35,90 @@ Root/
 └── ...
 ```
 
-Modules do not need to implement their own save, read, update or delete functions. FileSync provides these through the `ISync` interface, and each module simply uses them to manage the files within its directory under `Root`.
-
-The FileSync module works independently and synchronizes all files and folders within `Root` across the connected systems. This includes files and folders that are created, modified, or deleted.
+Modules do not implement their own save/read/update/delete logic. They use `IFileOperations` and let FileSync handle synchronization.
 
 ---
 
-## FileSync API
+## API
 
-FileSync provides a simple interface for other modules to access the common shared directory and to save, read, update and delete files inside it.
+### IFileOperations
 
-All file methods take a **relative path** (relative to `Root`). FileSync combines it with `GetDirectory()` internally, so modules never build full paths or touch the sync logic themselves.
+All methods take a **relative path** (relative to `Root`).
 
 ```csharp
-public interface ISync
+public interface IFileOperations
 {
-    // Directory
     string GetDirectory();
-
-    // File operations (relativePath is relative to GetDirectory())
-    void SaveFile(string relativePath, Stream content);
-    void SaveFile(string relativePath, byte[] content);
-
-    Stream ReadFile(string relativePath);
-    byte[] ReadAllBytes(string relativePath);
-
-    void UpdateFile(string relativePath, Stream content);
-    void UpdateFile(string relativePath, byte[] content);
-
-    void DeleteFile(string relativePath);
-
+    bool SaveFile(string relativePath, byte[] content);
+    byte[] ReadFile(string relativePath);
+    bool UpdateFile(string relativePath, byte[] content);
+    bool DeleteFile(string relativePath);
     bool FileExists(string relativePath);
-
 }
 ```
 
-### Method Description
+| Method | Description | On failure |
+|---|---|---|
+| `GetDirectory()` | Returns the path of `Root` on the current system. | n/a |
+| `SaveFile` | Creates a **new** file. Fails if the file already exists. | Returns `false` |
+| `ReadFile` | Returns the file contents as `byte[]`. | Throws (e.g. `IOException`) |
+| `UpdateFile` | Overwrites an **existing** file. Fails if the file does not exist. | Returns `false` |
+| `DeleteFile` | Deletes an existing file. Fails if the file does not exist. | Returns `false` |
+| `FileExists` | Returns `true` if the file exists. | Returns `false` |
 
-| Method | Description |
-|---|---|
-| `GetDirectory()` | Returns the path of the shared `Root` directory on the current system. |
-| `SaveFile(relativePath, content)` | Creates a new file at `Root/relativePath`. Missing subfolders are created automatically. Throws if the file already exists (use `UpdateFile`). |
-| `ReadFile(relativePath)` | Returns a read-only `Stream` of the file. Preferred for large files. |
-| `ReadAllBytes(relativePath)` | Returns the whole file as `byte[]`. For small files only. |
-| `UpdateFile(relativePath, content)` | Overwrites an existing file at `Root/relativePath`. Throws if the file does not exist (use `SaveFile`). |
-| `DeleteFile(relativePath)` | Deletes the file at `Root/relativePath`. The deletion is synchronized to other systems. |
-| `FileExists(relativePath)` | Returns `true` if the file exists in the shared directory. |
-
-### Rules
-
-- `relativePath` must be relative. Absolute paths and paths escaping `Root` (e.g. `../`) are rejected with an `ArgumentException`.
-- `Stream` overloads are recommended for large files (images, videos, whiteboard exports) to avoid loading them fully into memory.
-- Any save, update or delete is automatically picked up by FileSync's sync engine. Modules never trigger sync themselves.
-
-### Example Usage by Another Module
-
-`GetDirectory()` returns the path to the common shared directory on the current system.
-
-Other modules use this directory, together with the file methods above, to create and manage their own files and folders.
-
-For example:
-
-```csharp
-ISync fileSync = new FileSync();
-
-string rootDirectory = fileSync.GetDirectory();
-
-string evidenceDirectory =
-    Path.Combine(rootDirectory, "evidences");
-```
-
-Saving, reading, updating and deleting files:
-
-```csharp
-// Save
-byte[] imageData = File.ReadAllBytes(localImagePath);
-fileSync.SaveFile("evidences/incident42/photo.png", imageData);
-
-// Read
-using Stream stream = fileSync.ReadFile("evidences/incident42/photo.png");
-
-// Update
-fileSync.UpdateFile("evidences/incident42/photo.png", newImageData);
-
-// Delete
-fileSync.DeleteFile("evidences/incident42/photo.png");
-```
-
-**NOTE** : *Modules use the `ISync` file methods to manage their files inside the shared directory. FileSync handles the synchronization of the contents of the shared directory between systems.*
-
----
-
-## UI Updates (Event Subscription)
-
-To satisfy Requirement #6 (Reporting progress/results back to the calling module's UI), the FileSync module provides optional event subscriptions. 
-
-Other modules (like Whiteboard or Incident Management) do not command the sync to start. However, if they want to display a "Green Checkmark" or an "Error Popup" on their UI, they can passively tune in to FileSync's events. These events are part of the `ISync` interface:
+### ISync
 
 ```csharp
 public interface ISync
 {
- 
-    // Along with these methords GetDirectory, SaveFile, ReadFile, DeleteFile, UpdateFile, FileExists 
+    void Synchronise();
 
-    // Optional UI Events for Requirement #6
     event Action OnSyncComplete;
     event Action<string> OnSyncError;
 }
 ```
 
-### Example Usage by Another Module
+| Member | Description |
+|---|---|
+| `Synchronise()` | Runs the synchronisation process. *Not implemented yet; networking will be added separately.* |
+| `OnSyncComplete` | Raised when synchronisation completes successfully. |
+| `OnSyncError` | Raised when an error occurs and provides the error message. |
+
+### Rules
+
+- `relativePath` must be non-empty and relative to `Root`. Absolute paths and paths escaping `Root` (e.g. `../`) are rejected.
+- File content is passed as `byte[]`, so the entire file is loaded into memory.
+- Modules do not trigger synchronization for file changes; the sync engine picks them up.
+- Expected file errors (I/O, access, invalid path, unsupported path, security) are caught, reported through `OnSyncError`, and then reflected as `false` (or rethrown for `ReadFile`).
+
+<br>
+
+---
+
+## Example Usage
 
 ```csharp
-// 1. They subscribe their UI functions to our events
-fileSync.OnSyncComplete += ShowGreenCheckmark;
-fileSync.OnSyncError += ShowErrorPopup;
+var fileSync = new Synchroniser();
+IFileOperations files = fileSync;
+ISync sync = fileSync;
 
-// 2. The UI Functions (Triggered automatically by FileSync's network engine)
-void ShowGreenCheckmark()
-{
-    // Draw a green checkmark on the screen
-}
+// Optional UI events
+sync.OnSyncComplete += ShowGreenCheckmark;
+sync.OnSyncError += ShowErrorPopup;
 
-void ShowErrorPopup(string errorMessage)
-{
-    // Draw a red box with the exact error string (e.g., "Network disconnected")
-}
+// File operations
+bool saved   = files.SaveFile("evidences/incident42/photo.png", imageData);
+byte[] data  = files.ReadFile("evidences/incident42/photo.png");
+bool updated = files.UpdateFile("evidences/incident42/photo.png", newImageData);
+bool exists  = files.FileExists("evidences/incident42/photo.png");
+bool deleted = files.DeleteFile("evidences/incident42/photo.png");
 ```
 
-This guarantees **Separation of Concerns**. The sub-modules act like they are writing to a normal hard drive and just listen to events, while FileSync independently handles all network traversal and conflict logic.
+Modules write to the shared directory like a normal drive and only listen to events; FileSync handles network traversal and conflict logic independently.
+
+## Implemented So Far
+| Type | Namespace | Responsibility |
+|---|---|---|
+| `IFileOperations` | `Filesync` | Local file operations on the shared `Root` directory. |
+| `ISync` | `Filesync` | Synchronisation trigger and result events. |
+| `Synchroniser` | `Filesync` | Implements both interfaces. |
