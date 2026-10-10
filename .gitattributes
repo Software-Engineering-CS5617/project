@@ -4,6 +4,18 @@
 * text=auto
 
 ###############################################################################
+# Enforce LF on shell scripts and build scripts so Windows checkouts do not
+# fail when executed in Linux/CI environments.
+###############################################################################
+*.sh text eol=lf
+
+###############################################################################
+# Keep CRLF explicitly for Windows batch files.
+###############################################################################
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by

@@ -1,3 +1,15 @@
 <Solution>
-  <Project Path="CopProject/FileSync/FileSync.csproj" />
+    <Project Path="Authentication/Auth.csproj" />
+    <Project Path="Chat/Chat.csproj" />
+    <Project Path="Chat.Test/Chat.Test.csproj" />
+    <Project Path="Cloud/Cloud.csproj" />
+    <Project Path="Controller/Controller.csproj" />
+    <Project Path="FileSync/Filesync.csproj" />
+    <Project Path="Incidents/Incidents.csproj" />
+    <Project Path="Insights/Insights.csproj" />
+    <Project Path="Location/Location.csproj" />
+    <Project Path="Networking/Networking.csproj" />
+    <Project Path="Screenshare/Screenshare.csproj" />
+    <Project Path="UX/UX.csproj" />
+    <Project Path="Whiteboard/Whiteboard.csproj" />
 </Solution>

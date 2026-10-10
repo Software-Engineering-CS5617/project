@@ -362,6 +362,31 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+## Ignore editor configuration files
+# VS Code
+.vscode/
+# Optional: Only ignore your personal workspace settings, keep team extensions shared
+#.vscode/settings.json
+#.vscode/tasks.json
+#.vscode/launch.json
 
-# FileSync
-CopProject/Folder*
+# JetBrains IDEs
+.idea/
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim / Neovim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+*~
+tags
+.netrwhist
+
+# Xcode
+build/
+*.xcuserstate
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/

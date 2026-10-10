@@ -1,0 +1,104 @@
+# This workflow runs on every pull request created to main.
+
+name: Line and branch coverage
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write   # To post the coverage comment.
+
+env:
+  # These variables are set to 80 as fallback, if their corresponding
+  # environment variables are undefined.
+  LINE_COVERAGE_THRESHOLD: ${{ vars.LINE_COVERAGE_THRESHOLD || '80' }}
+  BRANCH_COVERAGE_THRESHOLD: ${{ vars.BRANCH_COVERAGE_THRESHOLD || '80' }}
+
+jobs:
+  build-test-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v6
+
+      - name: .NET setup
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dotnet projects
+        run: dotnet restore CopProject
+
+      - name: Build dotnet projects
+        run: dotnet build CopProject --configuration Release --no-restore
+
+        # NOTE: Requires the coverlet.collector package in the test projects.
+      - name: Test dotnet projects with coverage
+        run: >
+          dotnet test CopProject --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate coverage report
+        run: >
+          reportgenerator
+          -reports:"coverage/**/coverage.cobertura.xml"
+          -targetdir:"coverage-report"
+          -reporttypes:"Html;MarkdownSummaryGithub;JsonSummary"
+
+      - name: Add summary to the run page
+        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        id: upload-html
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-pr-${{ github.event.pull_request.number }}
+          path: coverage-report/
+          retention-days: 60
+
+      - name: Comment on PR
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HTML_URL: ${{ steps.upload-html.outputs.artifact-url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "## Code coverage report"
+            echo
+            cat coverage-report/SummaryGithub.md
+            echo
+            echo "**Full HTML report:** [download artifact (zip)]($HTML_URL)"
+          } > comment.md
+          gh pr comment "$PR_NUMBER" --body-file comment.md --edit-last --create-if-none
+
+      - name: Enforce line coverage threshold
+        run: |
+          COVERAGE=$(jq '.summary.linecoverage' coverage-report/Summary.json)
+          echo "Line coverage: ${COVERAGE}% (required: ${LINE_COVERAGE_THRESHOLD}%)"
+          if ! awk -v c="$COVERAGE" -v t="$LINE_COVERAGE_THRESHOLD" 'BEGIN { exit !(c >= t) }'; then
+            echo "Line coverage threshold error: ${COVERAGE}% is below the required ${LINE_COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+
+      - name: Enforce branch coverage threshold
+        run: |
+          COVERAGE=$(jq '.summary.branchcoverage' coverage-report/Summary.json)
+          echo "Branch coverage: ${COVERAGE}% (required: ${BRANCH_COVERAGE_THRESHOLD}%)"
+          if ! awk -v c="$COVERAGE" -v t="$BRANCH_COVERAGE_THRESHOLD" 'BEGIN { exit !(c >= t) }'; then
+            echo "Branch coverage threshold error: ${COVERAGE}% is below the required ${BRANCH_COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+
