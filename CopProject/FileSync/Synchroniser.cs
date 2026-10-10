@@ -8,7 +8,7 @@ namespace Filesync;
 /// Provides local file operations for the synchronised root directory.
 /// Networking and remote synchronisation will be implemented separately.
 /// </summary>
-public class Synchroniser : ISync
+public class Synchroniser : ISync, IFileOperations
 {
     private readonly string _rootDir;
 
@@ -177,6 +177,9 @@ public class Synchroniser : ISync
         return fullPath;
     }
 
+    /// <summary>
+    /// All File related Errors
+    /// </summary>
     private static bool IsExpectedFileError(Exception ex)
     {
         return ex is IOException
@@ -186,8 +189,19 @@ public class Synchroniser : ISync
             or SecurityException;
     }
 
+    /// <summary>
+    /// Reports the error catched
+    /// </summary>
     private void ReportError(Exception ex)
     {
         OnSyncError(ex.Message);
+    }
+
+    /// <summary>
+    /// Synchronises
+    /// </summary>
+    public void Synchronise()
+    {
+        throw new NotImplementedException();
     }
 }
