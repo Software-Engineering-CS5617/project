@@ -179,3 +179,4 @@ sequenceDiagram
 ## Further References
 
 1. [How Figma’s multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)
+2. [Creating chromeless, non-rectangular Windows from UWP](https://stefanwick.com/tag/desktop-extensions/)
