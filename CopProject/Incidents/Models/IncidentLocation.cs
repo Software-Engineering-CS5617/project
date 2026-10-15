@@ -3,7 +3,7 @@
 public record IncidentLocation(
     double Latitude,
     double Longitude,
-    string? Address
+    string? Address = null
 );
 
 public record IncidentLocationFilter(

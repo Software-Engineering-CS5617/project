@@ -11,7 +11,7 @@ public class Incident<T>
     public IncidentCategory Category { get; }
     public IncidentSeverity Severity { get; }
     public DateTime CreationTime { get; }
-    public DateTime UpdateTime { get; }
+    public DateTime UpdateTime { get; private set; }
 
     public List<IncidentEvidence> Evidence { get; private set; }
     public List<IChange<T>> Changes { get; private set; }
@@ -44,5 +44,11 @@ public class Incident<T>
         Changes = [];
         Edges = [];
         CorrelatedIncidents = [];
+    }
+
+    internal void AddEvidence(List<IncidentEvidence> evidence)
+    {
+        Evidence.AddRange(evidence);
+        UpdateTime = DateTime.Now;
     }
 }
