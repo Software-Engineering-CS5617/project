@@ -31,6 +31,6 @@ public class CreateIncidentRequest
         Category = category;
         Severity = severity;
         Location = location;
-        _evidences = new List<IncidentEvidence>(evidences);
+        _evidences = new List<IncidentEvidence>(evidences); // copy to ensure immutability
     }
 }
