@@ -5,11 +5,11 @@ namespace Incidents;
 
 public interface IIncidentController<T>
 {
-    bool CreateIncident(CreateIncidentRequest request);
+    Incident<T> CreateIncident(CreateIncidentRequest request);
 
-    Incident<T>? GetIncidentById(Guid id);
+    Incident<T> GetIncidentById(Guid id);
 
-    List<Incident<T>> GetAllIncident(IncidentFilter filter);
+    List<Incident<T>> GetAllIncidents(IncidentFilter filter);
 
     List<Incident<T>> GetCorrelatedIncidents(Guid id);
 

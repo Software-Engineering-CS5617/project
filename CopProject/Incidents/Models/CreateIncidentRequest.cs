@@ -3,17 +3,20 @@ namespace Incidents;
 
 public class CreateIncidentRequest
 {
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public IncidentStatus Status { get; set; }
-    public IncidentCategory Category { get; set; }
-    public IncidentSeverity Severity { get; set; }
-    public IncidentLocation Location { get; set; }
-    public List<IncidentEvidence> Evidences { get; set; }
+    public string Title { get; }
+    public string Description { get; }
+
+    public Guid CreatedBy { get; }
+    public IncidentStatus Status { get; }
+    public IncidentCategory Category { get; }
+    public IncidentSeverity Severity { get; }
+    public IncidentLocation Location { get; }
+    public List<IncidentEvidence> Evidences { get; }
 
     public CreateIncidentRequest(
         string title,
         string description,
+        Guid createdBy,
         IncidentCategory category,
         IncidentSeverity severity,
         IncidentLocation location,
@@ -22,6 +25,7 @@ public class CreateIncidentRequest
     {
         this.Title = title;
         this.Description = description;
+        this.CreatedBy = createdBy;
         this.Status = IncidentStatus.Reported;
         this.Category = category;
         this.Severity = severity;

@@ -6,10 +6,10 @@ public class Incident<T>
     public string Title { get; }
     public string Description { get; }
     public Guid CreatedBy { get; }
-    public IncidentLocation Location { get; }
-    public IncidentStatus Status { get; }
-    public IncidentCategory Category { get; }
-    public IncidentSeverity Severity { get; }
+    public IncidentLocation Location { get; private set; }
+    public IncidentStatus Status { get; private set; }
+    public IncidentCategory Category { get; private set; }
+    public IncidentSeverity Severity { get; private set;  }
     public DateTime CreationTime { get; }
     public DateTime UpdateTime { get; private set; }
 
@@ -20,7 +20,7 @@ public class Incident<T>
 
     public List<IncidentCorrelation> CorrelatedIncidents { get; }
 
-    public Incident(
+    internal Incident(
         string title,
         string description,
         Guid createdBy,
@@ -51,4 +51,30 @@ public class Incident<T>
         Evidence.AddRange(evidence);
         UpdateTime = DateTime.Now;
     }
+
+    internal void UpdateStatus(IncidentStatus newStatus)
+    {
+        Status = newStatus;
+        UpdateTime = DateTime.Now;
+    }
+
+    internal void UpdateCategory(IncidentCategory newCategory)
+    {
+        Category = newCategory;
+        UpdateTime = DateTime.Now;
+    }
+
+    internal void UpdateSeverity(IncidentSeverity newSeverity)
+    {
+        Severity = newSeverity;
+        UpdateTime = DateTime.Now;
+    }
+
+    internal void UpdateLocation(IncidentLocation location)
+    {
+        Location = location;
+        UpdateTime = DateTime.Now;
+    }
+
+
 }

@@ -11,14 +11,17 @@ public sealed class IncidentTest
     [TestMethod]
     public void CreateEvidence()
     {
-        Incident<string> incident = new Incident<string>(
+        IIncidentController<string> controller = new IncidentController<string>();
+
+        Incident<string> incident = controller.CreateIncident(new CreateIncidentRequest(
             "Test Incident",
             "This is a test incident.",
             Guid.NewGuid(),
             IncidentCategory.Accident,
             IncidentSeverity.High,
-            new IncidentLocation(37.7749, -122.4194)
-        );
+            new IncidentLocation(37.7749, -122.4194),
+            []
+        ));
 
         Console.WriteLine($"Incident ID: {incident.Id}");
     }
