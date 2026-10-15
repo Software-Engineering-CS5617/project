@@ -32,7 +32,3 @@ namespace Whiteboard.Interfaces
         public double Height { get; set; }
     }
 }
-
-
-
-d
