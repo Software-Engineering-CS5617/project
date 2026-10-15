@@ -1,4 +1,5 @@
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
 using Persistence;
 
 public class CosmosStorage : IStorage
@@ -35,7 +36,7 @@ public class CosmosStorage : IStorage
 
     // All CRUD operations are done asynchronously.
     // IStorage interface methods are implemented here.
-    public async Task Create(string key, byte[] data)
+    public async Task<bool> Create(string key, byte[] data)
     {
         PersistenceItem item = new PersistenceItem
         {
@@ -43,27 +44,50 @@ public class CosmosStorage : IStorage
             Data = data
         };
 
+        try
+        {
+            await _container.CreateItemAsync(item, new PartitionKey(item.Id));
+            return true;
+        }
 
-        await _container.CreateItemAsync(item, new PartitionKey(item.Id));
+        catch (CosmosException)
+        {
+            return false;
+        }
     }
 
-    public async Task<byte[]> Read(string key)
+    public async Task<(bool Success, byte[] Data)> Read(string key)
     {
-        ItemResponse<PersistenceItem> response =
-            await _container.ReadItemAsync<PersistenceItem>(
-                key,
-                new PartitionKey(key));
+        try
+        {
+            ItemResponse<PersistenceItem> response =
+                await _container.ReadItemAsync<PersistenceItem>(
+                    key,
+                    new PartitionKey(key));
 
-        return response.Resource.Data;
+            return (true, response.Resource.Data);
+        }
+        catch (CosmosException)
+        {
+            return (false, Array.Empty<byte>());
+        }
     }
 
-    public async Task<string> ReadEtag(string key)
+
+    public async Task<(bool Success, string Etag)> ReadEtag(string key)
     {
-        ItemResponse<PersistenceItem> response =
-            await _container.ReadItemAsync<PersistenceItem>(
-                key,
-                new PartitionKey(key));
-        return (response.ETag);
+        try
+        {
+            ItemResponse<PersistenceItem> response =
+                await _container.ReadItemAsync<PersistenceItem>(
+                    key,
+                    new PartitionKey(key));
+            return (true, response.ETag);
+        }
+        catch (CosmosException)
+        {
+            return (false, string.Empty);
+        }
     }
 
     public async Task<bool> Update(string key, byte[] data, string etag)
@@ -97,13 +121,94 @@ public class CosmosStorage : IStorage
         }
     }
 
-
-    public async Task Delete(string key)
+    public async Task<bool> Delete(string key)
     {
-        await _container.DeleteItemAsync<PersistenceItem>(
-            key,
-            new PartitionKey(key));
+        try
+        {
+            await _container.DeleteItemAsync<PersistenceItem>(
+                key,
+                new PartitionKey(key));
+            return true;
+        }
+        catch (CosmosException)
+        {
+            return false;
+        }
     }
 
-    
+
+    public async Task<bool> CreateAll(Dictionary<string, byte[]> items)
+    {
+        foreach (var item in items)
+        {
+            if (!await Create(item.Key, item.Value))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public async Task<(bool Success, Dictionary<string, byte[]>)> ReadAll(string[] keys)
+    {
+        Dictionary<string, byte[]> result = new Dictionary<string, byte[]>();
+        foreach (string key in keys)
+        {
+            var (success, data) = await Read(key);
+            if (success)
+            {
+                result[key] = data;
+            }
+            else
+            {
+                return (false, new Dictionary<string, byte[]>());
+            }
+        }
+        return (true, result);
+    }
+
+
+    public async Task<bool> UpdateAll(Dictionary<string, byte[]> items)
+    {
+        try
+        {
+            foreach (var item in items)
+            {
+                var result = await ReadEtag(item.Key);
+                if (!result.Success)
+                {
+                    return false;
+                }
+                bool updateSuccess = await Update(item.Key, item.Value, result.Etag);
+                if (!updateSuccess)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+
+        }
+        catch (CosmosException)
+        {
+            return false;
+        }
+    }
+
+
+    public async Task<bool> DeleteAll(string[] keys)
+    {
+        foreach (string key in keys)
+        {
+            if (!await Delete(key))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+
+
 }
