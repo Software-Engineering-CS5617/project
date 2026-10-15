@@ -3,25 +3,25 @@ using System.Collections.Generic;
 
 namespace Incidents;
 
-public interface IIncidentController<T>
+public interface IIncidentController
 {
-    Incident<T> CreateIncident(CreateIncidentRequest request);
+    Incident CreateIncident(CreateIncidentRequest request);
 
-    Incident<T> GetIncidentById(Guid id);
+    Incident GetIncidentById(Guid id);
 
-    List<Incident<T>> GetAllIncidents(IncidentFilter filter);
+    List<Incident> GetAllIncidents(IncidentFilter? filter = null);
 
-    List<Incident<T>> GetCorrelatedIncidents(Guid id);
+    List<Incident> GetCorrelatedIncidents(Guid id);
 
-    bool AddEvidence(Guid id, List<IncidentEvidence> evidence);
+    bool AddEvidence(Incident incident, List<IncidentEvidence> evidence);
 
-    bool UpdateStatus(Guid id, IncidentStatus newStatus);
+    bool UpdateStatus(Incident incident, IncidentStatus newStatus);
 
-    bool UpdateCategory(Guid id, IncidentCategory newCategory);
+    bool UpdateCategory(Incident incident, IncidentCategory newCategory);
 
-    bool UpdateSeverity(Guid id, IncidentSeverity newSeverity);
+    bool UpdateSeverity(Incident incident, IncidentSeverity newSeverity);
 
-    bool UpdateLocation(Guid id, IncidentLocation location);
+    bool UpdateLocation(Incident incident, IncidentLocation location);
 
-    bool CorrelateIncident(Guid id1, Guid id2);
+    bool CorrelateIncident(Incident incident1, Incident incident2);
 }

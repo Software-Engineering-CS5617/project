@@ -1,5 +1,4 @@
-﻿
-namespace Incidents;
+﻿namespace Incidents;
 
 public class CreateIncidentRequest
 {
@@ -11,7 +10,9 @@ public class CreateIncidentRequest
     public IncidentCategory Category { get; }
     public IncidentSeverity Severity { get; }
     public IncidentLocation Location { get; }
-    public List<IncidentEvidence> Evidences { get; }
+
+    private readonly List<IncidentEvidence> _evidences;
+    public IReadOnlyList<IncidentEvidence> Evidences => _evidences.AsReadOnly();
 
     public CreateIncidentRequest(
         string title,
@@ -23,13 +24,13 @@ public class CreateIncidentRequest
         List<IncidentEvidence> evidences
     )
     {
-        this.Title = title;
-        this.Description = description;
-        this.CreatedBy = createdBy;
-        this.Status = IncidentStatus.Reported;
-        this.Category = category;
-        this.Severity = severity;
-        this.Location = location;
-        this.Evidences = new List<IncidentEvidence>(evidences);
+        Title = title;
+        Description = description;
+        CreatedBy = createdBy;
+        Status = IncidentStatus.Reported;
+        Category = category;
+        Severity = severity;
+        Location = location;
+        _evidences = new List<IncidentEvidence>(evidences);
     }
 }

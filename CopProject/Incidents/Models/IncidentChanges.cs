@@ -1,64 +1,110 @@
 ﻿namespace Incidents;
 
-public class CategoryChange : IChange<IncidentCategory>
+public class CategoryChange : IChange
 {
-    public IncidentCategory OldValue { get; }
-    public IncidentCategory NewValue { get; }
-    public DateTime UploadTime { get; }
-    public Guid UploadedBy { get; }
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
 
     public CategoryChange(
-        IncidentCategory oldValue,
-        IncidentCategory newValue,
-        DateTime uploadTime,
-        Guid uploadedBy
+        string description,
+        DateTime changedTime,
+        Guid changedBy
     )
     {
-        OldValue = oldValue;
-        NewValue = newValue;
-        UploadTime = uploadTime;
-        UploadedBy = uploadedBy;
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
     }
 }
 
-public class StatusChange : IChange<IncidentStatus>
+public class StatusChange : IChange
 {
-    public IncidentStatus OldValue { get; }
-    public IncidentStatus NewValue { get; }
-    public DateTime UploadTime { get; }
-    public Guid UploadedBy { get; }
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
 
     public StatusChange(
-        IncidentStatus oldValue,
-        IncidentStatus newValue,
-        DateTime uploadTime,
-        Guid uploadedBy
+        string description,
+        DateTime changedTime,
+        Guid changedBy
     )
     {
-        OldValue = oldValue;
-        NewValue = newValue;
-        UploadTime = uploadTime;
-        UploadedBy = uploadedBy;
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
     }
 }
 
 
-public class SeverityChange : IChange<IncidentSeverity>
+public class SeverityChange : IChange
 {
-    public IncidentSeverity OldValue { get; }
-    public IncidentSeverity NewValue { get; }
-    public DateTime UploadTime { get; }
-    public Guid UploadedBy { get; }
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
+
     public SeverityChange(
-        IncidentSeverity oldValue,
-        IncidentSeverity newValue,
-        DateTime uploadTime,
-        Guid uploadedBy
+        string description,
+        DateTime changedTime,
+        Guid changedBy
     )
     {
-        OldValue = oldValue;
-        NewValue = newValue;
-        UploadTime = uploadTime;
-        UploadedBy = uploadedBy;
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
+    }
+}
+
+public class LocationChange : IChange
+{
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
+
+    public LocationChange(
+        string description,
+        DateTime changedTime,
+        Guid changedBy
+    )
+    {
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
+    }
+}
+
+public class IncidentCorrelationChange : IChange
+{
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
+
+    public IncidentCorrelationChange(
+        string description,
+        DateTime changedTime,
+        Guid changedBy
+    )
+    {
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
+    }
+}
+
+public class IncidentEvidenceAdd : IChange
+{
+    public string Description { get; }
+    public DateTime ChangedTime { get; }
+    public Guid ChangedBy { get; }
+
+    public IncidentEvidenceAdd(
+        string description,
+        DateTime changedTime,
+        Guid changedBy
+    )
+    {
+        Description = description;
+        ChangedTime = changedTime;
+        ChangedBy = changedBy;
     }
 }

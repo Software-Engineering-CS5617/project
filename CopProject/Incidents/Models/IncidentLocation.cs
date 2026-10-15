@@ -9,6 +9,6 @@ public record IncidentLocation(
 public record IncidentLocationFilter(
     double Latitude,
     double Longitude,
-    string? Address,
-    double? Radius
+    string? Address = null,
+    double? Radius = null
 );

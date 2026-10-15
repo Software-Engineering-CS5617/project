@@ -1,68 +1,58 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Incidents;
 
-public class IncidentController<T> : IIncidentController<T>
+public class IncidentController : IIncidentController
 {
-    public Incident<T> CreateIncident(CreateIncidentRequest request)
-    {
-        return new Incident<T>(
-            request.Title,
-            request.Description,
-            request.CreatedBy,
-            request.Category,
-            request.Severity,
-            request.Location
-        );
-    }
-
-    public Incident<T> GetIncidentById(Guid id)
+    // IFileSyncService and ICloudService are to be used for file synchronization and cloud storage.
+    public Incident CreateIncident(CreateIncidentRequest request)
     {
         throw new NotImplementedException();
     }
 
-    public List<Incident<T>> GetAllIncidents(IncidentFilter filter)
+    public Incident GetIncidentById(Guid id)
     {
         throw new NotImplementedException();
     }
 
-    public List<Incident<T>> GetCorrelatedIncidents(Guid id)
+    public List<Incident> GetAllIncidents(IncidentFilter? filter = null)
     {
         throw new NotImplementedException();
     }
 
-    public bool AddEvidence(Guid id, List<IncidentEvidence> evidence)
+    public List<Incident> GetCorrelatedIncidents(Guid id)
     {
         throw new NotImplementedException();
     }
 
-    public bool UpdateStatus(Guid id, IncidentStatus newStatus)
+    public bool AddEvidence(Incident incident, List<IncidentEvidence> evidence)
     {
         throw new NotImplementedException();
     }
 
-    public bool UpdateCategory(Guid id, IncidentCategory newCategory)
+    public bool UpdateStatus(Incident incident, IncidentStatus newStatus)
     {
         throw new NotImplementedException();
     }
 
-    public bool UpdateSeverity(Guid id, IncidentSeverity newSeverity)
+    public bool UpdateCategory(Incident incident, IncidentCategory newCategory)
     {
         throw new NotImplementedException();
     }
 
-    public bool UpdateLocation(Guid id, IncidentLocation location)
+    public bool UpdateSeverity(Incident incident, IncidentSeverity newSeverity)
     {
         throw new NotImplementedException();
     }
 
-    public bool CorrelateIncident(Guid id1, Guid id2)
+    public bool UpdateLocation(Incident incident, IncidentLocation location)
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool CorrelateIncident(Incident incident1, Incident incident2)
     {
         throw new NotImplementedException();
     }
