@@ -1,36 +1,36 @@
 ﻿namespace Incidents;
 
-public record CategoryChange(
+internal record CategoryChange(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
 ) : IChange;
 
-public record StatusChange(
+internal record StatusChange(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
 ) : IChange;
 
-public record SeverityChange(
+internal record SeverityChange(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
 ) : IChange;
 
-public record LocationChange(
+internal record LocationChange(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
 ) : IChange;
 
-public record IncidentCorrelationChange(
+internal record IncidentCorrelationChange(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
 ) : IChange;
 
-public record IncidentEvidenceAdd(
+internal record IncidentEvidenceAdd(
     string Description,
     DateTime ChangedTime,
     Guid ChangedBy
