@@ -29,7 +29,7 @@ namespace Whiteboard.Items
 
         public bool HitTest(Point2D point)
         {
-            if(Points == null || Points.count < 2){
+            if(Points == null || Points.Count < 2){
                 return false;
             }
             double clickThreshold = (StrokeWidth / 2) + 5;
