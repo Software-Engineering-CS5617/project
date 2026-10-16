@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Text;
-
-namespace Incidents;
+﻿namespace Incidents;
 
 public class IncidentController : IIncidentController
 {
@@ -60,9 +55,54 @@ public class IncidentController : IIncidentController
         return Task.FromResult(result);
     }
 
+    private Incident? FindIncident(Guid id)
+    {
+        foreach (Incident incident in _incidents)
+        {
+            if (incident.Id == id)
+            {
+                return incident;
+            }
+        }
+
+        return null;
+    }
     public Task<List<Incident>> GetCorrelatedIncidents(Guid id)
     {
-        throw new NotImplementedException();
+        List<Incident> correlated = [];
+        Queue<Guid> queue = [];
+        HashSet<Guid> visited = [];
+
+        visited.Add(id);
+        queue.Enqueue(id);
+
+        while (queue.Count > 0)
+        {
+            Guid currentId = queue.Dequeue();
+            Incident? current = FindIncident(currentId);
+
+            if (current is null)
+            {
+                continue;
+            }
+
+            foreach (Guid adjacentId in current.AdjacentIncidentIds)
+            {
+                if (visited.Add(adjacentId))
+                {
+                    queue.Enqueue(adjacentId);
+
+                    Incident? adjacent = FindIncident(adjacentId);
+
+                    if (adjacent is not null)
+                    {
+                        correlated.Add(adjacent);
+                    }
+                }
+            }
+        }
+
+        return Task.FromResult(correlated);
     }
 
     public Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
@@ -140,6 +180,17 @@ public class IncidentController : IIncidentController
 
     public Task<bool> CorrelateIncident(Incident incident1, Incident incident2)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(incident1);
+        ArgumentNullException.ThrowIfNull(incident2);
+
+        if (incident1.Id == incident2.Id)
+        {
+            return Task.FromResult(false);
+        }
+
+        bool added1 = incident1.AddAdjacentIncident(incident2.Id);
+        bool added2 = incident2.AddAdjacentIncident(incident1.Id);
+
+        return Task.FromResult(added1 || added2);
     }
 }
