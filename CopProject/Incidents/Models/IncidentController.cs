@@ -51,7 +51,7 @@ public class IncidentController : IIncidentController
 
         foreach (Incident incident in _incidents)
         {
-            if (filter is null || IncidentFilter.Matches(incident, filter))
+            if (filter is null || IncidentFilterHelper.Matches(incident, filter))
             {
                 result.Add(incident);
             }
