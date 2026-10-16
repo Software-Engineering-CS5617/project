@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using Windows.UI;
 using Whiteboard.Interfaces;
+using Windows.UI;
 
 namespace Whiteboard.Items;
 
@@ -29,17 +29,20 @@ public class FreehandItem : IFreehand
 
     public bool HitTest(Point2D point)
     {
-        if(Points == null || Points.Count < 2){
+        if (Points == null || Points.Count < 2)
+        {
             return false;
         }
         double clickThreshold = (StrokeWidth / 2) + 5;
 
-        for(int i=0; i < Points.Count -1; i++){
+        for (int i = 0; i < Points.Count - 1; i++)
+        {
             Point2D p1 = Points[i];
-            Point2D p2 = Points[i+1];
+            Point2D p2 = Points[i + 1];
             double dist = PerpDist(point, p1, p2);
 
-            if(dist <= clickThreshold){
+            if (dist <= clickThreshold)
+            {
                 return true;
             }
         }
@@ -52,7 +55,8 @@ public class FreehandItem : IFreehand
         double dy = p2.Y - p1.Y;
         double p1p2Len = dx * dx + dy * dy;
 
-        if(p1p2Len == 0){
+        if (p1p2Len == 0)
+        {
             dx = p.X - p1.X;
             dy = p.Y - p1.Y;
             return Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));

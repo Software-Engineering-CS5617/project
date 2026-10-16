@@ -1,5 +1,6 @@
 ﻿using System;
 namespace Whiteboard.Items;
+
 public abstract class WhiteboardItem
 {
     public Guid Id { get; } = Guid.NewGuid();

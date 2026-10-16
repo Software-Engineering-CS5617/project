@@ -1,12 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Windows.UI;
 
-namespace Whiteboard.Interfaces
+namespace Whiteboard.Interfaces;
+
+public interface IFreehand : IItem
 {
-    public interface IFreehand : IItem
-    {
-        List<Point2D> Points { get; set; }
-        Color StrokeColor { get; set; }
-        double StrokeWidth { get; set; }
-    }
+    List<Point2D> Points { get; set; }
+    Color StrokeColor { get; set; }
+    double StrokeWidth { get; set; }
 }

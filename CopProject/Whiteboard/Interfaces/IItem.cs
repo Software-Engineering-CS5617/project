@@ -14,7 +14,7 @@ public interface IItem
     double Y { get; set; }
     double Orientation { get; set; }
     Rect2D BoundingBox { get; set; }
-    
+
     bool HitTest(Point2D point);
 }
 

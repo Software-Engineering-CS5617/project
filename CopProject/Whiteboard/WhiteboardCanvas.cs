@@ -5,7 +5,7 @@ namespace Whiteboard;
 
 public class WhiteboardCanvas
 {
-    public ObservableCollection<WhiteboardItem> Items { get; } = new();
+    public ObservableCollection<WhiteboardItem> Items { get; } = [];
 
     public void AddItem(WhiteboardItem item)
     {
