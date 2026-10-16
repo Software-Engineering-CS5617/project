@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Windows.UI;
 using Whiteboard.Interfaces;
@@ -8,7 +8,7 @@ namespace Whiteboard.Items
     public class FreehandItem : IFreehand
     {
         public Guid Id { get; set; }
-        public double ZIndex { get; set; }
+        public double Zindex { get; set; }
         public string CreatedBy { get; set; }
         public DateTime CreatedDateTime { get; set; }
         public string LastModifiedBy { get; set; }
