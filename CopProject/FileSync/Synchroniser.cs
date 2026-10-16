@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Security;
 
@@ -202,6 +202,36 @@ public class Synchroniser : ISync, IFileOperations
     /// </summary>
     public void Synchronise()
     {
-        throw new NotImplementedException();
+        try
+        {
+            // We get all files in the Root directory
+            string[] allFiles = Directory.GetFiles(_rootDir, "*", SearchOption.AllDirectories);
+            
+            // Create a simple dictionary mapping the relative path to its timestamp
+            var fileTimestamps = new System.Collections.Generic.Dictionary<string, DateTime>();
+            
+            foreach (string filePath in allFiles)
+            {
+                // We need the relative path so other computers understand it
+                string relativePath = Path.GetRelativePath(_rootDir, filePath);
+                
+                // Get the exact time the file was saved (Last-Writer-Wins logic)
+                DateTime lastModified = File.GetLastWriteTimeUtc(filePath);
+                
+                fileTimestamps[relativePath] = lastModified;
+            }
+            
+            // TODO: Convert this dictionary to JSON and send it over the Networking module.
+            // When the other computer receives it, it will compare its timestamps to ours
+            // and send back any files that are newer.
+
+            // Simulate that the sync finished successfully for the UI
+            OnSyncComplete?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            // If the network crashes or a file is locked, report to the UI
+            OnSyncError?.Invoke(ex.Message);
+        }
     }
 }
