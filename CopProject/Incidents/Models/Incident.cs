@@ -21,6 +21,10 @@ public class Incident
 
     private List<Guid> Edges { get; }
 
+    internal IReadOnlyList<Guid> AdjacentIncidentIds => Edges.AsReadOnly();
+
+    internal IReadOnlyList<IChange> ChangeHistory => Changes.AsReadOnly();
+
     internal Incident(
         string title,
         string description,
@@ -78,31 +82,118 @@ public class Incident
 
     internal void AddEvidence(List<IncidentEvidence> evidence)
     {
-        _evidence.AddRange(evidence);
-        UpdateTime = DateTime.Now;
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        if (evidence.Count == 0) { return; }
+
+        DateTime changedTime = DateTime.Now;
+
+        foreach (IncidentEvidence item in evidence)
+        {
+            _evidence.Add(item);
+
+            Changes.Add(new IncidentEvidenceAdd(
+                $"Evidence added: {item.Description}",
+                changedTime,
+                item.UploadedBy));
+        }
+
+        UpdateTime = changedTime;
     }
 
-    internal void UpdateStatus(IncidentStatus newStatus)
+    internal void UpdateStatus(IncidentStatus newStatus, Guid changedBy = default)
     {
+        if (Status == newStatus) { return; }
+
+        DateTime changedTime = DateTime.Now;
+        IncidentStatus oldStatus = Status;
+
         Status = newStatus;
-        UpdateTime = DateTime.Now;
+
+        Changes.Add(new StatusChange(
+            $"Status changed from {oldStatus} to {newStatus}",
+            changedTime,
+            changedBy));
+
+        UpdateTime = changedTime;
     }
 
-    internal void UpdateCategory(IncidentCategory newCategory)
+    internal void UpdateCategory(IncidentCategory newCategory, Guid changedBy = default)
     {
+        if (Category == newCategory) { return; }
+
+        DateTime changedTime = DateTime.Now;
+        IncidentCategory oldCategory = Category;
+
         Category = newCategory;
-        UpdateTime = DateTime.Now;
+
+        Changes.Add(new CategoryChange(
+            $"Category changed from {oldCategory} to {newCategory}",
+            changedTime,
+            changedBy));
+
+        UpdateTime = changedTime;
     }
 
-    internal void UpdateSeverity(IncidentSeverity newSeverity)
+    internal void UpdateSeverity(IncidentSeverity newSeverity, Guid changedBy = default)
     {
+        if (Severity == newSeverity) { return; }
+
+        DateTime changedTime = DateTime.Now;
+        IncidentSeverity oldSeverity = Severity;
+
         Severity = newSeverity;
-        UpdateTime = DateTime.Now;
+
+        Changes.Add(new SeverityChange(
+            $"Severity changed from {oldSeverity} to {newSeverity}",
+            changedTime,
+            changedBy));
+
+        UpdateTime = changedTime;
     }
 
-    internal void UpdateLocation(IncidentLocation location)
+    internal void UpdateLocation(IncidentLocation location, Guid changedBy = default)
     {
+        ArgumentNullException.ThrowIfNull(location);
+
+        if (Location.Latitude == location.Latitude &&
+            Location.Longitude == location.Longitude &&
+            Location.Address == location.Address)
+        {
+            return;
+        }
+
+        DateTime changedTime = DateTime.Now;
+        IncidentLocation oldLocation = Location;
+
+        string oldValue =
+            $"({oldLocation.Latitude}, {oldLocation.Longitude}, {oldLocation.Address})";
+
+        string newValue =
+            $"({location.Latitude}, {location.Longitude}, {location.Address})";
+
         Location = location;
-        UpdateTime = DateTime.Now;
+
+        Changes.Add(new LocationChange(
+            $"Location changed from {oldValue} to {newValue}",
+            changedTime,
+            changedBy));
+
+        UpdateTime = changedTime;
     }
+
+    internal bool AddAdjacentIncident(Guid otherIncidentId)
+    {
+        if (otherIncidentId == Id || Edges.Contains(otherIncidentId))
+        {
+            return false;
+        }
+
+        Edges.Add(otherIncidentId);
+        UpdateTime = DateTime.Now;
+
+        return true;
+    }
+
+
 }
