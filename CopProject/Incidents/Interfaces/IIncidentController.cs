@@ -5,23 +5,23 @@ namespace Incidents;
 
 public interface IIncidentController
 {
-    Incident CreateIncident(CreateIncidentRequest request);
+    Task<Incident> CreateIncident(CreateIncidentRequest request);
 
-    Incident GetIncidentById(Guid id);
+    Task<Incident> GetIncidentById(Guid id);
 
-    List<Incident> GetAllIncidents(IncidentFilter? filter = null);
+    Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null);
 
-    List<Incident> GetCorrelatedIncidents(Guid id);
+    Task<List<Incident>> GetCorrelatedIncidents(Guid id);
 
-    bool AddEvidence(Incident incident, List<IncidentEvidence> evidence);
+    Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence);
 
-    bool UpdateStatus(Incident incident, IncidentStatus newStatus);
+    Task<bool> UpdateStatus(Incident incident, IncidentStatus newStatus);
 
-    bool UpdateCategory(Incident incident, IncidentCategory newCategory);
+    Task<bool> UpdateCategory(Incident incident, IncidentCategory newCategory);
 
-    bool UpdateSeverity(Incident incident, IncidentSeverity newSeverity);
+    Task<bool> UpdateSeverity(Incident incident, IncidentSeverity newSeverity);
 
-    bool UpdateLocation(Incident incident, IncidentLocation location);
+    Task<bool> UpdateLocation(Incident incident, IncidentLocation location);
 
-    bool CorrelateIncident(Incident incident1, Incident incident2);
+    Task<bool> CorrelateIncident(Incident incident1, Incident incident2);
 }
