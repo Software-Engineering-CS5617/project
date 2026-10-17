@@ -1,5 +1,6 @@
 ﻿using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
+
 using Persistence;
 
 public class CosmosStorage : IStorage
@@ -38,8 +39,7 @@ public class CosmosStorage : IStorage
     // IStorage interface methods are implemented here.
     public async Task<bool> Create(string key, byte[] data)
     {
-        PersistenceItem item = new PersistenceItem
-        {
+        PersistenceItem item = new PersistenceItem {
             Id = key,
             Data = data
         };
@@ -93,8 +93,7 @@ public class CosmosStorage : IStorage
     public async Task<bool> Update(string key, byte[] data, string etag)
     {
 
-        PersistenceItem item = new PersistenceItem
-        {
+        PersistenceItem item = new PersistenceItem {
             Id = key,
             Data = data
         };
@@ -105,8 +104,7 @@ public class CosmosStorage : IStorage
                 item,
                 key,
                 new PartitionKey(key),
-                new ItemRequestOptions
-                {
+                new ItemRequestOptions {
                     IfMatchEtag = etag
                 });
 
