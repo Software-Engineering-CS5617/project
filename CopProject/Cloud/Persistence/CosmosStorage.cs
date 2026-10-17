@@ -1,4 +1,4 @@
-using Microsoft.Azure.Cosmos;
+﻿using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
 using Persistence;
 
@@ -165,6 +165,32 @@ public class CosmosStorage : IStorage
             }
         }
         return (true, result);
+    }
+
+
+    public async Task<(bool Success, List<string>)> GetAllKeys()
+    {
+        List<string> keys = new List<string>();
+
+        try
+        {
+            using FeedIterator<string> iterator =
+                _container.GetItemLinqQueryable<PersistenceItem>()
+                          .Select(item => item.Id)
+                          .ToFeedIterator();
+
+            while (iterator.HasMoreResults)
+            {
+                FeedResponse<string> page = await iterator.ReadNextAsync();
+                keys.AddRange(page);
+            }
+
+            return (true, keys);
+        }
+        catch (CosmosException)
+        {
+            return (false, new List<string>());
+        }
     }
 
 
