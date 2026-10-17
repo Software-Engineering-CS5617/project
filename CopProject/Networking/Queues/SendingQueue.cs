@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Networking.Queues
-{
-    public class SendingQueue : Queue;
+namespace Networking.Queues;
 
-}
+public class SendingQueue : Queue;
