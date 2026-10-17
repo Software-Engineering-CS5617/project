@@ -1,45 +1,42 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Whiteboard.Items;
 
-namespace Whiteboard.Views
+namespace Whiteboard.Views;
+
+public sealed partial class WhiteBoardView : UserControl
 {
-    public sealed partial class WhiteBoardView : UserControl
+    private readonly WhiteboardCanvas _canvas;
+
+    public WhiteBoardView()
     {
-        private readonly WhiteboardCanvas canvas;
+        InitializeComponent();
 
-        public WhiteBoardView()
-        {
-            InitializeComponent();
+        _canvas = new WhiteboardCanvas();
+    }
 
-            canvas = new WhiteboardCanvas();
-        }
+    private void TextButton_Click(object sender, RoutedEventArgs e)
+    {
+        var textItem = new TextItem {
+            Text = "New Text",
+            X = 50,
+            Y = 50,
+            Width = 150,
+            Height = 40
+        };
 
-        private void TextButton_Click(object sender, RoutedEventArgs e)
-        {
-            var textItem = new TextItem
-            {
-                Text = "New Text",
-                X = 50,
-                Y = 50,
-                Width = 150,
-                Height = 40
-            };
+        _canvas.AddItem(textItem);
 
-            canvas.AddItem(textItem);
+        var textBlock = new TextBlock {
+            Text = textItem.Text,
+            Width = textItem.Width,
+            Height = textItem.Height,
+            FontSize = 20
+        };
 
-            var textBlock = new TextBlock
-            {
-                Text = textItem.Text,
-                Width = textItem.Width,
-                Height = textItem.Height,
-                FontSize = 20
-            };
+        Canvas.SetLeft(textBlock, textItem.X);
+        Canvas.SetTop(textBlock, textItem.Y);
 
-            Canvas.SetLeft(textBlock, textItem.X);
-            Canvas.SetTop(textBlock, textItem.Y);
-
-            WhiteboardCanvas.Children.Add(textBlock);
-        }
+        WhiteboardCanvas.Children.Add(textBlock);
     }
 }
