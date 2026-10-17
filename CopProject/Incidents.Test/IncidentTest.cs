@@ -9,8 +9,9 @@ namespace Incidents.Test;
 public sealed class IncidentTest
 {
     [TestMethod]
-    public void CreateEvidence()
+    public async Task CreateIncidentArgumentNullException()
     {
-        Console.WriteLine("Creating evidence...");
+        IncidentController controller = new IncidentController();
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CreateIncident(null!));
     }
 }
