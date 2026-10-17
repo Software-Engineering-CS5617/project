@@ -1,4 +1,4 @@
-using Microsoft.Azure.Cosmos;
+﻿using Microsoft.Azure.Cosmos;
 using Persistence;
 
 public static class StorageFactory
@@ -32,6 +32,7 @@ public static class StorageFactory
             ModuleType.WhiteBoard => "Whiteboard",
             ModuleType.Networking => "Networking",
             ModuleType.FileSynchronizer => "FileSynchronizer",
+            ModuleType.IncidentManagement => "IncidentManagement",
             // will add more modules here
             _ => throw new ArgumentException($"Unsupported module: {module}")
         };
