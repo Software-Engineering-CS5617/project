@@ -2,10 +2,17 @@
 
 public class IncidentController : IIncidentController
 {
-    // IFileSyncService and ICloudService are to be used for file synchronization and cloud storage.
+    // TODO: IFileSyncService and ICloudService are to be used for file synchronization and cloud storage.
+    // TODO: IControllerService is to be used for getting Guid of the user using the Controller.
 
     private readonly List<Incident> _incidents = [];
-    public Task<Incident> CreateIncident(CreateIncidentRequest request)
+
+    public IncidentController()
+    {
+        // Fetch existing incidents from cloud storage and populate _incidents list.
+    }
+
+    public async Task<Incident> CreateIncident(CreateIncidentRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -27,47 +34,28 @@ public class IncidentController : IIncidentController
 
         // TODO: Persist the serialized incident to cloud storage.
 
-        return Task.FromResult(incident);
-
+        return incident;
     }
 
-    public Task<Incident> GetIncidentById(Guid id)
+    public async Task<Incident> GetIncidentById(Guid id)
     {
-        Incident incident = _incidents.FirstOrDefault(i => i.Id == id)
-                            ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
+        Incident incident = FindIncident(id) ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
 
-        return Task.FromResult(incident);
-
+        return incident;
     }
 
-    public Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
+    public async Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
     {
-        List<Incident> result = [];
-
-        foreach (Incident incident in _incidents)
-        {
-            if (filter is null || IncidentFilterHelper.Matches(incident, filter))
-            {
-                result.Add(incident);
-            }
-        }
-
-        return Task.FromResult(result);
+        var result = _incidents.Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).ToList();
+        return result;
     }
 
     private Incident? FindIncident(Guid id)
     {
-        foreach (Incident incident in _incidents)
-        {
-            if (incident.Id == id)
-            {
-                return incident;
-            }
-        }
-
-        return null;
+        return _incidents.FirstOrDefault(i => i.Id == id);
     }
-    public Task<List<Incident>> GetCorrelatedIncidents(Guid id)
+
+    public async Task<List<Incident>> GetCorrelatedIncidents(Guid id)
     {
         List<Incident> correlated = [];
         Queue<Guid> queue = [];
@@ -102,10 +90,10 @@ public class IncidentController : IIncidentController
             }
         }
 
-        return Task.FromResult(correlated);
+        return correlated;
     }
 
-    public Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
+    public async Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
     {
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(evidence);
@@ -115,10 +103,10 @@ public class IncidentController : IIncidentController
         // TODO: Synchronize evidence files using FileSyncService.
         // TODO: Persist the updated incident using CloudService.
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<bool> UpdateStatus(Incident incident, IncidentStatus newStatus)
+    public async Task<bool> UpdateStatus(Incident incident, IncidentStatus newStatus)
     {
         ArgumentNullException.ThrowIfNull(incident);
 
@@ -127,14 +115,14 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newStatus));
         }
 
-        incident.UpdateStatus(newStatus);
+        incident.UpdateStatus(newStatus, Guid.Empty);
 
         // TODO: Persist the incident to cloud storage.
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<bool> UpdateCategory(Incident incident, IncidentCategory newCategory)
+    public async Task<bool> UpdateCategory(Incident incident, IncidentCategory newCategory)
     {
         ArgumentNullException.ThrowIfNull(incident);
 
@@ -143,14 +131,14 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newCategory));
         }
 
-        incident.UpdateCategory(newCategory);
+        incident.UpdateCategory(newCategory, Guid.Empty);
 
         // TODO: Persist the incident to cloud storage.
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<bool> UpdateSeverity(Incident incident, IncidentSeverity newSeverity)
+    public async Task<bool> UpdateSeverity(Incident incident, IncidentSeverity newSeverity)
     {
         ArgumentNullException.ThrowIfNull(incident);
 
@@ -159,38 +147,39 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newSeverity));
         }
 
-        incident.UpdateSeverity(newSeverity);
+        incident.UpdateSeverity(newSeverity, Guid.Empty);
 
         // TODO: Persist the incident to cloud storage.
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<bool> UpdateLocation(Incident incident, IncidentLocation location)
+    public async Task<bool> UpdateLocation(Incident incident, IncidentLocation location)
     {
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(location);
 
-        incident.UpdateLocation(location);
+        incident.UpdateLocation(location, Guid.Empty);
 
         // TODO: Persist the incident to cloud storage.
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<bool> CorrelateIncident(Incident incident1, Incident incident2)
+    public async Task<bool> CorrelateIncident(Incident incident1, Incident incident2)
     {
         ArgumentNullException.ThrowIfNull(incident1);
         ArgumentNullException.ThrowIfNull(incident2);
 
         if (incident1.Id == incident2.Id)
         {
-            return Task.FromResult(false);
+            return false;
         }
+        //List<Guid> correlatedIncidents1 = await GetCorrelatedIncidents(incident1.Id);
 
-        bool added1 = incident1.AddAdjacentIncident(incident2.Id);
-        bool added2 = incident2.AddAdjacentIncident(incident1.Id);
+        bool added1 = incident1.AddAdjacentIncident(incident2.Id, Guid.Empty);
+        bool added2 = incident2.AddAdjacentIncident(incident1.Id, Guid.Empty);
 
-        return Task.FromResult(added1 || added2);
+        return added1 && added2;
     }
 }

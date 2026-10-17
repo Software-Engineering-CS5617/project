@@ -17,13 +17,13 @@ public class Incident
 
     public IReadOnlyList<IncidentEvidence> Evidence => _evidence.AsReadOnly();
 
-    private List<IChange> Changes { get; set; }
+    private readonly List<IChange> _changes;
 
-    private List<Guid> Edges { get; }
+    private readonly List<Guid> _edges;
 
-    internal IReadOnlyList<Guid> AdjacentIncidentIds => Edges.AsReadOnly();
+    public IReadOnlyList<Guid> AdjacentIncidentIds => _edges.AsReadOnly();
 
-    internal IReadOnlyList<IChange> ChangeHistory => Changes.AsReadOnly();
+    public IReadOnlyList<IChange> ChangeHistory => _changes.AsReadOnly();
 
     internal Incident(
         string title,
@@ -45,8 +45,8 @@ public class Incident
         CreationTime = DateTime.Now;
         UpdateTime = DateTime.Now;
         _evidence = [];
-        Changes = [];
-        Edges = [];
+        _changes = [];
+        _edges = [];
     }
 
     internal Incident(
@@ -76,8 +76,8 @@ public class Incident
         CreationTime = creationTime;
         UpdateTime = updateTime;
         _evidence = new List<IncidentEvidence>(evidence);
-        Changes = new List<IChange>(changes);
-        Edges = new List<Guid>(edges);
+        _changes = new List<IChange>(changes);
+        _edges = new List<Guid>(edges);
     }
 
     internal void AddEvidence(List<IncidentEvidence> evidence)
@@ -92,8 +92,8 @@ public class Incident
         {
             _evidence.Add(item);
 
-            Changes.Add(new IncidentEvidenceAdd(
-                $"Evidence added: {item.Description}",
+            _changes.Add(new IncidentEvidenceAdd(
+                $"Evidence id: {item.Id} , added: {item.Description}",
                 changedTime,
                 item.UploadedBy));
         }
@@ -101,7 +101,7 @@ public class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateStatus(IncidentStatus newStatus, Guid changedBy = default)
+    internal void UpdateStatus(IncidentStatus newStatus, Guid changedBy)
     {
         if (Status == newStatus) { return; }
 
@@ -110,7 +110,7 @@ public class Incident
 
         Status = newStatus;
 
-        Changes.Add(new StatusChange(
+        _changes.Add(new StatusChange(
             $"Status changed from {oldStatus} to {newStatus}",
             changedTime,
             changedBy));
@@ -118,7 +118,7 @@ public class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateCategory(IncidentCategory newCategory, Guid changedBy = default)
+    internal void UpdateCategory(IncidentCategory newCategory, Guid changedBy)
     {
         if (Category == newCategory) { return; }
 
@@ -127,7 +127,7 @@ public class Incident
 
         Category = newCategory;
 
-        Changes.Add(new CategoryChange(
+        _changes.Add(new CategoryChange(
             $"Category changed from {oldCategory} to {newCategory}",
             changedTime,
             changedBy));
@@ -135,7 +135,7 @@ public class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateSeverity(IncidentSeverity newSeverity, Guid changedBy = default)
+    internal void UpdateSeverity(IncidentSeverity newSeverity, Guid changedBy)
     {
         if (Severity == newSeverity) { return; }
 
@@ -144,7 +144,7 @@ public class Incident
 
         Severity = newSeverity;
 
-        Changes.Add(new SeverityChange(
+        _changes.Add(new SeverityChange(
             $"Severity changed from {oldSeverity} to {newSeverity}",
             changedTime,
             changedBy));
@@ -152,7 +152,7 @@ public class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateLocation(IncidentLocation location, Guid changedBy = default)
+    internal void UpdateLocation(IncidentLocation location, Guid changedBy)
     {
         ArgumentNullException.ThrowIfNull(location);
 
@@ -167,14 +167,14 @@ public class Incident
         IncidentLocation oldLocation = Location;
 
         string oldValue =
-            $"({oldLocation.Latitude}, {oldLocation.Longitude}, {oldLocation.Address})";
+            $"({oldLocation.Latitude},{oldLocation.Longitude}) " + oldLocation.Address ?? "";
 
         string newValue =
-            $"({location.Latitude}, {location.Longitude}, {location.Address})";
+            $"({location.Latitude},{location.Longitude}) " + location.Address ?? "";
 
         Location = location;
 
-        Changes.Add(new LocationChange(
+        _changes.Add(new LocationChange(
             $"Location changed from {oldValue} to {newValue}",
             changedTime,
             changedBy));
@@ -182,18 +182,21 @@ public class Incident
         UpdateTime = changedTime;
     }
 
-    internal bool AddAdjacentIncident(Guid otherIncidentId)
+    // TODO: This needs to be used by IController only after applying validation using connected components
+    internal bool AddAdjacentIncident(Guid otherIncidentId, Guid changedBy)
     {
-        if (otherIncidentId == Id || Edges.Contains(otherIncidentId))
+        if (otherIncidentId == Id || _edges.Contains(otherIncidentId))
         {
             return false;
         }
 
-        Edges.Add(otherIncidentId);
-        UpdateTime = DateTime.Now;
+        _edges.Add(otherIncidentId);
+        DateTime changedTime = DateTime.Now;
+        _changes.Add(new IncidentCorrelationChange(
+            $"Incident {Id} correlated with {otherIncidentId}",
+            changedTime,
+            changedBy));
 
         return true;
     }
-
-
 }

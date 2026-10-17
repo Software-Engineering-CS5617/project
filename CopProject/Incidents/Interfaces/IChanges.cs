@@ -1,6 +1,6 @@
 ﻿namespace Incidents;
 
-internal interface IChange
+public interface IChange
 {
     string Description { get; }
     DateTime ChangedTime { get; }
