@@ -2,8 +2,14 @@
 using Microsoft.Azure.Cosmos;
 using Persistence;
 
+/// <summary>
+/// Some console-based unit tests
+/// </summary>
 public class Program
 {
+    /// <summary>
+    /// Tests for CRUD, Concurrency control using ETags
+    /// </summary>
     public static async Task Main()
     {
         IStorage storage =
