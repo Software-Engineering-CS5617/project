@@ -10,14 +10,14 @@ using Filesync;
 /// Provides local file operations for the synchronised root directory.
 /// Networking and remote synchronisation will be implemented separately.
 /// </summary>
-public class Synchroniser : ISync, IFileOperations
+public class IncidentSynchroniser : ISync, IFileOperations
 {
     private readonly string _rootDir;
 
     public event Action OnSyncComplete = delegate { };
     public event Action<string> OnSyncError = delegate { };
 
-    public Synchroniser()
+    public IncidentSynchroniser()
     {
         _rootDir = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FileSync", "Root"));

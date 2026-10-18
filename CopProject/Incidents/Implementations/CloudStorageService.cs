@@ -2,7 +2,7 @@
 
 using Persistence;
 
-internal class CloudStorageService : IStorage
+public class IncidentCloudStorageService : IStorage
 {
     private readonly Dictionary<string, byte[]> _memory = new();
 
