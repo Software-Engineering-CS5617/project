@@ -1,15 +1,22 @@
 ﻿namespace Incidents;
 
+using Implementations;
+using Persistence;
+
 public class IncidentController : IIncidentController
 {
-    // TODO: IFileSyncService and ICloudService are to be used for file synchronization and cloud storage.
     // TODO: IControllerService is to be used for getting Guid of the user using the Controller.
+    private readonly IStorage _cloudStorageService;
+    private readonly IncidentFileSynchroniser _incidentFileSychroniser;
 
     private readonly List<Incident> _incidents = [];
 
-    public IncidentController()
+    public IncidentController(IStorage cloudStorageService, IncidentFileSynchroniser incidentFileSynchronizer)
     {
-        // Fetch existing incidents from cloud storage and populate _incidents list.
+        _cloudStorageService = cloudStorageService;
+        _incidentFileSychroniser = incidentFileSynchronizer;
+
+        //await cloudStorageService.ReadAll();
     }
 
     public async Task<Incident> CreateIncident(CreateIncidentRequest request)
