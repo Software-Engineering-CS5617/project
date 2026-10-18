@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Cloud\Cloud.csproj" />
     <ProjectReference Include="..\FileSync\Filesync.csproj" />
   </ItemGroup>
 
