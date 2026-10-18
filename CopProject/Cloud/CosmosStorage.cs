@@ -37,7 +37,9 @@ internal class CosmosStorage : IStorage
     internal async Task InitializeAsync()
     {
         Database database =
-            await _client.CreateDatabaseIfNotExistsAsync(_databaseName);
+            await _client.CreateDatabaseIfNotExistsAsync(
+                _databaseName,
+                ThroughputProperties.CreateManualThroughput(1000));
 
         ContainerResponse response =
             await database.CreateContainerIfNotExistsAsync(
