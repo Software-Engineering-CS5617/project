@@ -1,25 +1,24 @@
-﻿using Networking.Packets;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Networking.Packets;
 
-namespace Networking.Queues
+namespace Networking.Queues;
+
+public interface IQueue
 {
-    public interface IQueue
-    {
-        public void Enqueue(Packet packet);
+    public void Enqueue(Packet packet);
 
-        public Packet Dequeue();
+    public Packet Dequeue();
 
-        public Packet Peek();
+    public Packet Peek();
 
-        public void Clear();
+    public void Clear();
 
-        public int Size();
+    public int Size();
 
-        public bool IsEmpty();
+    public bool IsEmpty();
 
-    }
 }

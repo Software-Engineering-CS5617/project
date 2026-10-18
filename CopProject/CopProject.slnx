@@ -1,12 +1,13 @@
 <Solution>
     <Project Path="Authentication/Auth.csproj" />
-    <Project Path="Chat/Chat.csproj" />
     <Project Path="Chat.Test/Chat.Test.csproj" />
+    <Project Path="Chat/Chat.csproj" />
+    <Project Path="Cloud.Test/Cloud.Test.csproj" />
     <Project Path="Cloud/Cloud.csproj" />
     <Project Path="Controller/Controller.csproj" />
-    <Project Path="FileSync/Filesync.csproj" />
     <Project Path="Filesync.Test/Filesync.Test.csproj" />
     <Project Path="Incidents.Test/Incidents.Test.csproj" Id="176acacb-300f-4882-9eee-7f461dda4eb6" />
+    <Project Path="FileSync/Filesync.csproj" />
     <Project Path="Incidents/Incidents.csproj" />
     <Project Path="Insights/Insights.csproj" />
     <Project Path="Location/Location.csproj" />
