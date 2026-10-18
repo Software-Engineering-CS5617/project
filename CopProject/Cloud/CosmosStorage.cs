@@ -3,13 +3,22 @@ using Microsoft.Azure.Cosmos.Linq;
 
 using Persistence;
 
-public class CosmosStorage : IStorage
+/// <summary>
+/// Implements IStorage using Azure Cosmos DB
+/// </summary>
+internal class CosmosStorage : IStorage
 {
     private readonly CosmosClient _client;
     private readonly string _databaseName;
     private readonly string _containerName;
     private Container _container = null!;
 
+    /// <summary>
+    /// Initialises a new instance of CosmosStorage class
+    /// </summary>
+    /// <param name="client"></param>
+    /// <param name="databaseName"></param>
+    /// <param name="containerName"></param>
     public CosmosStorage(
         CosmosClient client,
         string databaseName,
@@ -20,8 +29,12 @@ public class CosmosStorage : IStorage
         _containerName = containerName;
     }
 
-    // This method initializes the Cosmos DB container for the storage instance.
-    public async Task InitializeAsync()
+    /// <summary>
+    /// This method initializes the Cosmos DB container for the storage instance.
+    /// Call this method before doing the first storage operation
+    /// </summary>
+    /// <returns>Task</returns>
+    internal async Task InitializeAsync()
     {
         Database database =
             await _client.CreateDatabaseIfNotExistsAsync(_databaseName);
@@ -37,6 +50,9 @@ public class CosmosStorage : IStorage
 
     // All CRUD operations are done asynchronously.
     // IStorage interface methods are implemented here.
+
+
+    /// <inheritdoc/>
     public async Task<bool> Create(string key, byte[] data)
     {
         PersistenceItem item = new PersistenceItem {
@@ -56,6 +72,7 @@ public class CosmosStorage : IStorage
         }
     }
 
+    /// <inheritdoc/>
     public async Task<(bool Success, byte[] Data)> Read(string key)
     {
         try
@@ -73,6 +90,10 @@ public class CosmosStorage : IStorage
         }
     }
 
+    /// <inheritdoc/>
+    // Concurrent updates are handled using _etag (version stamp) of the Cosmos DB item
+    // Each write changes the ETag
+    // For updating a key-value pair, one has to read the current ETag of the item
 
     public async Task<(bool Success, string Etag)> ReadEtag(string key)
     {
@@ -90,6 +111,11 @@ public class CosmosStorage : IStorage
         }
     }
 
+    /// <inheritdoc/>
+
+    // One has to correctly match the ETag he read earlier with the current ETag of the item
+    // Only one of the concurrent writers who read the same _etag succeeds in Update operation
+    // This is because the winner changes the ETag by writing which makes others' ETags stale
     public async Task<bool> Update(string key, byte[] data, string etag)
     {
 
@@ -111,14 +137,18 @@ public class CosmosStorage : IStorage
             return true;
 
         }
-        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.PreconditionFailed)
+        catch (CosmosException ex)
         {
             // The ETag does not match, so the item has been modified by another process
-            Console.WriteLine($"Update failed for key '{key}': ETag mismatch");
+            if (ex.StatusCode == System.Net.HttpStatusCode.PreconditionFailed)
+            {
+                Console.WriteLine($"Update failed for key '{key}': ETag mismatch");
+            }
             return false;
         }
     }
 
+    /// <inheritdoc/>
     public async Task<bool> Delete(string key)
     {
         try
@@ -134,10 +164,10 @@ public class CosmosStorage : IStorage
         }
     }
 
-
+    /// <inheritdoc/>
     public async Task<bool> CreateAll(Dictionary<string, byte[]> items)
     {
-        foreach (var item in items)
+        foreach (KeyValuePair<string, byte[]> item in items)
         {
             if (!await Create(item.Key, item.Value))
             {
@@ -147,12 +177,15 @@ public class CosmosStorage : IStorage
         return true;
     }
 
+    /// <inheritdoc/>
+    // Empty array is returned even if one read fails.
+    // All other bulk CRUD operations are atomic like this
     public async Task<(bool Success, Dictionary<string, byte[]>)> ReadAll(string[] keys)
     {
-        Dictionary<string, byte[]> result = new Dictionary<string, byte[]>();
+        Dictionary<string, byte[]> result = [];
         foreach (string key in keys)
         {
-            var (success, data) = await Read(key);
+            (bool success, byte[] data) = await Read(key);
             if (success)
             {
                 result[key] = data;
@@ -165,15 +198,15 @@ public class CosmosStorage : IStorage
         return (true, result);
     }
 
-
+    /// <inheritdoc/>
     public async Task<(bool Success, List<string>)> GetAllKeys()
     {
-        List<string> keys = new List<string>();
+        List<string> keys = [];
 
         try
         {
             using FeedIterator<string> iterator =
-                _container.GetItemLinqQueryable<PersistenceItem>()
+                _container.GetItemLinqQueryable<PersistenceItem>() //LINQ helps us to query using C# avoiding SQL
                           .Select(item => item.Id)
                           .ToFeedIterator();
 
@@ -191,19 +224,19 @@ public class CosmosStorage : IStorage
         }
     }
 
-
+    /// <inheritdoc/>
     public async Task<bool> UpdateAll(Dictionary<string, byte[]> items)
     {
         try
         {
-            foreach (var item in items)
+            foreach (KeyValuePair<string, byte[]> item in items)
             {
-                var result = await ReadEtag(item.Key);
-                if (!result.Success)
+                (bool success, string etag) = await ReadEtag(item.Key);
+                if (!success)
                 {
                     return false;
                 }
-                bool updateSuccess = await Update(item.Key, item.Value, result.Etag);
+                bool updateSuccess = await Update(item.Key, item.Value, etag);
                 if (!updateSuccess)
                 {
                     return false;
@@ -219,7 +252,7 @@ public class CosmosStorage : IStorage
         }
     }
 
-
+    /// <inheritdoc/>
     public async Task<bool> DeleteAll(string[] keys)
     {
         foreach (string key in keys)
