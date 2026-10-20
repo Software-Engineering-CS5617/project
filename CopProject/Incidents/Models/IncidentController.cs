@@ -1,17 +1,14 @@
 ﻿namespace Incidents;
 
-using Azure.Messaging;
 using Filesync;
-using Implementations;
 using Persistence;
 
 public class IncidentController : IIncidentController
 {
-    // TODO: IControllerService is to be used for getting Guid of the user using the Controller.
+    // TODO@shreesh: IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
-
-    private readonly Dictionary<Guid, Incident> _incidentMap = new();
+    private readonly Dictionary<Guid, Incident> _incidentMap;
 
     private IncidentController(
         IStorage cloudStorageService,
@@ -73,17 +70,14 @@ public class IncidentController : IIncidentController
             request.CreatedBy,
             request.Category,
             request.Severity,
-            request.Location);
+            request.Location,
+            request.Evidences.ToList()
+        );
 
-        if (request.Evidences.Count > 0)
-        {
-            incident.AddEvidence(request.Evidences.ToList());
-        }
-        // TODO : File sync for evidences.
+        // TODO: File sync for evidences.
+        // TODO: Persist the serialized incident to cloud storage.
 
         _incidentMap.Add(incident.Id, incident);
-
-        // TODO: Persist the serialized incident to cloud storage.
 
         return incident;
     }

@@ -31,7 +31,8 @@ public partial class Incident
         Guid createdBy,
         IncidentCategory category,
         IncidentSeverity severity,
-        IncidentLocation location
+        IncidentLocation location,
+        List<IncidentEvidence>? evidence = null
     )
     {
         Id = Guid.NewGuid();
@@ -44,7 +45,7 @@ public partial class Incident
         Severity = severity;
         CreationTime = DateTime.Now;
         UpdateTime = DateTime.Now;
-        _evidence = [];
+        _evidence = evidence != null ? new List<IncidentEvidence>(evidence) : [];
         _changes = [];
         _edges = [];
     }
