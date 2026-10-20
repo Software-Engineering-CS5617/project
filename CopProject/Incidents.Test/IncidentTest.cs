@@ -2,6 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 using Incidents;
+using Incidents.Implementations;
+using Filesync;
+using Persistence;
+
 
 namespace Incidents.Test;
 
@@ -11,7 +15,9 @@ public sealed class IncidentTest
     [TestMethod]
     public async Task CreateIncidentArgumentNullException()
     {
-        //IncidentController controller = new IncidentController();
-        //await Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CreateIncident(null!));
+        IStorage cloudStorageService = new IncidentCloudStorageService();
+        IFileOperations fileOperationsService = new IncidentFileSynchroniser();
+        IncidentController controller = new IncidentController(cloudStorageService, fileOperationsService);
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CreateIncident(null!));
     }
 }

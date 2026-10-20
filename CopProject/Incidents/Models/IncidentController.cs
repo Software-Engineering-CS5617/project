@@ -1,5 +1,6 @@
 ﻿namespace Incidents;
 
+using Filesync;
 using Implementations;
 using Persistence;
 
@@ -7,14 +8,14 @@ public class IncidentController : IIncidentController
 {
     // TODO: IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly IStorage _cloudStorageService;
-    private readonly IncidentFileSynchroniser _incidentFileSychroniser;
+    private readonly IFileOperations _incidentFileSynchronizer;
 
     private readonly List<Incident> _incidents = [];
 
-    public IncidentController(IStorage cloudStorageService, IncidentFileSynchroniser incidentFileSynchronizer)
+    public IncidentController(IStorage cloudStorageService, IFileOperations incidentFileSynchronizer)
     {
         _cloudStorageService = cloudStorageService;
-        _incidentFileSychroniser = incidentFileSynchronizer;
+        _incidentFileSynchronizer = incidentFileSynchronizer;
 
         //await cloudStorageService.ReadAll();
     }

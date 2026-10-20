@@ -10,7 +10,7 @@ using Filesync;
 /// Provides local file operations for the synchronised root directory.
 /// Networking and remote synchronisation will be implemented separately.
 /// </summary>
-public class IncidentFileSynchroniser : ISync, IFileOperations
+public class IncidentFileSynchroniser : IFileOperations
 {
     private readonly string _rootDir;
 
