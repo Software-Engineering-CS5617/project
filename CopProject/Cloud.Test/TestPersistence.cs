@@ -1,10 +1,15 @@
-﻿using Microsoft.Azure.Cosmos;
-
+﻿using System.Text;
+using Microsoft.Azure.Cosmos;
 using Persistence;
-using System.Text;
 
+/// <summary>
+/// Some console-based unit tests
+/// </summary>
 public class Program
 {
+    /// <summary>
+    /// Tests for CRUD, Concurrency control using ETags
+    /// </summary>
     public static async Task Main()
     {
         IStorage storage =
@@ -18,15 +23,15 @@ public class Program
             bool created = await storage.Create(key, Encoding.UTF8.GetBytes("Hello from Chat1"));
             Console.WriteLine($"Item created: {created}");
 
-            var readResult = await storage.Read(key);
+            (bool Success, byte[] Data) readResult = await storage.Read(key);
             Console.WriteLine($"Read: {Encoding.UTF8.GetString(readResult.Data)}");
 
             // you have to read the etag before updating, and pass it to the update method
-            var etagResult = await storage.ReadEtag(key);
+            (bool Success, string Etag) etagResult = await storage.ReadEtag(key);
             bool updated = await storage.Update(key, Encoding.UTF8.GetBytes("Updated message"), etagResult.Etag);
             Console.WriteLine($"Item updated: {updated}");
 
-            var readAfterUpdate = await storage.Read(key);
+            (bool Success, byte[] Data) readAfterUpdate = await storage.Read(key);
             Console.WriteLine(
                 $"Read bytes after update: {string.Join(", ", readAfterUpdate.Data)}");
 
@@ -42,10 +47,10 @@ public class Program
 
             await storage.Create(key2, Encoding.UTF8.GetBytes("Hello from Chat2"));
 
-            var etagResult2 = await storage.ReadEtag(key2);
+            (bool Success, string Etag) etagResult2 = await storage.ReadEtag(key2);
             await storage.Update(key2, Encoding.UTF8.GetBytes("Updated message from Chat2"), etagResult2.Etag);
 
-            var readResult2 = await storage.Read(key2);
+            (bool Success, byte[] Data) readResult2 = await storage.Read(key2);
             Console.WriteLine($"Read data from key2: {Encoding.UTF8.GetString(readResult2.Data)}");
 
             await storage.Delete(key2);
@@ -60,8 +65,8 @@ public class Program
             Console.WriteLine("Initial incident created.");
 
             // Simulate two users reading the same version.
-            var etagResultB = await storage.ReadEtag(key3);
-            var etagResultC = await storage.ReadEtag(key3);
+            (bool Success, string Etag) etagResultB = await storage.ReadEtag(key3);
+            (bool Success, string Etag) etagResultC = await storage.ReadEtag(key3);
 
             byte[] dataB = Encoding.UTF8.GetBytes("Update B");
             byte[] dataC = Encoding.UTF8.GetBytes("Update C");
@@ -76,7 +81,7 @@ public class Program
             Console.WriteLine($"User B update: {resultB}");
             Console.WriteLine($"User C update: {resultC}");
 
-            var latestResult = await storage.Read(key3);
+            (bool Success, byte[] Data) latestResult = await storage.Read(key3);
 
             Console.WriteLine(
                 $"Final incident data: {Encoding.UTF8.GetString(latestResult.Data)}");
@@ -89,3 +94,4 @@ public class Program
         }
     }
 }
+

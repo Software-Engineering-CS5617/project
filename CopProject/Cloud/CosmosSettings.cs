@@ -1,26 +1,22 @@
-public static class CosmosSettings
+﻿/// <summary>
+/// The database credentials go here
+/// </summary>
+internal static class CosmosSettings
 {
-    public const string DatabaseName = "PersistenceDB";
+    internal const string DatabaseName = "PersistenceDB";
 
-    public const string Endpoint =
+    internal const string Endpoint =
         "https://cloud-cosmos.documents.azure.com:443/";
 
-    public static string Key
+    internal static string Key
     {
-        get
-        {
+        get {
             string? key =
-            Environment.GetEnvironmentVariable("COSMOS_KEY");
-
-            if (key == null)
-            {
-                throw new InvalidOperationException(
+            Environment.GetEnvironmentVariable("COSMOS_KEY") ?? throw new InvalidOperationException(
                     "COSMOS_KEY is not set");
-            }
-
             return key;
         }
-    
+
     }
 
 }

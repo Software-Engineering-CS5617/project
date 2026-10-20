@@ -1,21 +1,27 @@
 ﻿using Microsoft.Azure.Cosmos;
 using Persistence;
 
+/// <summary>
+/// Creates IStorage instances for application modules
+/// All modules share a Cosmosclient and each module gets its own container
+/// </summary>
 public static class StorageFactory
 {
     // A single instance of CosmosClient is created and reused for all storage instances.
-    private static readonly CosmosClient _cosmosClient =
-        new CosmosClient(
-            CosmosSettings.Endpoint,
-            CosmosSettings.Key);
+    private static readonly CosmosClient s_cosmosClient =
+        new(CosmosSettings.Endpoint, CosmosSettings.Key);
 
-    // This method asynchronously creates an IStorage instance for the specified module type.
+    /// <summary>
+    /// This method asynchronously creates an IStorage instance for the specified module type if it doesn't exist .
+    /// </summary>
+    /// <param name="module"></param>
+    /// <returns>IStorage instance ready to use</returns>
     public static async Task<IStorage> CreateAsync(ModuleType module)
     {
         string containerName = GetContainerName(module);
 
         CosmosStorage storage = new CosmosStorage(
-            _cosmosClient,
+            s_cosmosClient,
             CosmosSettings.DatabaseName,
             containerName);
 
@@ -26,14 +32,17 @@ public static class StorageFactory
 
     private static string GetContainerName(ModuleType module)
     {
-        return module switch
-        {
+        return module switch {
             ModuleType.Chat => "Chat",
             ModuleType.WhiteBoard => "Whiteboard",
             ModuleType.Networking => "Networking",
             ModuleType.FileSynchronizer => "FileSynchronizer",
             ModuleType.IncidentManagement => "IncidentManagement",
-            // will add more modules here
+            ModuleType.Controller => "Controller",
+            ModuleType.Insights => "Insights",
+            ModuleType.LocationTracker => "LocationTracker",
+            ModuleType.UX => "UX",
+            ModuleType.ScreenShare => "ScreenShare",
             _ => throw new ArgumentException($"Unsupported module: {module}")
         };
     }
