@@ -10,6 +10,23 @@ Architecture for the chat module.
 > highlight the data structure aspect of the classes. The [methods
 > section](#methods-and-interfaces) covers the functionality aspects.
 
+### `Mentions`
+
+The `Mentions` class is used to represent the users being mentioned in a
+particular chat message -- the mention can either be `@all` or a set of some
+usernames.
+
+```cs
+public sealed class Mentions
+{
+    // If true, every user is mentioned.
+    public bool All { get; init; }
+
+    // Specific usernames to mention, if All is false.
+    public HashSet<string> Usernames { get; } = new();
+}
+```
+
 ### `ChatMessage`
 
 A chat message is the fundamental building block of our module. It consists of
@@ -27,11 +44,14 @@ public class ChatMessage
     // Name of the sender.
     public required string SenderName { get; init; }
 
+    // Mentions, if any.
+    public Mentions Mentions { get; init; } = new();
+
     // Message content.
     public string Content { get; set; } = "";
 
     // Number of times the message's content has been edited.
-    public int EditCount { get; set; };
+    public int EditCount { get; set; }
 
     // The user who deleted the message (if any).
     public string? DeletedByUser { get; set; }
@@ -115,6 +135,15 @@ initialized.
 
 This section contains the methods being provided to interact with the chat
 module.
+
+### `IMentions`
+
+```cs
+interface IMentions {
+    bool IsUserMentioned(string username);
+}
+```
+
 
 ### `IChatMessage`
 
@@ -238,47 +267,22 @@ We have enumerated these operations. The following is a list of operations that
 the clients can send to the server, along with the information encapsulated in
 them. These have been divided into thread and non-thread operations.
 
-- Non-threaded versions (in the main chatroom):
-    - Send new message
-        - `ChatMessageWithThreads` object
-    - Edit message
-        - Message ID
-        - New content
-        - The user attempting the edit
-    - Delete message
-        - Message ID
-        - The user attempting the deletion
-    - Add reaction to message
-        - Message ID
-        - Reaction emoji
-        - User attempting to add reaction
-    - Remove reaction from message
-        - Message ID
-        - Reaction emoji
-        - User attempting to remove reaction
-- Threaded versions (in a particular thread):
-    - Send new message
-        - Parent message ID
-        - `ChatMessageWithThreads` object
-    - Edit message
-        - Parent message ID
-        - Message ID
-        - New content
-        - The user attempting the edit
-    - Delete message
-        - Parent message ID
-        - Message ID
-        - The user attempting the deletion
-    - Add reaction to message
-        - Parent message ID
-        - Message ID
-        - Reaction emoji
-        - User attempting to add reaction
-    - Remove reaction from message
-        - Parent message ID
-        - Message ID
-        - Reaction emoji
-        - User attempting to remove reaction
+- Client-specific operations:
+    - Sync messages
+    - Reset state
+- General operations (for all clients):
+    - Non-threaded versions (in the main chatroom):
+        - Send new message: `ChatMessageWithThreads` object
+        - Edit message: message ID, new content, the user attempting the edit
+        - Delete message: message ID, the user attempting the deletion
+        - Add reaction to message: message ID, reaction emoji, user attempting to add reaction
+        - Remove reaction from message: message ID, reaction emoji, user attempting to remove reaction
+    - Threaded versions (in a particular thread):
+        - Send new message: parent message ID, `ChatMessageWithThreads` object
+        - Edit message: parent message ID, message ID, new content, the user attempting the edit
+        - Delete message: parent message ID, message ID, the user attempting the deletion
+        - Add reaction to message: parent message ID, message ID, reaction emoji, user attempting to add reaction
+        - Remove reaction from message: parent message ID, message ID, reaction emoji, user attempting to remove reaction
 
 > [!NOTE]
 > The threaded version of operations have exactly one additional argument
@@ -289,6 +293,14 @@ The following classes capture the same:
 ```cs
 public abstract record ChatRequest;
 
+// Client-specific operations.
+
+public sealed record Sync() : ChatRequest;
+
+public sealed record Reset() : ChatRequest;
+
+// General operations.
+
 public sealed record SendMainMessage(ChatMessageWithThreads Message, Guid? ParentMessageId) : ChatRequest;
 
 public sealed record EditMessage(Guid MessageId, string NewContent, string EditorName, Guid? ParentMessageId) : ChatRequest;
@@ -297,7 +309,7 @@ public sealed record DeleteMessage(Guid MessageId, string DeleterName, Guid? Par
 
 public sealed record AddReaction(Guid MessageId, string Emoji, string ReactorName, Guid? ParentMessageId) : ChatRequest;
 
-public sealed record RemoveReaction(Guid MessageId, string Emoji, string ReactorName, Guid? ParentMessageId) : ChatRequest;`
+public sealed record RemoveReaction(Guid MessageId, string Emoji, string ReactorName, Guid? ParentMessageId) : ChatRequest;
 ```
 
 > [!NOTE]
@@ -307,32 +319,89 @@ public sealed record RemoveReaction(Guid MessageId, string Emoji, string Reactor
 > non-threaded variant, and the parameter being non-`null` denotes a threaded
 > variant where the value of the parameter is the thread's parent message's ID.
 
-
-> [!WARNING]
-> The sections below need to be updated.
-
-
 ### Implementation details
 
-- How the server maintains a list of operations/deltas
-- How it maintains state of every client
-- How it iterates over that and broadcasts things to every client
+#### Server-side
+
+Think of chatroom state as a non-negative integer. Assume that every client has
+a `Chatroom` copy, and the server has a `Chatroom` copy as well. The server
+additionally stores the state of every client's `Chatroom`.
+
+An inefficient way to store the state of every client would be to store the
+entire `Chatroom` data structure. Instead, we store a _non-negative integer_ as
+representative of a `Chatroom` state -- the value 0 denotes the initialialized
+empty state, and a value of `n`, for some `n > 0` denotes the first `n`
+operations applied onto the initialized empty state.
+
+So, the server stores a list of these operations, as well a map of
+client-integer values to keep track of everything. In addition to this is its
+own `Chatroom` object (as the server is also a participant in the chatroom).
+
+Whenever the server receives a new operation from some client, it does the
+following:
+
+1. Applies that operation onto its own `Chatroom` object
+2. Updates the operation list with this new operation
+3. Updates the client states accordingly
+    - For general operations (those that lead to updates for every client),
+    iterates over the table of client states, and for each client:
+        - Compares its state value with the latest state value (length of
+        the operations list)
+        - If there is a difference, send the appropriate sub-list of
+        operations to the client
+        - If successful, update the client's state to the latest one
+    - For client-specific operations, attempts to send the appropriate
+    operations to that client and update only it's state when successful
+
+#### Client-side
+
+The client maintains a `Chatroom` structure, and upon any operation, updates
+its local copy, and sends the appropriate message to the server.
+
+When it receives a message from the server, it updates the `Chatroom`
+accordingly.
 
 ## Threads
 
-how many threads (roughly), for what, etc.
+Here are some rough ideas regarding threads:
+
+- Broadcasting messages to multiple clients should be possible in parallel.
+- Make sure to lock the server's state-related data structures when required.
 
 ## Design decisions
 
 ### Two data structures
 
-### Polling vs broadcast
+All chat messages in a chatroom or thread can be found in two data structures:
 
-points:
-- detecting disconnected users
+1. `SortedDictionary`
+2. `Dictionary`
 
-pros and cons, etc.
+`SortedDictionary` is used to sort the messages based on their timestamp. This
+speeds up the following operations:
 
-> [!WARNING]
-> EXPLICIT FAIL-TO-SEND REPORTING
+- Retreiving messages sorted by their timestamp
+- Adding a new message while maintaining the order ($O(\log n)$)
+
+`Dictionary` is used to store the messages, keyed by the message ID. This
+speeds up retreival based on the message ID ($O(1)$, on average, in fact).
+
+### Network-based broadcast vs server state
+
+The decided approach records the state of all clients on the sever. An
+alterative approach was considered, wherein the server does not maintain any
+state other than it's own -- it is simply another client, and the networking
+module's broadcast feature handles the broadcasting of messages from one client
+to all other participants (which might include the server).
+
+The current approach was preferred over network-based broadcast approach as the
+latter does not have a single source-of-truth for the states. In case of any
+state inconsistencies, it is challenging to reconcile the state. Such is not
+the case for the approach that we go ahead with, where we explicitly provide
+`SYNC` and `RESET` operations to synchronize state.
+
+Also consider a scenario where a participant joins the meeting when 10 messages
+have already been sent. With the network-based broadcast approach, they cannot
+conveniently catch-up with the state of the chatroom, but with our approach,
+they will be sent all current messages upon arrival.
 
