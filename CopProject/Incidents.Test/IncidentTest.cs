@@ -13,11 +13,20 @@ namespace Incidents.Test;
 public sealed class IncidentTest
 {
     [TestMethod]
-    public async Task CreateIncidentArgumentNullException()
+    public async Task CreateIncidentController()
     {
         IStorage cloudStorageService = new IncidentCloudStorageService();
         IFileOperations fileOperationsService = new IncidentFileSynchroniser();
-        IncidentController controller = new IncidentController(cloudStorageService, fileOperationsService);
-        await Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CreateIncident(null!));
+
+        try
+        {
+            IncidentController controller = await IncidentController.CreateAsync(cloudStorageService, fileOperationsService);
+
+            Console.WriteLine("Successfully created Incident Controller");
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Failed to create Incident Controller: ", ex);
+        }
     }
 }

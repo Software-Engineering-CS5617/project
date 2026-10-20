@@ -67,13 +67,14 @@ public class IncidentCloudStorageService : IStorage
     public async Task<(bool Success, Dictionary<string, byte[]>)> ReadAll(string[] keys)
     {
         Dictionary<string, byte[]> temp = new();
-        foreach(string key in keys)
+
+        foreach (string key in keys)
         {
             (bool success, byte[] data) = await Read(key);
 
             if (!success)
             {
-                return (false, new Dictionary<string,byte[]>());
+                return (false, new Dictionary<string, byte[]>());
             }
 
             temp[key] = data;

@@ -1,5 +1,6 @@
 ﻿namespace Incidents;
 
+using Azure.Messaging;
 using Filesync;
 using Implementations;
 using Persistence;
@@ -8,16 +9,58 @@ public class IncidentController : IIncidentController
 {
     // TODO: IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly IStorage _cloudStorageService;
-    private readonly IFileOperations _incidentFileSynchronizer;
+    private readonly IFileOperations _fileSynchronizerService;
 
-    private readonly List<Incident> _incidents = [];
+    private readonly Dictionary<Guid, Incident> _incidentMap = new();
 
-    public IncidentController(IStorage cloudStorageService, IFileOperations incidentFileSynchronizer)
+    private IncidentController(
+        IStorage cloudStorageService,
+        IFileOperations fileSynchronizerService,
+        Dictionary<Guid, Incident> incidentMap
+    )
     {
         _cloudStorageService = cloudStorageService;
-        _incidentFileSynchronizer = incidentFileSynchronizer;
+        _fileSynchronizerService = fileSynchronizerService;
+        _incidentMap = incidentMap;
+    }
 
-        //await cloudStorageService.ReadAll();
+    public async static Task<IncidentController> CreateAsync(IStorage cloudStorageService, IFileOperations fileSynchronizerService)
+    {
+        try
+        {
+            (bool success, List<string> keys) = await cloudStorageService.GetAllKeys();
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to retrieve keys from cloud storage.");
+            }
+
+            (success, Dictionary<string, byte[]> data) = await cloudStorageService.ReadAll(keys.ToArray());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read data from cloud storage.");
+            }
+
+            Dictionary<Guid, Incident> incidentMap = [];
+
+            foreach ((string id, byte[] incidentBytes) in data)
+            {
+                // TODO@shreesh: add XML deserialization errors later
+                Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
+                incidentMap[incident.Id] = incident;
+            }
+
+            return new IncidentController(
+                cloudStorageService,
+                fileSynchronizerService,
+                incidentMap
+            );
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to initialize IncidentController:", ex);
+        }
     }
 
     public async Task<Incident> CreateIncident(CreateIncidentRequest request)
@@ -38,7 +81,7 @@ public class IncidentController : IIncidentController
         }
         // TODO : File sync for evidences.
 
-        _incidents.Add(incident);
+        _incidentMap.Add(incident.Id, incident);
 
         // TODO: Persist the serialized incident to cloud storage.
 
@@ -54,13 +97,15 @@ public class IncidentController : IIncidentController
 
     public async Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
     {
-        var result = _incidents.Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).ToList();
+        // TODO@shreesh: Check whether ToList is required here
+        List<Incident> incidents = _incidentMap.Values.ToList();
+        var result = incidents.Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).ToList();
         return result;
     }
 
     private Incident? FindIncident(Guid id)
     {
-        return _incidents.FirstOrDefault(i => i.Id == id);
+        return _incidentMap.GetValueOrDefault(id);
     }
 
     public async Task<List<Incident>> GetCorrelatedIncidents(Guid id)
