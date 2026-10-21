@@ -1,5 +1,6 @@
 ﻿namespace Incidents;
 
+using System.Security.Policy;
 using Filesync;
 using Persistence;
 
@@ -153,11 +154,38 @@ public class IncidentController : IIncidentController
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(evidence);
 
-        incident.AddEvidence(evidence);
+        Incident clone = incident.Clone();
 
-        // TODO: Persist the updated incident using CloudService.
+        clone.AddEvidence(evidence);
 
-        return true;
+        try
+        {
+            (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            success = await _cloudStorageService.Update(
+                clone.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(clone),
+                etag
+           );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            incident.AddEvidence(evidence);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+        }
     }
 
     public async Task<bool> UpdateStatus(Incident incident, IncidentStatus newStatus)
@@ -169,11 +197,38 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newStatus));
         }
 
-        incident.UpdateStatus(newStatus, Guid.Empty);
+        Incident clone = incident.Clone();
 
-        // TODO: Persist the incident to cloud storage.
+        clone.UpdateStatus(newStatus, Guid.Empty);
 
-        return true;
+        try
+        {
+            (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            success = await _cloudStorageService.Update(
+                clone.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(clone),
+                etag
+           );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            incident.UpdateStatus(newStatus, Guid.Empty);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+        }
     }
 
     public async Task<bool> UpdateCategory(Incident incident, IncidentCategory newCategory)
@@ -185,11 +240,38 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newCategory));
         }
 
-        incident.UpdateCategory(newCategory, Guid.Empty);
+        Incident clone = incident.Clone();
 
-        // TODO: Persist the incident to cloud storage.
+        clone.UpdateCategory(newCategory, Guid.Empty);
 
-        return true;
+        try
+        {
+            (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            success = await _cloudStorageService.Update(
+                clone.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(clone),
+                etag
+           );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            incident.UpdateCategory(newCategory, Guid.Empty);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+        }
     }
 
     public async Task<bool> UpdateSeverity(Incident incident, IncidentSeverity newSeverity)
@@ -201,11 +283,38 @@ public class IncidentController : IIncidentController
             throw new ArgumentOutOfRangeException(nameof(newSeverity));
         }
 
-        incident.UpdateSeverity(newSeverity, Guid.Empty);
+        Incident clone = incident.Clone();
 
-        // TODO: Persist the incident to cloud storage.
+        clone.UpdateSeverity(newSeverity, Guid.Empty);
 
-        return true;
+        try
+        {
+            (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            success = await _cloudStorageService.Update(
+                clone.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(clone),
+                etag
+           );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            incident.UpdateSeverity(newSeverity, Guid.Empty);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+        }
     }
 
     public async Task<bool> UpdateLocation(Incident incident, IncidentLocation location)
@@ -213,11 +322,38 @@ public class IncidentController : IIncidentController
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(location);
 
-        incident.UpdateLocation(location, Guid.Empty);
+        Incident clone = incident.Clone();
 
-        // TODO: Persist the incident to cloud storage.
+        clone.UpdateLocation(location, Guid.Empty);
 
-        return true;
+        try
+        {
+            (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            success = await _cloudStorageService.Update(
+                clone.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(clone),
+                etag
+           );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            incident.UpdateLocation(location, Guid.Empty);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to update Incident to cloud storage:", ex);
+        }
     }
 
     public async Task<bool> CorrelateIncident(Incident incident1, Incident incident2)

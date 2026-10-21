@@ -120,4 +120,23 @@ public partial class Incident
 
         return true;
     }
+
+    internal Incident Clone()
+    {
+        return new Incident(
+            Id,
+            Title,
+            Description,
+            CreatedBy,
+            Location,
+            Status,
+            Category,
+            Severity,
+            CreationTime,
+            UpdateTime,
+            new List<IncidentEvidence>(_evidence),
+            new List<IChange>(_changes),
+            new List<Guid>(_edges)
+        );
+    }
 }
