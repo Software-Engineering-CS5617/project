@@ -117,6 +117,11 @@ public class IncidentController : IIncidentController
         return _incidentMap.GetValueOrDefault(id);
     }
 
+    private bool IncidentResolved(Incident incident)
+    {
+        return incident.Status == IncidentStatus.Resolved;
+    }
+
     public async Task<List<Incident>> GetCorrelatedIncidents(Guid id)
     {
         Incident _ = FindIncident(id) ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
@@ -153,6 +158,11 @@ public class IncidentController : IIncidentController
     {
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(evidence);
+
+        if (IncidentResolved(incident))
+        {
+            throw new InvalidOperationException("Cannot add evidence to a resolved incident.");
+        }
 
         Incident clone = incident.Clone();
 
@@ -235,6 +245,11 @@ public class IncidentController : IIncidentController
     {
         ArgumentNullException.ThrowIfNull(incident);
 
+        if (IncidentResolved(incident))
+        {
+            throw new InvalidOperationException("Cannot update category of a resolved incident.");
+        }
+
         if (!Enum.IsDefined(typeof(IncidentCategory), newCategory))
         {
             throw new ArgumentOutOfRangeException(nameof(newCategory));
@@ -277,6 +292,11 @@ public class IncidentController : IIncidentController
     public async Task<bool> UpdateSeverity(Incident incident, IncidentSeverity newSeverity)
     {
         ArgumentNullException.ThrowIfNull(incident);
+
+        if (IncidentResolved(incident))
+        {
+            throw new InvalidOperationException("Cannot update severity of a resolved incident.");
+        }
 
         if (!Enum.IsDefined(typeof(IncidentSeverity), newSeverity))
         {
@@ -322,6 +342,11 @@ public class IncidentController : IIncidentController
         ArgumentNullException.ThrowIfNull(incident);
         ArgumentNullException.ThrowIfNull(location);
 
+        if (IncidentResolved(incident))
+        {
+            throw new InvalidOperationException("Cannot update location of a resolved incident.");
+        }
+
         Incident clone = incident.Clone();
 
         clone.UpdateLocation(location, Guid.Empty);
@@ -360,6 +385,11 @@ public class IncidentController : IIncidentController
     {
         ArgumentNullException.ThrowIfNull(incident1);
         ArgumentNullException.ThrowIfNull(incident2);
+
+        if (IncidentResolved(incident1) && IncidentResolved(incident2))
+        {
+            throw new InvalidOperationException("Cannot correlate resolved incidents.");
+        }
 
         if (incident1.Id == incident2.Id)
         {
