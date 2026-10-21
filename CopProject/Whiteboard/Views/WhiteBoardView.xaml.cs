@@ -17,26 +17,28 @@ public sealed partial class WhiteBoardView : UserControl
 
     private void TextButton_Click(object sender, RoutedEventArgs e)
     {
-        var textItem = new Textbox {
-            Text = "New Text",
-            X = 50,
-            Y = 50,
-            Width = 150,
-            Height = 40
-        };
+        // TODO
 
-        _canvas.AddItem(textItem);
+        //var textItem = new Textbox {
+        //    Text = "New Text",
+        //    X = 50,
+        //    Y = 50,
+        //    Width = 150,
+        //    Height = 40
+        //};
 
-        var textBlock = new TextBlock {
-            Text = textItem.Text,
-            Width = textItem.Width,
-            Height = textItem.Height,
-            FontSize = 20
-        };
+        //_canvas.AddItem(textItem);
 
-        Canvas.SetLeft(textBlock, textItem.X);
-        Canvas.SetTop(textBlock, textItem.Y);
+        //var textBlock = new TextBlock {
+        //    Text = textItem.Text,
+        //    Width = textItem.Width,
+        //    Height = textItem.Height,
+        //    FontSize = 20
+        //};
 
-        WhiteboardCanvas.Children.Add(textBlock);
+        //Canvas.SetLeft(textBlock, textItem.X);
+        //Canvas.SetTop(textBlock, textItem.Y);
+
+        //WhiteboardCanvas.Children.Add(textBlock);
     }
 }
