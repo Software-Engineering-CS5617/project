@@ -44,9 +44,15 @@ public class IncidentController : IIncidentController
 
             foreach ((string id, byte[] incidentBytes) in data)
             {
-                // TODO(@shreesh): add XML deserialization errors later
-                Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
-                incidentMap[incident.Id] = incident;
+                try
+                {
+                    Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
+                    incidentMap[incident.Id] = incident;
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to deserialize incident with ID {id}: ", ex);
+                }
             }
 
             return new IncidentController(
