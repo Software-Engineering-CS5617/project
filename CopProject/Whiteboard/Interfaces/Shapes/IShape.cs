@@ -9,7 +9,7 @@ namespace Whiteboard.Interfaces.Shapes;
 /// <summary>
 /// Represents a closed shape on the whiteboard
 /// </summary>
-public interface IShape : ITextbox
+public interface IShape : IItem
 {
     /// <summary>
     /// Fill color of the shape
