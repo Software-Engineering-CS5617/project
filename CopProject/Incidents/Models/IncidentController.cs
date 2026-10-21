@@ -5,7 +5,7 @@ using Persistence;
 
 public class IncidentController : IIncidentController
 {
-    // TODO@shreesh: IControllerService is to be used for getting Guid of the user using the Controller.
+    // TODO(@shreesh): IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
     private readonly Dictionary<Guid, Incident> _incidentMap;
@@ -43,7 +43,7 @@ public class IncidentController : IIncidentController
 
             foreach ((string id, byte[] incidentBytes) in data)
             {
-                // TODO@shreesh: add XML deserialization errors later
+                // TODO(@shreesh): add XML deserialization errors later
                 Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
                 incidentMap[incident.Id] = incident;
             }
@@ -73,8 +73,6 @@ public class IncidentController : IIncidentController
             request.Location,
             request.Evidences.ToList()
         );
-
-        // TODO(@shreesh) : File sync for evidences.
 
         bool success;
         try
@@ -108,10 +106,9 @@ public class IncidentController : IIncidentController
 
     public async Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
     {
-        // TODO@shreesh: Check whether ToList is required here
-        List<Incident> incidents = _incidentMap.Values.ToList();
-        var result = incidents.Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).ToList();
-        return result;
+        return _incidentMap.Values.
+            Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).
+            ToList();
     }
 
     private Incident? FindIncident(Guid id)
@@ -121,6 +118,8 @@ public class IncidentController : IIncidentController
 
     public async Task<List<Incident>> GetCorrelatedIncidents(Guid id)
     {
+        Incident _ = FindIncident(id) ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
+
         List<Incident> correlated = [];
         Queue<Guid> queue = [];
         HashSet<Guid> visited = [];
@@ -131,12 +130,7 @@ public class IncidentController : IIncidentController
         while (queue.Count > 0)
         {
             Guid currentId = queue.Dequeue();
-            Incident? current = FindIncident(currentId);
-
-            if (current is null)
-            {
-                continue;
-            }
+            Incident current = FindIncident(currentId) ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
 
             foreach (Guid adjacentId in current.AdjacentIncidentIds)
             {
@@ -144,12 +138,9 @@ public class IncidentController : IIncidentController
                 {
                     queue.Enqueue(adjacentId);
 
-                    Incident? adjacent = FindIncident(adjacentId);
+                    Incident adjacent = FindIncident(adjacentId) ?? throw new KeyNotFoundException($"Incident with ID {id} not found.");
 
-                    if (adjacent is not null)
-                    {
-                        correlated.Add(adjacent);
-                    }
+                    correlated.Add(adjacent);
                 }
             }
         }
@@ -164,7 +155,6 @@ public class IncidentController : IIncidentController
 
         incident.AddEvidence(evidence);
 
-        // TODO: Synchronize evidence files using FileSyncService.
         // TODO: Persist the updated incident using CloudService.
 
         return true;
@@ -235,14 +225,27 @@ public class IncidentController : IIncidentController
         ArgumentNullException.ThrowIfNull(incident1);
         ArgumentNullException.ThrowIfNull(incident2);
 
+        // TODO(@shreesh): Check if the incidents exist in the first place.
+
         if (incident1.Id == incident2.Id)
         {
             return false;
         }
-        //List<Guid> correlatedIncidents1 = await GetCorrelatedIncidents(incident1.Id);
+
+        List<Incident> correlatedIncidents1 = await GetCorrelatedIncidents(incident1.Id);
+        List<Incident> correlatedIncidents2 = await GetCorrelatedIncidents(incident2.Id);
+
+        if (correlatedIncidents1.Any(i => i.Id == incident2.Id)
+            || correlatedIncidents2.Any(i => i.Id == incident1.Id))
+        {
+            return false;
+        }
 
         bool added1 = incident1.AddAdjacentIncident(incident2.Id, Guid.Empty);
         bool added2 = incident2.AddAdjacentIncident(incident1.Id, Guid.Empty);
+
+        // TODO(@shreesh): Persist the updated incidents to cloud storage
+        // and create copy of Incident before update.
 
         return added1 && added2;
     }

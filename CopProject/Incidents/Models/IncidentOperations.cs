@@ -104,7 +104,6 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    // TODO: This needs to be used by IController only after applying validation using connected components
     internal bool AddAdjacentIncident(Guid otherIncidentId, Guid changedBy)
     {
         if (otherIncidentId == Id || _edges.Contains(otherIncidentId))
