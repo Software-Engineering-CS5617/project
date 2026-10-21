@@ -12,10 +12,10 @@ public interface IEllipse : IShape
     /// <summary>
     /// Length of the major axis of the ellipse
     /// </summary>
-    public double MajorLength { get; set; }
+    public double Width { get; set; }
 
     /// <summary>
     /// Length of the minor axis of the ellipse
     /// </summary>
-    public double MinorLength { get; set; }
+    public double Height { get; set; }
 }
