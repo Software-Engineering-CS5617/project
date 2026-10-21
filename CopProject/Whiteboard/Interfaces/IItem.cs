@@ -11,7 +11,7 @@ public interface IItem
     string LastModifiedBy { get; set; }
     DateTime LastModifiedDateTime { get; set; }
     double Left { get; set; }
-    double Y { get; set; }
+    double Top { get; set; }
     double Orientation { get; set; }
     Rect2D BoundingBox { get; set; }
 

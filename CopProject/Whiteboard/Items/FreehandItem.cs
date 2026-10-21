@@ -14,7 +14,7 @@ public class FreehandItem : IFreehand
     public string LastModifiedBy { get; set; }
     public DateTime LastModifiedDateTime { get; set; }
     public double Left { get; set; }
-    public double Y { get; set; }
+    public double Top { get; set; }
     public double Orientation { get; set; }
     public Rect2D BoundingBox { get; set; }
 
