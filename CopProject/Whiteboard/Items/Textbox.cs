@@ -6,7 +6,7 @@ using Windows.UI;
 namespace Whiteboard.Items;
 
 /// <inheritdoc/>
-public class TextItem : Item, ITextbox
+public class Textbox : Item, ITextbox
 {
     // TODO
     public override Rect2D BoundingBox { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }

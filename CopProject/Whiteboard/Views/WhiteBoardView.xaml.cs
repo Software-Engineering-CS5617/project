@@ -17,7 +17,7 @@ public sealed partial class WhiteBoardView : UserControl
 
     private void TextButton_Click(object sender, RoutedEventArgs e)
     {
-        var textItem = new TextItem {
+        var textItem = new Textbox {
             Text = "New Text",
             X = 50,
             Y = 50,
