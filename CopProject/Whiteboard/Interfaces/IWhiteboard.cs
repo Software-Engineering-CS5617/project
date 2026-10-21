@@ -24,5 +24,6 @@ public interface IWhiteboard
     /// Remove the item from the whiteboard
     /// </summary>
     /// <param name="guid">GUID of the item to remove</param>
-    void DeleteItem(Guid guid);
+    /// <returns>true if the item was present in the whiteboard, otherwise false</returns>
+    bool DeleteItem(Guid guid);
 }
