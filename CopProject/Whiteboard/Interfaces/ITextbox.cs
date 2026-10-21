@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using Windows.UI;
+using Windows.UI.Text;
+using Microsoft.UI.Xaml.Media;
 
 namespace Whiteboard.Interfaces;
 
@@ -17,9 +19,9 @@ public interface ITextbox : IItem
     public string Content { get; set; }
 
     /// <summary>
-    /// FontFace of the content
+    /// Font family of the content
     /// </summary>
-    public string FontFace { get; set; }
+    public FontFamily FontFamily { get; set; }
 
     /// <summary>
     /// Font size of the content
