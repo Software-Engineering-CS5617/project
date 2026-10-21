@@ -26,7 +26,6 @@
 
 ## 3. Models
 
-```csharp
 # Models reused from Incident Management.
 See `docs/incident_management/specification.md`.
 - `Incident`: read-only for us; position is `Incident.Location`
@@ -35,6 +34,7 @@ See `docs/incident_management/specification.md`.
 - `IncidentLocationFilter(Latitude, Longitude, Address?, Radius?)`: for "nearby" incidents.
 
 # Our models
+```csharp
 // Result of an address search, the map jumps to this point
 public record LocationSearchResult(double Latitude, double Longitude, string? Address);
 
