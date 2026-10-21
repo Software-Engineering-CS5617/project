@@ -13,7 +13,7 @@ public class FreehandItem : IFreehand
     public DateTime CreatedDateTime { get; set; }
     public string LastModifiedBy { get; set; }
     public DateTime LastModifiedDateTime { get; set; }
-    public double X { get; set; }
+    public double Left { get; set; }
     public double Y { get; set; }
     public double Orientation { get; set; }
     public Rect2D BoundingBox { get; set; }

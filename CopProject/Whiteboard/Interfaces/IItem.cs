@@ -10,7 +10,7 @@ public interface IItem
     DateTime CreatedDateTime { get; set; }
     string LastModifiedBy { get; set; }
     DateTime LastModifiedDateTime { get; set; }
-    double X { get; set; }
+    double Left { get; set; }
     double Y { get; set; }
     double Orientation { get; set; }
     Rect2D BoundingBox { get; set; }
