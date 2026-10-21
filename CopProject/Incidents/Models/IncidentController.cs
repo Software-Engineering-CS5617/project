@@ -74,8 +74,25 @@ public class IncidentController : IIncidentController
             request.Evidences.ToList()
         );
 
-        // TODO: File sync for evidences.
-        // TODO: Persist the serialized incident to cloud storage.
+        // TODO(@shreesh) : File sync for evidences.
+
+        bool success;
+        try
+        {
+            success = await _cloudStorageService.Create(
+                incident.Id.ToString(),
+                Incidents.IncidentSerializer.Serialize(incident)
+            );
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to persist incident to cloud storage.");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to persist incident to cloud storage.", ex);
+        }
 
         _incidentMap.Add(incident.Id, incident);
 
