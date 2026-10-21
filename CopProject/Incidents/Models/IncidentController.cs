@@ -361,8 +361,6 @@ public class IncidentController : IIncidentController
         ArgumentNullException.ThrowIfNull(incident1);
         ArgumentNullException.ThrowIfNull(incident2);
 
-        // TODO(@shreesh): Check if the incidents exist in the first place.
-
         if (incident1.Id == incident2.Id)
         {
             return false;
@@ -377,12 +375,48 @@ public class IncidentController : IIncidentController
             return false;
         }
 
-        bool added1 = incident1.AddAdjacentIncident(incident2.Id, Guid.Empty);
-        bool added2 = incident2.AddAdjacentIncident(incident1.Id, Guid.Empty);
+        Incident incident1Clone = incident1.Clone();
+        Incident incident2Clone = incident2.Clone();
 
-        // TODO(@shreesh): Persist the updated incidents to cloud storage
-        // and create copy of Incident before update.
+        bool success = Incident.AddAdjacentIncident(incident1Clone, incident2Clone, Guid.Empty);
 
-        return added1 && added2;
+        // TODO(@shreesh): Change the signature to void and throw error
+        if (!success)
+        {
+            return false;
+        }
+
+        try
+        {
+            // TODO(@shreesh): Update to ReadAllEtags later
+            (bool success1, string etag1) = await _cloudStorageService.ReadEtag(incident1Clone.Id.ToString());
+            (bool success2, string etag2) = await _cloudStorageService.ReadEtag(incident2Clone.Id.ToString());
+
+            if (!success1 || !success2)
+            {
+                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+            }
+
+            Dictionary<string, byte[]> itemsToUpdate = new Dictionary<string, byte[]>
+            {
+                { incident1Clone.Id.ToString(), Incidents.IncidentSerializer.Serialize(incident1Clone) },
+                { incident2Clone.Id.ToString(), Incidents.IncidentSerializer.Serialize(incident2Clone) }
+            };
+
+            success = await _cloudStorageService.UpdateAll(itemsToUpdate);
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+            }
+
+            Incident.AddAdjacentIncident(incident1, incident2, Guid.Empty);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to update Incident to cloud storage:", ex);
+        }
     }
 }

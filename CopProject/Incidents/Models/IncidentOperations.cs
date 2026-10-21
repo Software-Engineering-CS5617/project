@@ -104,19 +104,28 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal bool AddAdjacentIncident(Guid otherIncidentId, Guid changedBy)
+    internal static bool AddAdjacentIncident(Incident incident1, Incident incident2, Guid changedBy)
     {
-        if (otherIncidentId == Id || _edges.Contains(otherIncidentId))
+        if (incident1.Id == incident2.Id
+            || incident1._edges.Contains(incident2.Id)
+            || incident2._edges.Contains(incident1.Id))
         {
             return false;
         }
 
-        _edges.Add(otherIncidentId);
+        incident1._edges.Add(incident2.Id);
+        incident2._edges.Add(incident1.Id);
+
         DateTime changedTime = DateTime.Now;
-        _changes.Add(new IncidentCorrelationChange(
-            $"Incident {Id} correlated with {otherIncidentId}",
+
+        IChange change = new IncidentCorrelationChange(
+            $"Incident {incident1.Id} correlated with Incident {incident2.Id}",
             changedTime,
-            changedBy));
+            changedBy
+        );
+
+        incident1._changes.Add(change);
+        incident2._changes.Add(change);
 
         return true;
     }
