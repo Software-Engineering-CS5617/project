@@ -10,7 +10,7 @@ namespace Whiteboard.Items;
 /// <inheritdoc/>
 public abstract class Item : IItem
 {
-    public Guid Id { get; set; } = new();
+    public Guid Id { get; set; } = Guid.NewGuid();
     public double Zindex { get; set; } = 0;
     public string CreatedBy { get; set; } = string.Empty;
     public DateTime CreatedDateTime { get; set; } = DateTime.Now;
