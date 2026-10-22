@@ -10,15 +10,45 @@ namespace Whiteboard.Items;
 /// <inheritdoc/>
 public class Line : Item, ILine
 {
-    // TODO
-    public override Rect2D BoundingBox { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
-    // TODO
-    public override bool HitTest(Point2D point)
+    public const double DefaultHitThreshold = 5.0;
+    public Point2D Begin { get; set; } = new Point2D { X = 0, Y = 0 };
+    public Point2D End { get; set; } = new Point2D { X = 1, Y = 1 };
+
+    public override Rect2D BoundingBox
     {
-        throw new NotImplementedException();
+        get {
+            double left = Math.Min(Begin.X, End.X);
+            double top = Math.Min(Begin.Y, End.Y);
+            double right = Math.Max(Begin.X, End.X);
+            double bottom = Math.Max(Begin.Y, End.Y);
+
+            return new Rect2D {
+                Left = left,
+                Top = top,
+                Width = right - left,
+                Height = bottom - top
+            };
+        }
+        set {
+            // Refit line to the diagonal of the new bounding box.
+            Begin = new Point2D {
+                X = value.Left,
+                Y = value.Top
+            };
+
+            End = new Point2D {
+                X = value.Left + value.Width,
+                Y = value.Top + value.Height
+            };
+        }
     }
 
-    public Point2D Begin { get; set; } = new Point2D { X = 0, Y = 0 };
-    public Point2D End {  get; set; } = new Point2D { X = 1, Y = 1 };
+    public override bool HitTest(Point2D point)
+    {
+        double distance = PerpDist(point, Begin, End);
+        return distance <= DefaultHitThreshold;
+    }
+
+
 }
