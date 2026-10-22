@@ -6,13 +6,13 @@ namespace Incidents;
 internal static class IncidentSerializer
 {
     private static readonly XmlSerializer s_serializer =
-        new(typeof(IncidentXmlDocument));
+        new XmlSerializer(typeof(IncidentXmlDocument));
 
     public static byte[] Serialize(Incident incident)
     {
         ArgumentNullException.ThrowIfNull(incident);
 
-        IncidentXmlDocument document = new() {
+        IncidentXmlDocument document = new IncidentXmlDocument {
             Id = incident.Id,
             Title = incident.Title,
             Description = incident.Description,
@@ -71,7 +71,7 @@ internal static class IncidentSerializer
             ?? throw new InvalidOperationException(
                 "Could not deserialize incident XML.");
 
-        List<IncidentEvidence> evidence = new();
+        List<IncidentEvidence> evidence = [];
 
         foreach (IncidentEvidenceXml item in document.Evidence)
         {
@@ -83,7 +83,7 @@ internal static class IncidentSerializer
                 item.UploadedBy));
         }
 
-        List<IChange> changes = new();
+        List<IChange> changes = [];
 
         foreach (ChangeXmlDocument item in document.Changes)
         {
@@ -137,15 +137,14 @@ public class IncidentXmlDocument
 
     [XmlArray("Evidence")]
     [XmlArrayItem("Item")]
-    public List<IncidentEvidenceXml> Evidence { get; set; } = new();
+    public List<IncidentEvidenceXml> Evidence { get; set; } = [];
 
     [XmlArray("Changes")]
     [XmlArrayItem("Change")]
-    public List<ChangeXmlDocument> Changes { get; set; } = new();
-
+    public List<ChangeXmlDocument> Changes { get; set; } = [];
     [XmlArray("Edges")]
     [XmlArrayItem("IncidentId")]
-    public List<Guid> Edges { get; set; } = new();
+    public List<Guid> Edges { get; set; } = [];
 }
 
 public class IncidentLocationXml
