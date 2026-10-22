@@ -31,8 +31,7 @@ internal static class IncidentFilterHelper
         return Regex.IsMatch(
             incident.Title,
             filter.Title,
-            RegexOptions.IgnoreCase |
-            RegexOptions.CultureInvariant,
+            RegexOptions.IgnoreCase,
             TimeSpan.FromMilliseconds(100));
     }
 
