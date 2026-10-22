@@ -10,6 +10,7 @@
     <Project Path="Insights/Insights.csproj" />
     <Project Path="Location/Location.csproj" />
     <Project Path="Networking/Networking.csproj" />
+    <Project Path="Networking.Test/Networking.Test.csproj" />
     <Project Path="Screenshare/Screenshare.csproj" />
     <Project Path="UX/UX.csproj" />
     <Project Path="Whiteboard/Whiteboard.csproj" />
