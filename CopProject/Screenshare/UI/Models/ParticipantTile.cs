@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices.WindowsRuntime;   // AsBuffer()
+﻿using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Streams;
 

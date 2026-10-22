@@ -5,56 +5,63 @@
     xmlns:models="using:ScreenShare.Models">
 
     <Grid>
-        <!-- GRID MODE -->
-        <Grid Visibility="{x:Bind ViewModel.IsGridMode, Mode=OneWay}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <!-- GRID MODE (scrollable) -->
+        <Grid Grid.Row="0" Visibility="{x:Bind ViewModel.IsGridMode, Mode=OneWay}">
             <GridView x:Name="TileGrid"
-                      ItemsSource="{x:Bind ViewModel.VisibleTiles}"
+                      ItemsSource="{x:Bind ViewModel.Tiles}"
                       SelectionMode="None"
                       IsItemClickEnabled="True"
                       ItemClick="Tile_Click"
-                      Loaded="TileGrid_Loaded"
-                      SizeChanged="TileGrid_SizeChanged">
-                <GridView.ItemContainerStyle>
-                    <Style TargetType="GridViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Margin" Value="0"/>
-                    </Style>
-                </GridView.ItemContainerStyle>
+                      ContainerContentChanging="TileGrid_ContainerContentChanging"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+
+
+                <GridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal" CacheLength="2"/>
+                    </ItemsPanelTemplate>
+                </GridView.ItemsPanel>
+
+
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="models:ParticipantTile">
-                        <Grid Margin="4" CornerRadius="8" Background="Black">
-                            <Image Source="{x:Bind Frame}" Stretch="Uniform"/>
-                            <TextBlock Text="{x:Bind Name}" Foreground="White"
-                                       Margin="8" VerticalAlignment="Bottom"/>
+                        <Grid Margin="4" CornerRadius="8" Background="Black" Width="320" Height="180">
+                            <Image Source="{x:Bind Frame, Mode=OneWay}" Stretch="Uniform"/>
+                            <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="8"
+                                    Padding="8,4" CornerRadius="4" Background="#99000000">
+                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" Foreground="White"/>
+                            </Border>
                         </Grid>
                     </DataTemplate>
                 </GridView.ItemTemplate>
             </GridView>
-
-            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                        Spacing="12" Margin="8"
-                        Visibility="{x:Bind ViewModel.HasMultiplePages, Mode=OneWay}">
-                <Button Content="Previous" Click="Prev_Click"
-                        IsEnabled="{x:Bind ViewModel.CanGoPrev, Mode=OneWay}"/>
-                <TextBlock Text="{x:Bind ViewModel.PageLabel, Mode=OneWay}" VerticalAlignment="Center"/>
-                <Button Content="Next" Click="Next_Click"
-                        IsEnabled="{x:Bind ViewModel.CanGoNext, Mode=OneWay}"/>
-            </StackPanel>
         </Grid>
 
         <!-- ZOOMED MODE -->
-        <Grid Visibility="{x:Bind ViewModel.IsZoomedMode, Mode=OneWay}" Background="Black">
+        <Grid Grid.Row="0" Visibility="{x:Bind ViewModel.IsZoomedMode, Mode=OneWay}" Background="Black">
             <Image Source="{x:Bind ViewModel.ZoomedTile.Frame, Mode=OneWay}" Stretch="Uniform"/>
-            <TextBlock Text="{x:Bind ViewModel.ZoomedTile.Name, Mode=OneWay}" Foreground="White"
-                       Margin="12" VerticalAlignment="Bottom"/>
+            <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="12"
+                    Padding="8,4" CornerRadius="4" Background="#99000000">
+                <TextBlock Text="{x:Bind ViewModel.ZoomedTile.Name, Mode=OneWay}" Foreground="White"/>
+            </Border>
             <Button Content="Back to grid" Click="Back_Click"
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12"/>
         </Grid>
+
+        <!-- CONTROL BAR (both modes) -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
+                    Spacing="12" Padding="12">
+            <ToggleButton IsChecked="{x:Bind ViewModel.IsSharingScreen, Mode=TwoWay}"
+                          Width="56" Height="56" CornerRadius="28"
+                          ToolTipService.ToolTip="Share screen">
+                <FontIcon Glyph="&#xE7F4;"/>
+            </ToggleButton>
+        </StackPanel>
     </Grid>
 </UserControl>

@@ -1,6 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Data;
 using ScreenShare.Interfaces;
 using ScreenShare.Models;
 using ScreenShare.ViewModels;
@@ -16,16 +15,38 @@ public sealed partial class ScreenShareGridView : UserControl
         InitializeComponent();
     }
 
-    // The host app calls this once with the real (or fake) feed.
     public void Initialize(IScreenShareFeed feed)
     {
         ViewModel = new ScreenShareViewModel(feed, DispatcherQueue);
-        DataContext = ViewModel; // use standard {Binding} in XAML
+        Bindings.Update();
     }
 
+    // ----- Tile visibility (drives which feeds are requested) -----
+    private void TileGrid_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.Item is not ParticipantTile tile)
+        {
+            return;
+        }
+
+        if (args.InRecycleQueue)
+        {
+            ViewModel?.TileLeftView(tile);      // tile scrolled away or was removed
+        }
+        else
+        {
+            ViewModel?.TileEnteredView(tile);   // tile is being shown
+        }
+        // Don't set args.Handled = true, because x:Bind in the item template relies on this event too.
+    }
+
+    // ----- Zoom in / out -----
     private void Tile_Click(object sender, ItemClickEventArgs e)
     {
-        ViewModel?.Zoom(((ParticipantTile)e.ClickedItem).Id);
+        if (e.ClickedItem is ParticipantTile tile)
+        {
+            ViewModel?.Zoom(tile.Id);
+        }
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
@@ -33,33 +54,5 @@ public sealed partial class ScreenShareGridView : UserControl
         ViewModel?.BackToGrid();
     }
 
-    private void Prev_Click(object sender, RoutedEventArgs e)
-    {
-        ViewModel?.PrevPage();
-    }
 
-    private void Next_Click(object sender, RoutedEventArgs e)
-    {
-        ViewModel?.NextPage();
-    }
-
-    // Size tiles so 4 columns x 2 rows fill whatever space the host gives us.
-    private void TileGrid_Loaded(object sender, RoutedEventArgs e)
-    {
-        ResizeTiles();
-    }
-
-    private void TileGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        ResizeTiles();
-    }
-
-    private void ResizeTiles()
-    {
-        if (TileGrid.ItemsPanelRoot is ItemsWrapGrid panel && TileGrid.ActualWidth > 0)
-        {
-            panel.ItemWidth = Math.Floor(TileGrid.ActualWidth / 4) - 1;
-            panel.ItemHeight = Math.Floor(TileGrid.ActualHeight / 2) - 1;
-        }
-    }
 }

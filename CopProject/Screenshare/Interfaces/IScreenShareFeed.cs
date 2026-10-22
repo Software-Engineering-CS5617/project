@@ -9,6 +9,6 @@ public interface IScreenShareFeed
     event Action<string, string>? ParticipantJoined; // id, name 
     event Action<string>? ParticipantLeft;  // id 
     event Action<string, byte[]>? FrameReady; //Id, stitched images bytes
-    void RequestFeeds(IReadOnlyDictionary<string, string> idToResolution); //Who is visible at what quality
+    void RequestFeeds(IReadOnlyDictionary<string, int> idToResolution); //Who is visible at what quality
     void RequestFeeds(Dictionary<string, int> dictionary);
 }

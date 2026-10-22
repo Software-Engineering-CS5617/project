@@ -8,29 +8,26 @@ namespace ScreenShare.ViewModels;
 
 public sealed class ScreenShareViewModel : INotifyPropertyChanged
 {
-    private const int PageSize = 8;
     private const int GridQuality = 480;
     private const int ZoomQuality = 1080;
+
     private readonly IScreenShareFeed _feed;
     private readonly DispatcherQueue _ui;
-    private readonly List<ParticipantTile> _all = new();
-    private Dictionary<string, ParticipantTile> _byId = new();
+    private readonly DispatcherQueueTimer _feedTimer;
+    private readonly Dictionary<string, ParticipantTile> _byId = new();
+    private readonly HashSet<string> _onScreen = new();   // tiles currently in the viewport
     private string? _zoomedId;
+    private bool _isSharingScreen;
 
-    public ObservableCollection<ParticipantTile> VisibleTiles { get; } = new();
+    public ObservableCollection<ParticipantTile> Tiles { get; } = new();
 
     public ViewMode Mode { get; private set; } = ViewMode.Grid;
-    public int CurrentPage { get; private set; }
-    public int PageCount => Math.Max(1, (_all.Count + PageSize - 1) / PageSize);
-
-    // Convenience properties for the XAML
     public bool IsGridMode => Mode == ViewMode.Grid;
     public bool IsZoomedMode => Mode == ViewMode.Zoomed;
-    public bool HasMultiplePages => PageCount > 1;
-    public bool CanGoPrev => CurrentPage > 0;
-    public bool CanGoNext => CurrentPage < PageCount - 1;
-    public string PageLabel => $"Page {CurrentPage + 1} of {PageCount}";
-    public ParticipantTile? ZoomedTile => IsZoomedMode ? VisibleTiles.FirstOrDefault() : null;
+    public ParticipantTile? ZoomedTile =>
+        _zoomedId != null && _byId.TryGetValue(_zoomedId, out ParticipantTile? t) ? t : null;
+
+
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -38,6 +35,12 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged
     {
         _feed = feed;
         _ui = ui;
+
+        // Collects bursts of scroll events into one RequestFeeds call
+        _feedTimer = _ui.CreateTimer();
+        _feedTimer.Interval = TimeSpan.FromMilliseconds(150);
+        _feedTimer.IsRepeating = false;
+        _feedTimer.Tick += (_, _) => SendFeedRequests();
 
         // Feed events can arrive on any thread, so hop to the UI thread first.
         _feed.ParticipantJoined += (id, name) => _ui.TryEnqueue(() => AddParticipant(id, name));
@@ -55,13 +58,35 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged
 
         _zoomedId = id;
         Mode = ViewMode.Zoomed;
-        Refresh();
+        RaiseModeChanged();
+        SendFeedRequests();
     }
-    public void BackToGrid() { _zoomedId = null; Mode = ViewMode.Grid; Refresh(); }
-    public void NextPage() { if (CanGoNext) { CurrentPage++; Refresh(); } }
-    public void PrevPage() { if (CanGoPrev) { CurrentPage--; Refresh(); } }
 
-    // ----- Called from feed events (already on UI thread) -----
+    public void BackToGrid()
+    {
+        _zoomedId = null;
+        Mode = ViewMode.Grid;
+        RaiseModeChanged();
+        SendFeedRequests();
+    }
+
+    public void TileEnteredView(ParticipantTile tile)
+    {
+        if (_onScreen.Add(tile.Id))
+        {
+            ScheduleFeedRequests();
+        }
+    }
+
+    public void TileLeftView(ParticipantTile tile)
+    {
+        if (_onScreen.Remove(tile.Id))
+        {
+            ScheduleFeedRequests();
+        }
+    }
+
+    // ----- Called from feed events  -----
     private void AddParticipant(string id, string name)
     {
         if (_byId.ContainsKey(id))
@@ -70,9 +95,8 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged
         }
 
         var tile = new ParticipantTile(id, name);
-        _all.Add(tile);
         _byId[id] = tile;
-        Refresh();
+        Tiles.Add(tile);             // if it lands in view, ElementPrepared fires -> TileEnteredView
     }
 
     private void RemoveParticipant(string id)
@@ -82,45 +106,71 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged
             return;
         }
 
-        _all.Remove(tile);
-        if (_zoomedId == id) { _zoomedId = null; Mode = ViewMode.Grid; }
-        Refresh();
+        Tiles.Remove(tile);
+        _onScreen.Remove(id);
+
+        if (_zoomedId == id)
+        {
+            _zoomedId = null;
+            Mode = ViewMode.Grid;
+            RaiseModeChanged();
+        }
+        SendFeedRequests();
     }
 
     private void OnFrame(string id, byte[] bytes)
     {
-        if (_byId.TryGetValue(id, out ParticipantTile? tile) && VisibleTiles.Contains(tile))
+        bool shown = IsZoomedMode ? id == _zoomedId : _onScreen.Contains(id);
+        if (shown && _byId.TryGetValue(id, out ParticipantTile? tile))
         {
             tile.UpdateFrame(bytes);
         }
     }
 
-    // ----- The one place that decides what is on screen -----
-    private void Refresh()
+    // ------ User contoles --------
+
+    public bool IsSharingScreen
     {
-        CurrentPage = Math.Clamp(CurrentPage, 0, PageCount - 1);
+        get => _isSharingScreen;
+        set {
+            if (_isSharingScreen == value)
+            {
+                return;
+            }
 
-        var wanted = (IsZoomedMode
-            ? _all.Where(t => t.Id == _zoomedId)
-            : _all.Skip(CurrentPage * PageSize).Take(PageSize)).ToList();
-
-        VisibleTiles.Clear();
-        foreach (ParticipantTile t in wanted)
-        {
-            VisibleTiles.Add(t);
+            _isSharingScreen = value;
+            Raise(nameof(IsSharingScreen));
         }
+    }
 
-        int quality = IsZoomedMode ? ZoomQuality : GridQuality;
-        _feed.RequestFeeds(wanted.ToDictionary(t => t.Id, _ => quality));
 
-        string[] array = new[] { nameof(Mode), nameof(IsGridMode), nameof(IsZoomedMode),
-                                     nameof(CurrentPage), nameof(PageCount), nameof(HasMultiplePages),
-                                     nameof(CanGoPrev), nameof(CanGoNext), nameof(PageLabel),
-                                     nameof(ZoomedTile) };
-        for (int i = 0; i < array.Length; i++)
+    // ----- Feed requests -----
+    private void ScheduleFeedRequests()
+    {
+        _feedTimer.Stop();
+        _feedTimer.Start();          // restarts the 150 ms wait
+    }
+
+    private void SendFeedRequests()
+    {
+        _feedTimer.Stop();
+        Dictionary<string, int> wanted = IsZoomedMode && _zoomedId != null
+            ? new() { [_zoomedId] = ZoomQuality }
+            : _onScreen.ToDictionary(id => id, _ => GridQuality);
+        _feed.RequestFeeds(wanted);
+    }
+
+    // ----- Notifications -----
+    private void RaiseModeChanged()
+    {
+        Raise(nameof(Mode), nameof(IsGridMode), nameof(IsZoomedMode), nameof(ZoomedTile));
+    }
+
+    private void Raise(params string[] names)
+    {
+        foreach (string n in names)
         {
-            string name = array[i];
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
         }
     }
 }
