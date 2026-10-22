@@ -33,4 +33,19 @@ public interface IWhiteboard
     /// <param name="item">New item for replacement</param>
     /// <returns>true if an item with same GUID was present in the whiteboard, otherwise false</returns>
     bool EditItem(IItem item);
+
+    /// <summary>
+    /// Event fired when an item is added to the whiteboard
+    /// </summary>
+    event Action<IItem> ItemAdded;
+
+    /// <summary>
+    /// Event fired when an item is removed from the whiteboard
+    /// </summary>
+    event Action<Guid> ItemDeleted;
+
+    /// <summary>
+    /// Event is fired when an item is updated in the whiteboard
+    /// </summary>
+    event Action<IItem> ItemUpdated;
 }
