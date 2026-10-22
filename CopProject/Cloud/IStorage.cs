@@ -73,11 +73,17 @@ public interface IStorage
     Task<(bool Success, List<string>)> GetAllKeys();
 
     /// <summary>
+    /// Reads ETags of all the items in the module's container
+    /// </summary>
+    /// <returns>A dictionary of Id and Etag</returns>
+    Task<(bool Success, Dictionary<string, string>)> ReadAllEtags();
+    /// <summary>
     /// Updates all the key-value pairs given in the dictionary
     /// </summary>
     /// <param name="items"></param>
+    /// <param name="etags"></param>
     /// <returns>success flag</returns>
-    Task<bool> UpdateAll(Dictionary<string, byte[]> items);
+    Task<bool> UpdateAll(Dictionary<string, byte[]> items, Dictionary<string, string> etags);
     /// <summary>
     /// Deletes values of all keys given in the array
     /// </summary>

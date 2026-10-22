@@ -4,7 +4,7 @@
 /// Represents one item stored in a Cosmos DB container
 /// Each item is a key-value pair
 /// </summary>
-public class PersistenceItem
+internal class PersistenceItem
 {
     /// <summary>
     /// Gets or sets the unique key of the item. 
@@ -18,4 +18,7 @@ public class PersistenceItem
     /// </summary>
     [JsonProperty("data")]
     public byte[] Data { get; set; } = [];
+
+    [JsonProperty("_etag")]
+    public string Etag { get; set; } = string.Empty;
 }

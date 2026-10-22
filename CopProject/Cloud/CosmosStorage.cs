@@ -93,9 +93,9 @@ internal class CosmosStorage : IStorage
     }
 
     /// <inheritdoc/>
-    // Concurrent updates are handled using _etag (version stamp) of the Cosmos DB item
-    // Each write changes the ETag
-    // For updating a key-value pair, one has to read the current ETag of the item
+    /* Concurrent updates are handled using _etag (version stamp) of the Cosmos DB item
+       Each write changes the ETag
+       For updating a key-value pair, one has to read the current ETag of the item */
 
     public async Task<(bool Success, string Etag)> ReadEtag(string key)
     {
@@ -115,9 +115,9 @@ internal class CosmosStorage : IStorage
 
     /// <inheritdoc/>
 
-    // One has to correctly match the ETag he read earlier with the current ETag of the item
-    // Only one of the concurrent writers who read the same _etag succeeds in Update operation
-    // This is because the winner changes the ETag by writing which makes others' ETags stale
+    /* One has to correctly match the ETag he read earlier with the current ETag of the item
+       Only one of the concurrent writers who read the same _etag succeeds in Update operation
+       This is because the winner changes the ETag by writing which makes others' ETags stale */
     public async Task<bool> Update(string key, byte[] data, string etag)
     {
 
@@ -227,19 +227,67 @@ internal class CosmosStorage : IStorage
     }
 
     /// <inheritdoc/>
-    public async Task<bool> UpdateAll(Dictionary<string, byte[]> items)
+
+    /*
+     The user calls the UpdateAll method only after getting all the Etags from the module's container.
+     A dictionary of Id : Etag of each item is returned
+    */
+
+    public async Task<(bool Success, Dictionary<string, string>)> ReadAllEtags()
+    {
+        Dictionary<string, string> etags = [];
+
+        try
+        {
+            using FeedIterator<PersistenceItem> iterator =
+                _container.GetItemLinqQueryable<PersistenceItem>()
+                    .ToFeedIterator();
+
+            while (iterator.HasMoreResults)
+            {
+                FeedResponse<PersistenceItem> page = await iterator.ReadNextAsync();
+
+                foreach (PersistenceItem item in page)
+                {
+                    string? etag = item.Etag;
+
+                    if (etag is null)
+                    {
+                        return (false, new Dictionary<string, string>());
+                    }
+                    else
+                    {
+                        etags[item.Id] = item.Etag;
+                    }
+                }
+            }
+
+            return (true, etags);
+        }
+        catch (CosmosException)
+        {
+            return (false, new Dictionary<string, string>());
+        }
+    }
+
+    /// <inheritdoc/>
+    /* 
+     Call UpdateAll method with the key-value pairs to be updated and Etags of all items from the 
+     container. 
+     The method will use only the etags of the required items from the Etags of all items
+    */
+    public async Task<bool> UpdateAll(Dictionary<string, byte[]> items, Dictionary<string, string> etags)
     {
         try
         {
             foreach (KeyValuePair<string, byte[]> item in items)
             {
-                (bool success, string etag) = await ReadEtag(item.Key);
+                bool success = await Update(
+                    item.Key,
+                    item.Value,
+                    etags[item.Key]);
+
                 if (!success)
-                {
-                    return false;
-                }
-                bool updateSuccess = await Update(item.Key, item.Value, etag);
-                if (!updateSuccess)
                 {
                     return false;
                 }
