@@ -8,13 +8,35 @@ namespace Whiteboard.Items;
 /// <inheritdoc/>
 public class Textbox : Item, ITextbox
 {
-    // TODO
-    public override Rect2D BoundingBox { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }
+    // Model size for selection/hit-testing (not UI control size)
+    public double Width { get; set; } = 150;
+    public double Height { get; set; } = 40;
 
-    // TODO
+    public override Rect2D BoundingBox
+    {
+        get => new Rect2D {
+            Left = Left,
+            Top = Top,
+            Width = Width,
+            Height = Height
+        };
+
+        set {
+            Left = value.Left;
+            Top = value.Top;
+            Width = value.Width;
+            Height = value.Height;
+        }
+    }
+
     public override bool HitTest(Point2D point)
     {
-        throw new System.NotImplementedException();
+        Rect2D box = BoundingBox;
+
+        bool withinX = point.X >= box.Left && point.X <= box.Left + box.Width;
+        bool withinY = point.Y >= box.Top && point.Y <= box.Top + box.Height;
+
+        return withinX && withinY;
     }
 
     public string Content { get; set; } = string.Empty;
