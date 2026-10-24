@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Incident_module.Views.TestUserControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Incident_module.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="#202020" Padding="30">
+        <StackPanel
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="16">
+
+            <TextBlock
+                Text="Incident Management"
+                FontSize="28"
+                FontWeight="Bold"
+                Foreground="White"
+                HorizontalAlignment="Center" />
+
+            <TextBlock
+                Text="WinUI is working!"
+                FontSize="18"
+                Foreground="LightGreen"
+                HorizontalAlignment="Center" />
+
+            <Button
+                Content="Test Button"
+                HorizontalAlignment="Center" />
+
+        </StackPanel>
+    </Grid>
+</UserControl>

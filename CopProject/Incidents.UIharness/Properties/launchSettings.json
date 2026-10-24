@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Incidents.UIharness (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Incidents.UIharness (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
