@@ -13,7 +13,6 @@
         <Platform Project="x64" />
         <Deploy />
     </Project>
-    <Project Path="Incidents/Incidents.csproj" />
     <Project Path="Insights/Insights.csproj" />
     <Project Path="Location/Location.csproj" />
     <Project Path="Networking/Networking.csproj" />
