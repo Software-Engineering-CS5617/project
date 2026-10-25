@@ -6,6 +6,34 @@ namespace Incidents;
 
 public class IncidentController : IIncidentController
 {
+    private readonly List<Incident> _incidents =
+    [
+        new Incident(
+            "FLood in Palakkad",
+            "Streets have flooded in IIT Palakkad.",
+            Guid.Empty,
+            IncidentCategory.Accident,
+            IncidentSeverity.Medium,
+            new IncidentLocation(10.8069, 76.7254, "IIT Palakkad Nila Campus")
+        ),
+        new Incident(
+            "Theft reported",
+            "A theft was reported near the stadium bus stand.",
+            Guid.Empty,
+            IncidentCategory.Theft,
+            IncidentSeverity.High,
+            new IncidentLocation(10.7739, 76.6626, "Stadium Bus Stand")
+        ),
+        new Incident(
+            "Drunk driving",
+            "A suspected drunk driver was reported on the railway station.",
+            Guid.Empty,
+            IncidentCategory.DrunkDriving,
+            IncidentSeverity.Critical,
+            new IncidentLocation(10.7993, 76.6376, "Palakkad Junction")
+        )
+    ];
+
     // IFileSyncService and ICloudService are to be used for file synchronization and cloud storage.
     public Incident CreateIncident(CreateIncidentRequest request)
     {
@@ -19,7 +47,19 @@ public class IncidentController : IIncidentController
 
     public List<Incident> GetAllIncidents(IncidentFilter? filter = null)
     {
-        throw new NotImplementedException();
+        IEnumerable<Incident> incidents = _incidents;
+
+        if (filter?.FromDateTime is DateTime from)
+        {
+            incidents = incidents.Where(incident => incident.CreationTime >= from);
+        }
+
+        if (filter?.ToDateTime is DateTime to)
+        {
+            incidents = incidents.Where(incident => incident.CreationTime <= to);
+        }
+
+        return incidents.ToList();
     }
 
     public List<Incident> GetCorrelatedIncidents(Guid id)

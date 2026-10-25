@@ -1,0 +1,8 @@
+<UserControl
+    x:Class="LocationTracker.Views.LocationMapView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <WebView2 x:Name="MapView" />
+    </Grid>
+</UserControl>
