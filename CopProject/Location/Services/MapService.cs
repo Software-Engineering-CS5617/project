@@ -1,15 +1,18 @@
 ﻿using Incidents;
 using LocationTracker.Interfaces;
+using LocationTracker.Models;
 
 namespace LocationTracker.Services;
 
 public class MapService : IMapService
 {
     private readonly IIncidentController _incidents;
+    private readonly IGeocodingService _geocoding;
 
-    public MapService(IIncidentController incidents)
+    public MapService(IIncidentController incidents, IGeocodingService geocoding)
     {
         _incidents = incidents;
+        _geocoding = geocoding;
     }
 
     public List<Incident> GetIncidentsForMap(IncidentFilter? filter = null)
@@ -26,6 +29,27 @@ public class MapService : IMapService
     {
         var filter = new IncidentFilter(null, null, null, null, DateTime.Now - window, null, null, null);
         return _incidents.GetAllIncidents(filter);
+    }
+    public async Task<IncidentLocation?> GetLocationForClickAsync(double latitude, double longitude)
+    {
+        if (!Coordinates.IsValid(latitude, longitude))
+        {
+            return null;
+        }
+
+        string? address = await _geocoding.GetAddressAsync(latitude, longitude);
+        return new IncidentLocation(latitude, longitude, address);
+    }
+
+    public async Task<LocationSearchResult?> SearchAddressAsync(string address)
+    {
+        (double Latitude, double Longitude)? coordinates = await _geocoding.FindCoordinatesAsync(address);
+        if (coordinates == null)
+        {
+            return null;
+        }
+
+        return new LocationSearchResult(coordinates.Value.Latitude, coordinates.Value.Longitude, address);
     }
 
 }
