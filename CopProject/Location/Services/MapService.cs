@@ -30,6 +30,24 @@ public class MapService : IMapService
         var filter = new IncidentFilter(null, null, null, null, DateTime.Now - window, null, null, null);
         return _incidents.GetAllIncidents(filter);
     }
+
+    public List<Incident> GetNearbyIncidents(double latitude, double longitude, double radius)
+    {
+        if (!Coordinates.IsValid(latitude, longitude))
+        {
+            throw new ArgumentOutOfRangeException(nameof(latitude), "The coordinates are outside the valid range.");
+        }
+
+        if (double.IsNaN(radius) || double.IsInfinity(radius) || radius < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(radius), "The radius must be a non-negative finite value.");
+        }
+
+        var location = new IncidentLocationFilter(latitude, longitude, Radius: radius);
+        var filter = new IncidentFilter(null, null, null, null, null, null, null, location);
+        return _incidents.GetAllIncidents(filter);
+    }
+
     public async Task<IncidentLocation?> GetLocationForClickAsync(double latitude, double longitude)
     {
         if (!Coordinates.IsValid(latitude, longitude))
@@ -53,4 +71,3 @@ public class MapService : IMapService
     }
 
 }
-

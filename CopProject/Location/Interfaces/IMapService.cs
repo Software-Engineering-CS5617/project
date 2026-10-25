@@ -7,6 +7,7 @@ public interface IMapService
     List<Incident> GetIncidentsForMap(IncidentFilter? filter = null);
     Incident GetIncidentById(Guid id);
     List<Incident> GetRecentIncidents(TimeSpan window);
+    List<Incident> GetNearbyIncidents(double latitude, double longitude, double radius);
     Task<IncidentLocation?> GetLocationForClickAsync(double latitude, double longitude);
     Task<LocationSearchResult?> SearchAddressAsync(string address);
 }
