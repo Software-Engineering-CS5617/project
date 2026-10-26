@@ -1,8 +1,12 @@
 <UserControl
     x:Class="LocationTracker.Views.LocationMapView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
     <Grid>
-        <WebView2 x:Name="MapView" />
+        <controls:WebView2 x:Name="MapView"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           DefaultBackgroundColor="White" />
     </Grid>
 </UserControl>

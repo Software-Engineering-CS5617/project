@@ -1,5 +1,4 @@
 using Incidents;
-using LocationTracker.Interfaces;
 using LocationTracker.Services;
 using Microsoft.UI.Xaml;
 
@@ -18,7 +17,7 @@ public sealed partial class MainWindow : Window
         _map = new MapService(incidents, geocoding);
 
         var map = new LocationTracker.Views.LocationMapView();
+        RootContent.Content = map;
         map.Initialize(_map);
-        Content.Content = map;
     }
 }

@@ -15,10 +15,18 @@ public sealed partial class LocationMapView : UserControl
         InitializeComponent();
     }
 
-    public void Initialize(IMapService map)
+    public async void Initialize(IMapService map)
     {
         _map = map;
         MapView.NavigationCompleted += MapView_NavigationCompleted;
+        // CoreWebView2 is initialized asynchronously; wait for it before navigating,
+        // otherwise NavigateToString throws "A method was called at an unexpected time."
+        await MapView.EnsureCoreWebView2Async();
+
+        // OpenStreetMap blocks tile requests without a descriptive User-Agent.
+        MapView.CoreWebView2.Settings.UserAgent =
+            "CopProject-LocationTracker/1.0 (https://github.com/Software-Engineering-CS5617/project)";
+
         MapView.NavigateToString(MapPage);
     }
 
