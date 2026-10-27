@@ -6,7 +6,7 @@ namespace Controller;
 // Notification format: "TYPE:payload"
 public static class Protocol
 {
-    public const string ControllerSubscriberId = "CONTROLLER";
+    public const int ControllerSubscriberId = 1;
     public const string Join  = "JOIN";
     public const string Leave = "LEAVE";
     public const string Start = "START";

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using Networking;
 
 namespace Controller;
@@ -15,18 +16,25 @@ public class SessionMessageListener : IMessageListener
         _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
     }
 
-    public void OnMessageReceived(string message)
+    public void OnMessageReceived(byte[] message)
     {
-        if (string.IsNullOrEmpty(message))
+        if (message == null || message.Length == 0)
         {
             Trace.TraceWarning($"Controller received empty message.");
             return;
         }
 
-        string[] parts = message.Split(':');
+        string rawMessage = Encoding.UTF8.GetString(message);
+        if (string.IsNullOrEmpty(rawMessage))
+        {
+            Trace.TraceWarning($"Controller received empty message.");
+            return;
+        }
+
+        string[] parts = rawMessage.Split(':');
         if (parts.Length < 2)
         {
-            Trace.TraceWarning($"Controller received malformed message: {message}");
+            Trace.TraceWarning($"Controller received malformed message: {rawMessage}");
             return;
         }
 

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Text;
 using Networking;
 
 namespace Controller;
@@ -56,7 +58,7 @@ public sealed class ClientController : IControllerService
         _hostPort = hostPort;
 
         string message = Protocol.FormatJoinRequest(userId, NetworkUtils.GetLocalIpAddress(), _communicator.ListenPort);
-        _communicator.SendMessage(hostIp, hostPort, Protocol.ControllerSubscriberId, message);
+        SendToHost(hostIp, hostPort, message);
         Trace.TraceInformation($"Sent JOIN for user '{userId}' to {hostIp}:{hostPort}.");
     }
 
@@ -70,7 +72,7 @@ public sealed class ClientController : IControllerService
         }
 
         string message = Protocol.FormatLeaveRequest(userId);
-        _communicator.SendMessage(_hostIp, _hostPort, Protocol.ControllerSubscriberId, message);
+        SendToHost(_hostIp, _hostPort, message);
         Trace.TraceInformation($"Sent LEAVE for user '{userId}' to {_hostIp}:{_hostPort}.");
 
         // Clear remembered host and local tracking
@@ -78,6 +80,13 @@ public sealed class ClientController : IControllerService
         _hostPort = 0;
         _lastKnownUserCount = 0;
         _knownUsers.Clear();
+    }
+
+    private void SendToHost(string hostIp, int hostPort, string message)
+    {
+        var endPoint = new IPEndPoint(IPAddress.Parse(hostIp), hostPort);
+        byte[] data = Encoding.UTF8.GetBytes(message);
+        _communicator.SendMessage(endPoint, data, Protocol.ControllerSubscriberId, 1);
     }
 
     // Indicates whether the client is currently joined to a host
@@ -136,7 +145,7 @@ public sealed class ClientController : IControllerService
             try
             {
                 string message = Protocol.FormatLeaveRequest(_userId);
-                _communicator.SendMessage(_hostIp, _hostPort, Protocol.ControllerSubscriberId, message);
+                SendToHost(_hostIp, _hostPort, message);
                 Trace.TraceInformation($"Dispose: auto-sent LEAVE for '{_userId}' to {_hostIp}:{_hostPort}.");
             }
             catch (Exception ex)
@@ -161,12 +170,19 @@ internal class ClientNotificationListener : IMessageListener
         _client = client;
     }
 
-    public void OnMessageReceived(string message)
+    public void OnMessageReceived(byte[] message)
     {
-        ParsedMessage? parsed = Protocol.Parse(message);
+        if (message == null || message.Length == 0)
+        {
+            Trace.TraceWarning("Client received empty notification.");
+            return;
+        }
+
+        string messageString = Encoding.UTF8.GetString(message);
+        ParsedMessage? parsed = Protocol.Parse(messageString);
         if (parsed == null)
         {
-            Trace.TraceWarning($"Client received malformed notification: {message}");
+            Trace.TraceWarning($"Client received malformed notification: {messageString}");
             return;
         }
 

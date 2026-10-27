@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Text;
 using Networking;
 
 namespace Controller;
@@ -102,11 +104,13 @@ public sealed class HostController : IControllerService
     // Sends a message to every participant in the given peer list.
     private void BroadcastToSession(List<PeerInfo> peers, string message)
     {
+        byte[] data = Encoding.UTF8.GetBytes(message);
         foreach (PeerInfo peer in peers)
         {
             try
             {
-                _communicator.SendMessage(peer.IpAddress, peer.Port, Protocol.ControllerSubscriberId, message);
+                var endPoint = new IPEndPoint(IPAddress.Parse(peer.IpAddress), peer.Port);
+                _communicator.SendMessage(endPoint, data, Protocol.ControllerSubscriberId, 1);
             }
             catch (Exception ex)
             {
