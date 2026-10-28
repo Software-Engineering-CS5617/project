@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Security;
 
@@ -202,6 +202,25 @@ public class Synchroniser : ISync, IFileOperations
     /// </summary>
     public void Synchronise()
     {
-        throw new NotImplementedException();
+        try
+        {
+            string[] allFiles = Directory.GetFiles(_rootDir, "*", SearchOption.AllDirectories);
+
+            var fileTimestamps = new System.Collections.Generic.Dictionary<string, DateTime>();
+
+            foreach (string filePath in allFiles)
+            {
+                string relativePath = Path.GetRelativePath(_rootDir, filePath);
+                DateTime lastModified = File.GetLastWriteTimeUtc(filePath);
+
+                fileTimestamps[relativePath] = lastModified;
+            }
+
+            OnSyncComplete?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            OnSyncError?.Invoke(ex.Message);
+        }
     }
 }

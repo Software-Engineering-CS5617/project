@@ -5,7 +5,7 @@ namespace Filesync;
 /// <summary>
 /// Declares a synchroniser that can synchronise files across shared folder
 /// </summary>
-public interface ISync
+internal interface ISync
 {
     /// <summary>
     /// Does the syncing process for the synchroniser

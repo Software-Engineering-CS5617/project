@@ -48,10 +48,6 @@ participant---our AI.
     behavior here is very similar to the behavior in the main chatroom.
     - Users can reply to particular messages in a thread as well, but they
     cannot create another thread (there can only be one level of threading).
-    - In case there is an important message that needs to be put in the thread
-    as well as in the main chat, users can check a box to specify the same and
-    the message shows up in the main chat as well. For such a message, the main
-    chat's UI also provides a link to the thread.
 - Reactions
     - Users can react to messages with a particular emoji.
     - Reaction counts are accumulated and displayed in the UI.
