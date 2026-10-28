@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Incidents;
 using LocationTracker.Interfaces;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.UI.Xaml;
@@ -39,8 +40,10 @@ public sealed partial class LocationMapView : UserControl
             return;
         }
 
+        var filter = BuildFilter();
+
         string incidents = JsonSerializer.Serialize(
-            _map.GetIncidentsForMap().Select(incident => new
+            _map.GetIncidentsForMap(filter).Select(incident => new
             {
                 incident.Title,
                 incident.Description,
@@ -53,6 +56,46 @@ public sealed partial class LocationMapView : UserControl
             }));
 
         await MapView.ExecuteScriptAsync($"renderIncidents({incidents});");
+    }
+
+    private IncidentFilter BuildFilter()
+    {
+        string? title = string.IsNullOrWhiteSpace(TitleFilterBox.Text)
+            ? null : TitleFilterBox.Text;
+
+        IncidentCategory? category = ReadEnum<IncidentCategory>(CategoryFilterBox);
+        IncidentSeverity? severity = ReadEnum<IncidentSeverity>(SeverityFilterBox);
+        IncidentStatus? status = ReadEnum<IncidentStatus>(StatusFilterBox);
+
+        DateTime? from = FromDatePicker.Date?.DateTime;
+        DateTime? to = ToDatePicker.Date?.DateTime;
+
+        return new IncidentFilter(title, status, category, severity, from, to, null, null);
+    }
+
+    private T? ReadEnum<T>(ComboBox box) where T : struct, Enum
+    {
+        if (box.SelectedItem is ComboBoxItem item)
+        {
+            string text = item.Content?.ToString() ?? "";
+            if (text != "All" && Enum.TryParse<T>(text, out var result))
+            {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    private void FilterChanged(object sender, object e)
+    {
+        // Ignore changes during initialization (before _map and CoreWebView2 are ready).
+        if (_map is null || MapView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        // Reload the map page so NavigationCompleted fires again with the new filter.
+        MapView.NavigateToString(MapPage);
     }
 
     private const string MapPage = """

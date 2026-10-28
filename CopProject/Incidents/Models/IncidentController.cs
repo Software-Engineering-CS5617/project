@@ -49,12 +49,38 @@ public class IncidentController : IIncidentController
     {
         IEnumerable<Incident> incidents = _incidents;
 
-        if (filter?.FromDateTime is DateTime from)
+        if (filter is null)
+        {
+            return incidents.ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Title))
+        {
+            string title = filter.Title;
+            incidents = incidents.Where(incident => incident.Title.Contains(title));
+        }
+
+        if (filter.Status is IncidentStatus status)
+        {
+            incidents = incidents.Where(incident => incident.Status == status);
+        }
+
+        if (filter.Category is IncidentCategory category)
+        {
+            incidents = incidents.Where(incident => incident.Category == category);
+        }
+
+        if (filter.Severity is IncidentSeverity severity)
+        {
+            incidents = incidents.Where(incident => incident.Severity == severity);
+        }
+
+        if (filter.FromDateTime is DateTime from)
         {
             incidents = incidents.Where(incident => incident.CreationTime >= from);
         }
 
-        if (filter?.ToDateTime is DateTime to)
+        if (filter.ToDateTime is DateTime to)
         {
             incidents = incidents.Where(incident => incident.CreationTime <= to);
         }

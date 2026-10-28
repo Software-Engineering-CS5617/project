@@ -4,9 +4,66 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls">
     <Grid>
-        <controls:WebView2 x:Name="MapView"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Stretch"
-                           DefaultBackgroundColor="White" />
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Filter panel -->
+        <Border Grid.Column="0" Background="#EDEDED" Padding="16"
+                BorderBrush="#BDBDBD" BorderThickness="0,0,1,0">
+            <StackPanel Spacing="14">
+                <TextBlock Text="Map Filters" FontSize="22" FontWeight="Bold" Margin="0,0,0,10" Foreground="Black"/>
+
+                <TextBlock Text="Title contains" FontSize="14" FontWeight="SemiBold" Foreground="Black"/>
+                <TextBox x:Name="TitleFilterBox"
+                         Foreground="Black"
+                         SelectionChanged="FilterChanged" />
+
+                <TextBlock Text="Category" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
+                <ComboBox x:Name="CategoryFilterBox" SelectedIndex="0" Foreground="Black"
+                          SelectionChanged="FilterChanged">
+                    <ComboBoxItem Content="All" Foreground="Black"/>
+                    <ComboBoxItem Content="DrunkDriving" Foreground="Black"/>
+                    <ComboBoxItem Content="Theft" Foreground="Black"/>
+                    <ComboBoxItem Content="Accident" Foreground="Black"/>
+                </ComboBox>
+
+                <TextBlock Text="Severity" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
+                <ComboBox x:Name="SeverityFilterBox" SelectedIndex="0" Foreground="Black"
+                          SelectionChanged="FilterChanged">
+                    <ComboBoxItem Content="All" Foreground="Black"/>
+                    <ComboBoxItem Content="Low" Foreground="Black"/>
+                    <ComboBoxItem Content="Medium" Foreground="Black"/>
+                    <ComboBoxItem Content="High" Foreground="Black"/>
+                    <ComboBoxItem Content="Critical" Foreground="Black"/>
+                </ComboBox>
+
+                <TextBlock Text="Status" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
+                <ComboBox x:Name="StatusFilterBox" SelectedIndex="0" Foreground="Black"
+                          SelectionChanged="FilterChanged">
+                    <ComboBoxItem Content="All" Foreground="Black"/>
+                    <ComboBoxItem Content="Reported" Foreground="Black"/>
+                    <ComboBoxItem Content="InProgress" Foreground="Black"/>
+                    <ComboBoxItem Content="Resolved" Foreground="Black"/>
+                </ComboBox>
+
+                <TextBlock Text="From date" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
+                <CalendarDatePicker x:Name="FromDatePicker" Foreground="Black"
+                                    DateChanged="FilterChanged" />
+
+                <TextBlock Text="To date" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
+                <CalendarDatePicker x:Name="ToDatePicker" Foreground="Black"
+                                    DateChanged="FilterChanged" />
+            </StackPanel>
+        </Border>
+
+        <!-- Map area -->
+        <Grid Grid.Column="1">
+            <controls:WebView2 x:Name="MapView"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"
+                               DefaultBackgroundColor="White" />
+        </Grid>
     </Grid>
 </UserControl>
