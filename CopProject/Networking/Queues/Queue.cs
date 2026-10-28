@@ -16,8 +16,6 @@ public class Queue : IQueue
 {
     private ConcurrentQueue<Packet> _queue;
 
-    private readonly object _lock;
-
     public Queue()
     {
         this._queue = new ConcurrentQueue<Packet>();
@@ -30,10 +28,10 @@ public class Queue : IQueue
         _queue.Enqueue(packet);
     }
 
-    public Packet Dequeue()
+    public Packet? Dequeue()
     {
         Trace.WriteLine($"[Networking] Dequeuing to the queue {this.GetType().Name}");
-        if (!_queue.TryDequeue(out Packet top))
+        if (!_queue.TryDequeue(out Packet? top))
         {
             Trace.WriteLine($"[Networking] Unable to dequeue {this.GetType().Name}, queue is empty");
         }
@@ -41,9 +39,9 @@ public class Queue : IQueue
     }
 
 
-    public Packet Peek()
+    public Packet? Peek()
     {
-        if (!_queue.TryPeek(out Packet peek))
+        if (!_queue.TryPeek(out Packet? peek))
         {
             Trace.WriteLine($"[Networking] Unable to peek {this.GetType().Name}, queue is empty");
         }

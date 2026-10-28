@@ -11,9 +11,9 @@ public interface IQueue
 {
     public void Enqueue(Packet packet);
 
-    public Packet Dequeue();
+    public Packet? Dequeue();
 
-    public Packet Peek();
+    public Packet? Peek();
 
     public void Clear();
 
