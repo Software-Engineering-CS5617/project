@@ -1,6 +1,6 @@
 ﻿using System.Text;
+using Cloud.Persistence;
 using Microsoft.Azure.Cosmos;
-using Persistence;
 
 /// <summary>
 /// Some console-based unit tests

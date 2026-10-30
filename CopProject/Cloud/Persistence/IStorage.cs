@@ -1,4 +1,4 @@
-﻿namespace Persistence;
+﻿namespace Cloud.Persistence;
 
 // All CRUD operations are asynchronous
 // Applications module interacts with the Persistence module through this interface

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Persistence;
+namespace Cloud.Persistence;
 
 /// <summary>
 /// This enum defines the different modules that can use the persistence layer.
