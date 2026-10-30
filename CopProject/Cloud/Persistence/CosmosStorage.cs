@@ -1,7 +1,7 @@
-﻿using Cloud.Persistence;
-using Microsoft.Azure.Cosmos;
+﻿using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
 
+namespace Cloud.Persistence;
 /// <summary>
 /// Implements IStorage using Azure Cosmos DB
 /// </summary>

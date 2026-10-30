@@ -1,5 +1,6 @@
-﻿using Cloud.Persistence;
-using Microsoft.Azure.Cosmos;
+﻿using Microsoft.Azure.Cosmos;
+
+namespace Cloud.Persistence;
 
 /// <summary>
 /// Creates IStorage instances for application modules
