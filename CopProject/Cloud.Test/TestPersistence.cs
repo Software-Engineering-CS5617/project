@@ -1,97 +1,103 @@
-﻿using System.Text;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+
+using System.Text;
 using Cloud.Persistence;
-using Microsoft.Azure.Cosmos;
 
-/// <summary>
-/// Some console-based unit tests
-/// </summary>
-public class Program
+namespace Cloud.Test;
+
+[TestClass]
+public class TestPersistence
 {
-    /// <summary>
-    /// Tests for CRUD, Concurrency control using ETags
-    /// </summary>
-    public static async Task Main()
+    private IStorage _storage = null!;
+
+    [TestInitialize]
+    public async Task Setup()
     {
-        IStorage storage =
-                await StorageFactory.CreateAsync(ModuleType.Chat);
-        try
-        {
-            // test 1
-            Console.WriteLine("Test 1 : Create, Read, Update, Delete");
-            string key = "message-011";
+        _storage = await StorageFactory.CreateAsync(ModuleType.Chat);
+    }
 
-            bool created = await storage.Create(key, Encoding.UTF8.GetBytes("Hello from Chat1"));
-            Console.WriteLine($"Item created: {created}");
+    /// <summary>
+    /// Test 1: Create, Read, Update, Delete.
+    /// </summary>
+    [TestMethod]
+    public async Task TestCRUD()
+    {
+        string key = "message-011";
 
-            (bool Success, byte[] Data) readResult = await storage.Read(key);
-            Console.WriteLine($"Read: {Encoding.UTF8.GetString(readResult.Data)}");
+        bool created = await _storage.Create(key, Encoding.UTF8.GetBytes("Hello from Chat1"));
+        Console.WriteLine($"Item created: {created}");
 
-            // you have to read the etag before updating, and pass it to the update method
-            (bool Success, string Etag) etagResult = await storage.ReadEtag(key);
-            bool updated = await storage.Update(key, Encoding.UTF8.GetBytes("Updated message"), etagResult.Etag);
-            Console.WriteLine($"Item updated: {updated}");
+        (bool Success, byte[] Data) readResult = await _storage.Read(key);
+        Console.WriteLine($"Read: {Encoding.UTF8.GetString(readResult.Data)}");
 
-            (bool Success, byte[] Data) readAfterUpdate = await storage.Read(key);
-            Console.WriteLine(
-                $"Read bytes after update: {string.Join(", ", readAfterUpdate.Data)}");
+        (bool Success, string Etag) etagResult = await _storage.ReadEtag(key);
+        bool updated = await _storage.Update(key, Encoding.UTF8.GetBytes("Updated message"), etagResult.Etag);
+        Console.WriteLine($"Item updated: {updated}");
 
-            Console.WriteLine(
-                $"Read data after update: {Encoding.UTF8.GetString(readAfterUpdate.Data)}");
+        (bool Success, byte[] Data) readAfterUpdate = await _storage.Read(key);
+        Console.WriteLine(
+            $"Read bytes after update: {string.Join(", ", readAfterUpdate.Data)}");
 
-            bool deleted = await storage.Delete(key);
-            Console.WriteLine($"Item deleted: {deleted}");
+        Console.WriteLine(
+            $"Read data after update: {Encoding.UTF8.GetString(readAfterUpdate.Data)}");
 
-            // test 2
-            Console.WriteLine("\nTest 2 : Create, Read, Update, Delete");
-            string key2 = "message-019";
+        bool deleted = await _storage.Delete(key);
+        Console.WriteLine($"Item deleted: {deleted}");
 
-            await storage.Create(key2, Encoding.UTF8.GetBytes("Hello from Chat2"));
+    }
 
-            (bool Success, string Etag) etagResult2 = await storage.ReadEtag(key2);
-            await storage.Update(key2, Encoding.UTF8.GetBytes("Updated message from Chat2"), etagResult2.Etag);
+    /// <summary>
+    /// Test 2: Create, Read, Update, Delete.
+    /// </summary>
+    [TestMethod]
+    public async Task TestUpdate()
+    {
+        string key2 = "message-019";
 
-            (bool Success, byte[] Data) readResult2 = await storage.Read(key2);
-            Console.WriteLine($"Read data from key2: {Encoding.UTF8.GetString(readResult2.Data)}");
+        await _storage.Create(key2, Encoding.UTF8.GetBytes("Hello from Chat2"));
 
-            await storage.Delete(key2);
+        (bool Success, string Etag) etagResult2 = await _storage.ReadEtag(key2);
+        await _storage.Update(key2, Encoding.UTF8.GetBytes("Updated message from Chat2"), etagResult2.Etag);
 
-            // test 3: Simulate concurrent updates
-            Console.WriteLine("\nTest 3 : Simulating concurrent updates");
 
-            string key3 = "incident-025";
-            await storage.Create(
-                            key3,
-                            Encoding.UTF8.GetBytes("Incident reported"));
-            Console.WriteLine("Initial incident created.");
+        (bool Success, byte[] Data) readResult2 = await _storage.Read(key2);
+        Console.WriteLine($"Read data from key2: {Encoding.UTF8.GetString(readResult2.Data)}");
 
-            // Simulate two users reading the same version.
-            (bool Success, string Etag) etagResultB = await storage.ReadEtag(key3);
-            (bool Success, string Etag) etagResultC = await storage.ReadEtag(key3);
 
-            byte[] dataB = Encoding.UTF8.GetBytes("Update B");
-            byte[] dataC = Encoding.UTF8.GetBytes("Update C");
+        await _storage.Delete(key2);
+    }
 
-            // Both users attempt to update concurrently.
-            Task<bool> updateB = storage.Update(key3, dataB, etagResultB.Etag);
-            Task<bool> updateC = storage.Update(key3, dataC, etagResultC.Etag);
+    /// <summary>
+    /// Test 3: Simulate concurrent updates.
+    /// </summary>
+    [TestMethod]
+    public async Task TestConcurrentUpdates()
+    {
+        string key3 = "incident-025";
 
-            bool resultB = await updateB;
-            bool resultC = await updateC;
+        await _storage.Create(key3, Encoding.UTF8.GetBytes("Incident reported"));
+        Console.WriteLine("Initial incident created.");
 
-            Console.WriteLine($"User B update: {resultB}");
-            Console.WriteLine($"User C update: {resultC}");
+        (bool Success, string Etag) etagResultB = await _storage.ReadEtag(key3);
+        (bool Success, string Etag) etagResultC = await _storage.ReadEtag(key3);
 
-            (bool Success, byte[] Data) latestResult = await storage.Read(key3);
+        byte[] dataB = Encoding.UTF8.GetBytes("Update B");
+        byte[] dataC = Encoding.UTF8.GetBytes("Update C");
 
-            Console.WriteLine(
-                $"Final incident data: {Encoding.UTF8.GetString(latestResult.Data)}");
+        Task<bool> updateB = _storage.Update(key3, dataB, etagResultB.Etag);
+        Task<bool> updateC = _storage.Update(key3, dataC, etagResultC.Etag);
 
-            await storage.Delete(key3);
-        }
-        catch (CosmosException ex)
-        {
-            Console.WriteLine($"Cosmos error : {ex.Message}");
-        }
+        bool resultB = await updateB;
+        bool resultC = await updateC;
+
+        Console.WriteLine($"User B update: {resultB}");
+        Console.WriteLine($"User C update: {resultC}");
+        (bool Success, byte[] Data) latestResult = await _storage.Read(key3);
+        Console.WriteLine(
+            $"Final incident data: {Encoding.UTF8.GetString(latestResult.Data)}");
+
+        await _storage.Delete(key3);
     }
 }
-
