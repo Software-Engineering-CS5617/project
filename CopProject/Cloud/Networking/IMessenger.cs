@@ -15,9 +15,9 @@ public interface IMessenger
     Task ConnectAsync();
 
     /// <summary>
-    /// Sends a message to the server.
+    /// Sends content of message to the server.
     /// </summary>
-    Task SendMessageAsync(string message);
+    Task SendMessageAsync(string content);
 
     /// <summary>
     /// Disconnects from the server.
@@ -27,5 +27,5 @@ public interface IMessenger
     /// <summary>
     /// Notify the subscribers when a message is received.
     /// </summary>
-    event Action<string>? MessageReceived;
+    event Action<Message>? MessageReceived;
 }

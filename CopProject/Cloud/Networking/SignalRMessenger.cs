@@ -12,7 +12,7 @@ namespace Cloud.Networking;
 public sealed class SignalRMessenger : IMessenger, IAsyncDisposable
 {
     private readonly HubConnection _connection;
-    public event Action<string>? MessageReceived;
+    public event Action<Message>? MessageReceived;
 
     /// <summary>
     /// Build a hub connection and register a handler.
@@ -25,7 +25,7 @@ public sealed class SignalRMessenger : IMessenger, IAsyncDisposable
             .WithAutomaticReconnect()
             .Build();
 
-        _connection.On<string>(
+        _connection.On<Message>(
             Contract.ReceiveMessage,
             message => MessageReceived?.Invoke(message));
     }
@@ -39,11 +39,11 @@ public sealed class SignalRMessenger : IMessenger, IAsyncDisposable
     }
 
     /// <summary>
-    /// Sends a message to the server.
+    /// Sends the content of a message to the server.
     /// </summary>
-    public async Task SendMessageAsync(string message)
+    public async Task SendMessageAsync(string content)
     {
-        await _connection.InvokeAsync(Contract.SendMessage, message);
+        await _connection.InvokeAsync(Contract.SendMessage, content);
     }
 
     /// <summary>
