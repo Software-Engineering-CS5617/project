@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 
+namespace Cloud.Persistence;
 /// <summary>
 /// Represents one item stored in a Cosmos DB container
 /// Each item is a key-value pair
