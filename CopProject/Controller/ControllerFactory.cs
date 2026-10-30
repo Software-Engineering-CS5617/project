@@ -19,9 +19,6 @@ public static class ControllerFactory
     // Creates a client-side controller that can join and leave remote meetings
     public static IControllerService CreateClient(string userId)
     {
-        var defaultEndPoint = new IPEndPoint(IPAddress.Loopback, 0);
-        ICommunicator communicator = CommunicatorFactory.CreateCommunicator(defaultEndPoint, isServer: false, isClient: true)
-            ?? throw new InvalidOperationException("Failed to create client communicator.");
-        return new ClientController(userId, communicator);
+        return new ClientController(userId);
     }
 }

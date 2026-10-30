@@ -24,6 +24,8 @@ public sealed class HostController : IControllerService
 
     public int ListenPort => _communicator.ListenPort;
 
+    public bool IsMeetingActive => _sessionManager.HasActiveSession();
+
     public SessionManager SessionManager => _sessionManager;
 
     public HostController(string hostUserId, ICommunicator communicator)
@@ -78,7 +80,7 @@ public sealed class HostController : IControllerService
             Trace.TraceWarning("EndMeeting failed.");
             return false;
         }
-
+        
         // Broadcast end notification to all participants
         BroadcastToSession(peers, Protocol.FormatNotification(Protocol.NotifySessionEnded, _hostUserId));
         Trace.TraceInformation($"Meeting ended by host '{_hostUserId}'.");
@@ -107,6 +109,9 @@ public sealed class HostController : IControllerService
         byte[] data = Encoding.UTF8.GetBytes(message);
         foreach (PeerInfo peer in peers)
         {
+            // Do not send broadcast packets to the host itself
+            if (peer.Port == _communicator.ListenPort) continue;
+
             try
             {
                 var endPoint = new IPEndPoint(IPAddress.Parse(peer.IpAddress), peer.Port);
@@ -126,7 +131,8 @@ public sealed class HostController : IControllerService
         UserJoined?.Invoke(this, e);
 
         List<PeerInfo> peers = _sessionManager.GetPeers();
-        BroadcastToSession(peers, Protocol.FormatNotification(Protocol.NotifyUserJoined, $"{e.UserId}:{e.NewCount}"));
+        string userList = string.Join(",", _sessionManager.GetActiveUsers());
+        BroadcastToSession(peers, Protocol.FormatNotification(Protocol.NotifyUserJoined, $"{e.UserId}:{e.NewCount}:{userList}"));
     }
 
     private void OnUserLeft(object? sender, UserLeftEventArgs e)
@@ -134,8 +140,9 @@ public sealed class HostController : IControllerService
         UserLeft?.Invoke(this, e);
 
         List<PeerInfo> peers = _sessionManager.GetPeers();
+        string userList = string.Join(",", _sessionManager.GetActiveUsers());
         BroadcastToSession(peers, Protocol.FormatNotification(
-            Protocol.NotifyUserLeft, $"{e.UserId}:{e.NewCount}"));
+            Protocol.NotifyUserLeft, $"{e.UserId}:{e.NewCount}:{userList}"));
     }
 
     private void OnCountChanged(object? sender, CountChangedEventArgs e)

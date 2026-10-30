@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Controller;
 
 // ── Thin test harness — no business logic here ───────────────────────
@@ -56,17 +56,36 @@ void RunHost()
                 break;
 
             case "end":
+                if (host is HostController hcEnd && !hcEnd.IsMeetingActive)
+                {
+                    Console.WriteLine("You're not in a meeting.");
+                    break;
+                }
                 bool ended = host.EndMeeting();
                 Console.WriteLine(ended ? "Meeting ended." : "Failed to end meeting.");
                 break;
 
             case "count":
-                Console.WriteLine($"{host.GetActiveUserCount()} user(s) online");
+                if (host is HostController hcCount && !hcCount.IsMeetingActive)
+                {
+                    Console.WriteLine("You're not in a meeting.");
+                }
+                else
+                {
+                    Console.WriteLine($"{host.GetActiveUserCount()} user(s) online");
+                }
                 break;
 
             case "users":
-                List<string> users = host.GetActiveUsers();
-                Console.WriteLine($"{users.Count} user(s): {string.Join(", ", users)}");
+                if (host is HostController hcUsers && !hcUsers.IsMeetingActive)
+                {
+                    Console.WriteLine("You're not in a meeting.");
+                }
+                else
+                {
+                    List<string> users = host.GetActiveUsers();
+                    Console.WriteLine($"{users.Count} user(s): {string.Join(", ", users)}");
+                }
                 break;
 
             case "quit":
@@ -92,8 +111,8 @@ void RunClient()
     client.UserLeft += (_, e) => Console.WriteLine($"  - {e.UserId} left (total: {e.NewCount})");
     client.SessionEnded += (_, e) => Console.WriteLine($"  ■ Meeting ended");
 
-    Console.WriteLine($"Client listening on port {client.ListenPort}");
-    Console.WriteLine("Commands: join <hostIp> <hostPort> | leave | users | quit");
+    Console.WriteLine($"Client initialized for user '{userId}'.");
+    Console.WriteLine("Commands: join <hostIp> <hostPort> | leave | users | count | quit");
 
     while (true)
     {
@@ -108,7 +127,7 @@ void RunClient()
         {
             case "join" when parts.Length >= 3:
                 client.JoinMeeting(parts[1], int.Parse(parts[2]), userId);
-                Console.WriteLine($"Connecting to {parts[1]}:{parts[2]}...");
+                Console.WriteLine($"Connected to {parts[1]}:{parts[2]} (local port: {client.ListenPort}).");
                 break;
 
             case "leave":
@@ -148,7 +167,7 @@ void RunClient()
                 return;
 
             default:
-                Console.WriteLine("Usage: join <hostIp> <hostPort> | leave | users | quit");
+                Console.WriteLine("Usage: join <hostIp> <hostPort> | leave | users | count | quit");
                 break;
         }
     }

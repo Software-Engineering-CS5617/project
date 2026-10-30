@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -58,7 +58,7 @@ public class SocketListener : IDisposable
                 int bytesRead = stream.Read(_receivedBuffer, 0, BufferSize);
                 if (bytesRead == 0)
                 {
-                    Trace.WriteLine("[Networking] Host disconnected.");
+                    Trace.WriteLine("[Networking] Remote endpoint disconnected.");
                     break;
                 }
                 incomingData.Seek(0, SeekOrigin.End);

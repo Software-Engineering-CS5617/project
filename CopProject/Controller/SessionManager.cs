@@ -78,6 +78,8 @@ public class SessionManager
 
             if (!session.End())
                 return false;
+
+            _session = null;
         }
 
         SessionEnded?.Invoke(this, new SessionEndedEventArgs(requestingUserId));
@@ -132,6 +134,7 @@ public class SessionManager
     {
         lock (_lock)
         {
+            if (!HasActiveSession()) return 0;
             return _session?.PeerCount ?? 0;
         }
     }
@@ -141,6 +144,7 @@ public class SessionManager
     {
         lock (_lock)
         {
+            if (!HasActiveSession()) return new List<string>();
             return _session?.GetUserIds() ?? new List<string>();
         }
     }

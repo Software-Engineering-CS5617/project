@@ -10,7 +10,7 @@ namespace Controller;
 public sealed class ClientController : IControllerService
 {
     private readonly string _userId;
-    private readonly ICommunicator _communicator;
+    private ICommunicator? _communicator;
     private bool _disposed;
     private string? _hostIp;
     private int _hostPort;
@@ -26,14 +26,14 @@ public sealed class ClientController : IControllerService
     public event EventHandler<UserLeftEventArgs>? UserLeft;
     public event EventHandler<CountChangedEventArgs>? CountChanged;
 
-    public int ListenPort => _communicator.ListenPort;
+    public int ListenPort => _communicator?.ListenPort ?? 0;
 
-    public ClientController(string userId, ICommunicator communicator)
+    public ClientController(string userId, ICommunicator? communicator = null)
     {
         _userId = userId ?? throw new ArgumentNullException(nameof(userId));
-        _communicator = communicator ?? throw new ArgumentNullException(nameof(communicator));
-        // Subscribe to incoming notifications from the host
-        _communicator.AddSubscriber(Protocol.ControllerSubscriberId, new ClientNotificationListener(this));
+        _communicator = communicator;
+        // Subscribe to incoming notifications from the host if communicator was provided upfront
+        _communicator?.AddSubscriber(Protocol.ControllerSubscriberId, new ClientNotificationListener(this));
     }
     // IControllerService functions implementation 
 
@@ -57,6 +57,19 @@ public sealed class ClientController : IControllerService
         _hostIp = hostIp;
         _hostPort = hostPort;
 
+        if (_communicator == null)
+        {
+            var serverEndPoint = new IPEndPoint(IPAddress.Parse(hostIp), hostPort);
+            _communicator = CommunicatorFactory.CreateCommunicator(serverEndPoint, isServer: false, isClient: true)
+                ?? throw new InvalidOperationException($"Failed to connect to host at {hostIp}:{hostPort}.");
+            _communicator.AddSubscriber(Protocol.ControllerSubscriberId, new ClientNotificationListener(this));
+        }
+
+        lock (_knownUsers)
+        {
+            _knownUsers.Add(userId);
+        }
+
         string message = Protocol.FormatJoinRequest(userId, NetworkUtils.GetLocalIpAddress(), _communicator.ListenPort);
         SendToHost(hostIp, hostPort, message);
         Trace.TraceInformation($"Sent JOIN for user '{userId}' to {hostIp}:{hostPort}.");
@@ -75,15 +88,37 @@ public sealed class ClientController : IControllerService
         SendToHost(_hostIp, _hostPort, message);
         Trace.TraceInformation($"Sent LEAVE for user '{userId}' to {_hostIp}:{_hostPort}.");
 
+        // Allow background SendingQueueListenerClient thread to flush the LEAVE packet before closing socket
+        Thread.Sleep(150);
+
         // Clear remembered host and local tracking
         _hostIp = null;
         _hostPort = 0;
         _lastKnownUserCount = 0;
-        _knownUsers.Clear();
+        lock (_knownUsers)
+        {
+            _knownUsers.Clear();
+        }
+
+        if (_communicator != null)
+        {
+            _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
+            if (_communicator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+            _communicator = null;
+        }
     }
 
     private void SendToHost(string hostIp, int hostPort, string message)
     {
+        if (_communicator == null)
+        {
+            Trace.TraceWarning("SendToHost called but communicator is not initialized.");
+            return;
+        }
+
         var endPoint = new IPEndPoint(IPAddress.Parse(hostIp), hostPort);
         byte[] data = Encoding.UTF8.GetBytes(message);
         _communicator.SendMessage(endPoint, data, Protocol.ControllerSubscriberId, 1);
@@ -96,13 +131,19 @@ public sealed class ClientController : IControllerService
     // Returns the user count tracked from host broadcast notifications.
     public int GetActiveUserCount()
     {
-        return _knownUsers.Count > 0 ? _knownUsers.Count : _lastKnownUserCount;
+        lock (_knownUsers)
+        {
+            return _knownUsers.Count > 0 ? _knownUsers.Count : _lastKnownUserCount;
+        }
     }
 
     /// Returns the  user list, updated from host broadcast notifications.
     public List<string> GetActiveUsers()
     {
-        return _knownUsers.ToList();
+        lock (_knownUsers)
+        {
+            return _knownUsers.ToList();
+        }
     }
 
     // fire events from notification listener ─────────────
@@ -113,7 +154,19 @@ public sealed class ClientController : IControllerService
         _hostIp = null;
         _hostPort = 0;
         _lastKnownUserCount = 0;
-        _knownUsers.Clear();
+        lock (_knownUsers)
+        {
+            _knownUsers.Clear();
+        }
+        if (_communicator != null)
+        {
+            _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
+            if (_communicator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+            _communicator = null;
+        }
         SessionEnded?.Invoke(this, e);
     }
     internal void RaiseUserJoined(UserJoinedEventArgs e) => UserJoined?.Invoke(this, e);
@@ -123,11 +176,33 @@ public sealed class ClientController : IControllerService
     // Updates the locally cached user count from broadcast notifications.
     internal void UpdateUserCount(int count) => _lastKnownUserCount = count;
 
+    internal void AddKnownUser(string userId)
+    {
+        lock (_knownUsers)
+        {
+            _knownUsers.Add(userId);
+        }
+    }
+
+    internal void RemoveKnownUser(string userId)
+    {
+        lock (_knownUsers)
+        {
+            _knownUsers.Remove(userId);
+        }
+    }
+
     internal void SyncUserList(IEnumerable<string> userIds)
     {
-        _knownUsers.Clear();
-        foreach (string id in userIds)
-            _knownUsers.Add(id);
+        lock (_knownUsers)
+        {
+            _knownUsers.Clear();
+            foreach (string id in userIds)
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                    _knownUsers.Add(id.Trim());
+            }
+        }
     }
 
     public int GetLastKnownUserCount() => _lastKnownUserCount;
@@ -146,6 +221,7 @@ public sealed class ClientController : IControllerService
             {
                 string message = Protocol.FormatLeaveRequest(_userId);
                 SendToHost(_hostIp, _hostPort, message);
+                Thread.Sleep(150);
                 Trace.TraceInformation($"Dispose: auto-sent LEAVE for '{_userId}' to {_hostIp}:{_hostPort}.");
             }
             catch (Exception ex)
@@ -154,8 +230,20 @@ public sealed class ClientController : IControllerService
             }
         }
 
-        _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
-        _knownUsers.Clear();
+        if (_communicator != null)
+        {
+            _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
+            if (_communicator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+            _communicator = null;
+        }
+
+        lock (_knownUsers)
+        {
+            _knownUsers.Clear();
+        }
     }
 }
 
@@ -190,23 +278,41 @@ internal class ClientNotificationListener : IMessageListener
         {
             case Protocol.NotifyUserJoined:
                 {
-                    // Wire format: USER_JOINED:userId:count
+                    // Wire format: USER_JOINED:userId:count[:user1,user2,...]
                     string userId = parsed.UserId;
                     int count = parsed.Extra.Length > 0 && int.TryParse(parsed.Extra[0], out int c) ? c : 0;
                     _client.RaiseUserJoined(new UserJoinedEventArgs(userId, count));
                     _client.RaiseCountChanged(new CountChangedEventArgs(count));
                     _client.UpdateUserCount(count);
+
+                    if (parsed.Extra.Length > 1 && !string.IsNullOrWhiteSpace(parsed.Extra[1]))
+                    {
+                        _client.SyncUserList(parsed.Extra[1].Split(',', StringSplitOptions.RemoveEmptyEntries));
+                    }
+                    else
+                    {
+                        _client.AddKnownUser(userId);
+                    }
                     break;
                 }
 
             case Protocol.NotifyUserLeft:
                 {
-                    // Wire format: USER_LEFT:userId:count
+                    // Wire format: USER_LEFT:userId:count[:user1,user2,...]
                     string userId = parsed.UserId;
                     int count = parsed.Extra.Length > 0 && int.TryParse(parsed.Extra[0], out int c) ? c : 0;
                     _client.RaiseUserLeft(new UserLeftEventArgs(userId, count));
                     _client.RaiseCountChanged(new CountChangedEventArgs(count));
                     _client.UpdateUserCount(count);
+
+                    if (parsed.Extra.Length > 1 && !string.IsNullOrWhiteSpace(parsed.Extra[1]))
+                    {
+                        _client.SyncUserList(parsed.Extra[1].Split(',', StringSplitOptions.RemoveEmptyEntries));
+                    }
+                    else
+                    {
+                        _client.RemoveKnownUser(userId);
+                    }
                     break;
                 }
 
