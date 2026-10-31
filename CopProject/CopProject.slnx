@@ -14,5 +14,6 @@
     <Project Path="Networking.Test/Networking.Test.csproj" />
     <Project Path="Screenshare/Screenshare.csproj" />
     <Project Path="UX/UX.csproj" />
+    <Project Path="Whiteboard.Test/Whiteboard.Test.csproj" Id="4985b7d2-c02f-4b5d-9b55-8029388e0c16" />
     <Project Path="Whiteboard/Whiteboard.csproj" />
 </Solution>
