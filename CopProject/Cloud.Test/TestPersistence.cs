@@ -15,6 +15,12 @@ public class TestPersistence
     [TestInitialize]
     public async Task Setup()
     {
+
+        // CI has no COSMOS_KEY. Skip instead of failing
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("COSMOS_KEY")))
+        {
+            Assert.Inconclusive("COSMOS_KEY is not set, skipping Cosmos integration tests.");
+        }
         _storage = await StorageFactory.CreateAsync(ModuleType.Chat);
     }
 
