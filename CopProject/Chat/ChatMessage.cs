@@ -128,4 +128,23 @@ public class ChatMessage : IChatMessage
             return true;
         }
     }
+
+    /// <summary>
+    /// Copies mutable state from a ChatMessage.
+    /// </summary>
+    /// <param name="source">The source ChatMessage object.</param>
+    internal void CopyMutableStateFrom(ChatMessage source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        Content = source.Content;
+        EditCount = source.EditCount;
+        DeletedByUser = source.DeletedByUser;
+        ParentMessageId = source.ParentMessageId;
+
+        foreach ((string emoji, HashSet<string> users) in source.Reactions)
+        {
+            Reactions.Add(emoji, new HashSet<string>(users));
+        }
+    }
 }
