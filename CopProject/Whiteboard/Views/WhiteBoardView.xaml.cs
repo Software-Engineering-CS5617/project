@@ -1,6 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Whiteboard.Items;
+using Whiteboard.Models;
 
 namespace Whiteboard.Views;
 

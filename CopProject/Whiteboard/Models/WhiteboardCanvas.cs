@@ -3,11 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Whiteboard.Interfaces;
 
-namespace Whiteboard;
+namespace Whiteboard.Models;
 
 public class WhiteboardCanvas : IWhiteboard
 {
     public IDictionary<Guid, IItem> Items { get; set; } = new Dictionary<Guid, IItem>();
+
+    public event Action<IItem> ItemAdded = delegate { };
+    public event Action<Guid> ItemDeleted = delegate { };
+    public event Action<IItem> ItemUpdated = delegate { };
 
     public void AddItem(IItem item)
     {
@@ -17,11 +21,18 @@ public class WhiteboardCanvas : IWhiteboard
         }
 
         Items[item.Id] = item;
+        ItemAdded(item);
     }
 
     public bool DeleteItem(Guid guid)
     {
-        return Items.Remove(guid);
+        if (!Items.Remove(guid))
+        {
+            return false;
+        }
+
+        ItemDeleted(guid);
+        return true;
     }
 
     public bool EditItem(IItem item)
@@ -37,6 +48,7 @@ public class WhiteboardCanvas : IWhiteboard
         }
 
         Items[item.Id] = item;
+        ItemUpdated(item);
         return true;
     }
 
