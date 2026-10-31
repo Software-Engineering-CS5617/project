@@ -2,19 +2,22 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+#nullable enable
+
 using System;
 using Whiteboard.Interfaces;
 using Whiteboard.Items;
 using Whiteboard.Items.Shapes;
+using Whiteboard.Models;
 
 namespace Whiteboard.Selection;
 
-public class SelectionService
+public class SelectionService : ISelectionService
 {
     private readonly WhiteboardCanvas _canvas;
-    private readonly SelectionState _selectionState;
+    private readonly ISelectionState _selectionState;
 
-    public SelectionService(WhiteboardCanvas canvas, SelectionState selectionState)
+    public SelectionService(WhiteboardCanvas canvas, ISelectionState selectionState)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
         _selectionState = selectionState ?? throw new ArgumentNullException(nameof(selectionState));

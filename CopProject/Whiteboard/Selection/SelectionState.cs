@@ -4,11 +4,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using Whiteboard.Interfaces;
 
 namespace Whiteboard.Selection;
 
-public class SelectionState
+public class SelectionState : ISelectionState
 {
     public HashSet<Guid> SelectedItemIds { get; } = [];
     public Guid? PrimarySelectedId { get; private set; }
