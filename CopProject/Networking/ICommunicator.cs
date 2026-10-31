@@ -13,6 +13,11 @@ public interface ICommunicator
     int ListenPort { get; }
 
     /// <summary>
+    /// Gets the IPAddress that is used for listening.
+    /// </summary>
+    IPAddress ListenIpAddress { get; }
+
+    /// <summary>
     /// Adds a subscriber.
     /// </summary>
     /// <param name="module">module id for the subscriber</param>
