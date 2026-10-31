@@ -6,6 +6,7 @@
     <Project Path="Controller/Controller.csproj" />
     <Project Path="FileSync/Filesync.csproj" />
     <Project Path="FileSync.Console/FileSync.Console.csproj" />
+    <Project Path="FileSync.UIharness/FileSync.UIharness.csproj" />
     <Project Path="Filesync.Test/Filesync.Test.csproj" />
     <Project Path="Incidents/Incidents.csproj" />
     <Project Path="Insights/Insights.csproj" />
