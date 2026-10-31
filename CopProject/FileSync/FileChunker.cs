@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -56,8 +56,7 @@ public class FileChunker
 
         if (fs.Length == 0)
         {
-            chunks.Add(new FileChunk
-            {
+            chunks.Add(new FileChunk {
                 FileId = relativePath,
                 ChunkNumber = 0,
                 TotalChunks = 1,
@@ -77,8 +76,7 @@ public class FileChunker
             byte[] actualData = new byte[bytesRead];
             Array.Copy(buffer, actualData, bytesRead);
 
-            var chunk = new FileChunk
-            {
+            var chunk = new FileChunk {
                 FileId = relativePath,
                 ChunkNumber = currentChunk,
                 TotalChunks = totalChunks,
@@ -107,7 +105,7 @@ public class FileChunker
 
         using FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
 
-        foreach (var chunk in receivedChunks)
+        foreach (FileChunk chunk in receivedChunks)
         {
             fs.Write(chunk.Data, 0, chunk.Data.Length);
         }

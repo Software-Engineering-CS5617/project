@@ -1,8 +1,13 @@
-using System;
+﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Reflection;
+using System.Security;
 using System.Text;
 using Filesync;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+[assembly: DoNotParallelize]
 
 namespace Filesync.Test;
 
@@ -34,6 +39,29 @@ public sealed class SynchroniserTest
         {
             Directory.Delete(fullPath, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// Sets the backing field of an event to null so the null branch can be tested
+    /// </summary>
+    private void ClearEvent(string eventName)
+    {
+        FieldInfo? field = typeof(Synchroniser).GetField(eventName, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.IsNotNull(field);
+        field.SetValue(_sync, null);
+    }
+
+    /// <summary>
+    /// Calls the private IsExpectedFileError method
+    /// </summary>
+    private static bool InvokeIsExpectedFileError(Exception ex)
+    {
+        MethodInfo? method = typeof(Synchroniser).GetMethod("IsExpectedFileError", BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.IsNotNull(method);
+
+        return (bool)method.Invoke(null, new object[] { ex })!;
     }
 
     /// <summary>
@@ -185,5 +213,104 @@ public sealed class SynchroniserTest
         _sync.Synchronise();
 
         Assert.IsTrue(completed);
+    }
+
+    /// <summary>
+    /// 10. Synchronise raises OnSyncError when a failure happens during synchronisation
+    /// </summary>
+    [TestMethod]
+    public void Synchronise_WhenFailureOccurs_RaisesOnSyncError()
+    {
+        string? message = null;
+
+        _sync.OnSyncComplete += () => throw new InvalidOperationException("sync failed");
+        _sync.OnSyncError += msg => message = msg;
+
+        _sync.Synchronise();
+
+        Assert.AreEqual("sync failed", message);
+    }
+
+    /// <summary>
+    /// 11. Synchronise succeeds when nobody is subscribed to OnSyncComplete
+    /// </summary>
+    [TestMethod]
+    public void Synchronise_WithNullCompleteEvent_DoesNotThrow()
+    {
+        bool errorRaised = false;
+        _sync.OnSyncError += _ => errorRaised = true;
+
+        ClearEvent("OnSyncComplete");
+
+        _sync.Synchronise();
+
+        Assert.IsFalse(errorRaised);
+    }
+
+    /// <summary>
+    /// 12. Synchronise does not throw when a failure happens and nobody is subscribed to OnSyncError
+    /// </summary>
+    [TestMethod]
+    public void Synchronise_WhenFailureOccursWithNullErrorEvent_DoesNotThrow()
+    {
+        _sync.OnSyncComplete += () => throw new InvalidOperationException("sync failed");
+
+        ClearEvent("OnSyncError");
+
+        _sync.Synchronise();
+    }
+
+    /// <summary>
+    /// 13. IsExpectedFileError accepts IOException
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_IOException_ReturnsTrue()
+    {
+        Assert.IsTrue(InvokeIsExpectedFileError(new IOException()));
+    }
+
+    /// <summary>
+    /// 14. IsExpectedFileError accepts UnauthorizedAccessException
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_UnauthorizedAccessException_ReturnsTrue()
+    {
+        Assert.IsTrue(InvokeIsExpectedFileError(new UnauthorizedAccessException()));
+    }
+
+    /// <summary>
+    /// 15. IsExpectedFileError accepts ArgumentException
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_ArgumentException_ReturnsTrue()
+    {
+        Assert.IsTrue(InvokeIsExpectedFileError(new ArgumentException()));
+    }
+
+    /// <summary>
+    /// 16. IsExpectedFileError accepts NotSupportedException
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_NotSupportedException_ReturnsTrue()
+    {
+        Assert.IsTrue(InvokeIsExpectedFileError(new NotSupportedException()));
+    }
+
+    /// <summary>
+    /// 17. IsExpectedFileError accepts SecurityException
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_SecurityException_ReturnsTrue()
+    {
+        Assert.IsTrue(InvokeIsExpectedFileError(new SecurityException()));
+    }
+
+    /// <summary>
+    /// 18. IsExpectedFileError rejects unrelated exceptions
+    /// </summary>
+    [TestMethod]
+    public void IsExpectedFileError_UnrelatedException_ReturnsFalse()
+    {
+        Assert.IsFalse(InvokeIsExpectedFileError(new InvalidOperationException()));
     }
 }
