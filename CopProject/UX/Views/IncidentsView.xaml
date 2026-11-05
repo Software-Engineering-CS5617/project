@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="UX.Views.IncidentsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Padding="40,24" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Content="Back" Command="{x:Bind ViewModel.BackCommand}"/>
+            <TextBlock Text="Incidents" FontSize="28" FontWeight="SemiBold"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
+            <!-- INCIDENTS TEAM: your module's View is put here (IMeetingModule with Slot = Incidents) -->
+            <ContentControl x:Name="IncidentsHost"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"/>
+        </Border>
+    </Grid>
+</UserControl>

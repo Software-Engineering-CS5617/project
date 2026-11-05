@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="UX.Views.ProfileDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Your profile"
+    PrimaryButtonText="Save"
+    CloseButtonText="Cancel"
+    PrimaryButtonClick="Save_Click">
+
+    <StackPanel Spacing="10">
+        <TextBlock Text="{x:Bind ViewModel.Email, Mode=OneWay}" Opacity="0.7" IsTextSelectionEnabled="True"/>
+        <TextBox Header="User ID"
+                 Text="{x:Bind ViewModel.UserId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="{x:Bind ViewModel.Error, Mode=OneWay}" Foreground="Red" TextWrapping="Wrap"
+                   Visibility="{x:Bind ViewModel.HasError, Mode=OneWay}"/>
+    </StackPanel>
+</ContentDialog>
