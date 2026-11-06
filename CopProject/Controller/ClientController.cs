@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Networking;
+using Utils;
 
 namespace Controller;
 
@@ -80,9 +81,10 @@ public sealed class ClientController : IControllerService
         user.IsHost = false;
         user.Ip = NetworkUtils.GetLocalIpAddress();
         user.Port = _communicator.ListenPort;
+        user.JoinedAt = DateTime.UtcNow;
         lock (_knownUsers)
         {   
-            _knownUsers[user.Username] = user;
+            _knownUsers[user.UserKey] = user;
         }
          string message = Protocol.FormatJoinRequest(user);
         SendToHost(hostIp, hostPort, message);
@@ -97,10 +99,10 @@ public sealed class ClientController : IControllerService
             Trace.TraceWarning("LeaveMeeting called but no host has been joined yet.");
             return;
         }
-
-        string message = Protocol.FormatLeaveRequest(user.Username);
+        string userKey = _currentUser?.UserKey ?? user.UserKey;
+        string message = Protocol.FormatLeaveRequest(userKey);
         SendToHost(_hostIp, _hostPort, message);
-        Trace.TraceInformation($"Sent LEAVE for user '{user.Username}' to {_hostIp}:{_hostPort}.");
+        Trace.TraceInformation($"Sent LEAVE for user '{user.Gmail}' to {_hostIp}:{_hostPort}.");
 
         // Allow background SendingQueueListenerClient thread to flush the LEAVE packet before closing socket
         Thread.Sleep(150);
@@ -192,7 +194,7 @@ public sealed class ClientController : IControllerService
             _knownUsers.Clear();
             foreach (var user in users)
             {
-                _knownUsers[user.Username]=user;
+                _knownUsers[user.UserKey]=user;
             }
         }
     }
@@ -211,7 +213,7 @@ public sealed class ClientController : IControllerService
         {
             try
             {
-                string message = Protocol.FormatLeaveRequest(_currentUser.Username);
+                string message = Protocol.FormatLeaveRequest(_currentUser.UserKey);
                 SendToHost(_hostIp, _hostPort, message);
                 Thread.Sleep(150);
                 Trace.TraceInformation($"Dispose: auto-sent LEAVE for '{_currentUser.Username}' to {_hostIp}:{_hostPort}.");

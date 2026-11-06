@@ -1,4 +1,4 @@
-namespace Controller;
+﻿namespace Utils;
 
 // Stores user identity and networking information for a participant.
 public class ControllerUser
@@ -11,6 +11,7 @@ public class ControllerUser
     public string Ip { get; set; } = string.Empty;
     public int Port { get; set; }
     public bool IsHost { get; set; }
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 
     // Parameterless constructor 
     public ControllerUser() { }
@@ -25,6 +26,6 @@ public class ControllerUser
         Port = port;
         IsHost=isHost;
     }
-
+    public string UserKey => $"{Gmail}#{Ip}#{Port}";
     public override string ToString() => $"[{(IsHost ? "Host" : "Participant")}]{Username} ({Gmail}) @ {Ip}:{Port}";
 }

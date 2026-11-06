@@ -1,3 +1,4 @@
+using Utils;
 namespace Controller;
 
 // Tracks the single meeting session and its participants.
@@ -41,7 +42,7 @@ public class SessionManager
             if (session == null)
                 return false;
 
-            if (!session.IsHost(hostUser.Username))
+            if (!session.IsHost(hostUser.UserKey))
                 return false;
 
             if (!session.Start())
@@ -95,7 +96,7 @@ public class SessionManager
     }
 
     // Removes a user from the session.
-    public bool LeaveSession(string username)
+    public bool LeaveSession(string userKey)
     {
         int newCount;
         ControllerUser? removedUser;
@@ -104,7 +105,7 @@ public class SessionManager
             if (_session == null)
                 return false;
 
-            if (!_session.RemoveUser(username, out removedUser) || removedUser == null)
+            if (!_session.RemoveUser(userKey, out removedUser) || removedUser == null)
                 return false;
 
             newCount = _session.UserCount;

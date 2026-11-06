@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Networking;
+using Utils;
 
 namespace Controller;
 
@@ -85,19 +86,19 @@ public class SessionMessageListener : IMessageListener
     }
 
     // Handles LEAVE messages.Format: "LEAVE:userId"
-    private void HandleLeave(string username)
+    private void HandleLeave(string userKey)
     {
         if (!_sessionManager.HasActiveSession())
         {
-            Trace.TraceWarning($"Leave failed for {username}: no active session on this host.");
+            Trace.TraceWarning($"Leave failed for {userKey}: no active session on this host.");
             return;
         }
 
-        bool left = _sessionManager.LeaveSession(username);
+        bool left = _sessionManager.LeaveSession(userKey);
 
         if (left)
-            Trace.TraceInformation($"{username} left session");
+            Trace.TraceInformation($"{userKey} left session");
         else
-            Trace.TraceWarning($"Leave failed for {username}");
+            Trace.TraceWarning($"Leave failed for {userKey}");
     }
 }

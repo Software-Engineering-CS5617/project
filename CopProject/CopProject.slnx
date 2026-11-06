@@ -12,6 +12,7 @@
     <Project Path="Location/Location.csproj" />
     <Project Path="Networking/Networking.csproj" />
     <Project Path="Screenshare/Screenshare.csproj" />
+    <Project Path="Utils/Utils.csproj" Id="68629ca1-6581-4b34-a718-74a9e672aca7" />
     <Project Path="UX/UX.csproj">
         <Platform Solution="Debug|*" Project="x64" />
     </Project>

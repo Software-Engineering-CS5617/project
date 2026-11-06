@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Utils;
 namespace Controller;
 
 // Centralizes the wire protocol for Controller messages.
@@ -21,8 +22,8 @@ public static class Protocol
     public static string FormatJoinRequest(ControllerUser user)
         => $"{Join}{Separator}{JsonSerializer.Serialize(user)}";
 
-    public static string FormatLeaveRequest(string username)
-        => $"{Leave}{Separator}{username}";
+    public static string FormatLeaveRequest(string userKey)
+        => $"{Leave}{Separator}{userKey}";
 
     // A notification sent from host back to participants.
     public static string FormatNotification(string notificationType, string payload)

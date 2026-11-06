@@ -1,3 +1,4 @@
+using Utils;
 namespace Controller;
 
 // Holds all metadata about a single meeting session, including its lifecycle
@@ -17,7 +18,7 @@ public sealed class SessionInfo
         CreatedAt = DateTime.UtcNow;
         State = SessionState.Created;
         // Add host as the first participant
-        _users[hostUser.Username] = hostUser;
+        _users[hostUser.UserKey] = hostUser;
     }
 
     //Transitions the session to the Active state.
@@ -51,21 +52,21 @@ public sealed class SessionInfo
         lock (_lock)
         {
             if (State == SessionState.Ended) return false;
-            if (_users.ContainsKey(user.Username)) return false;
-            _users[user.Username] = user;
+            if (_users.ContainsKey(user.UserKey)) return false;
+            _users[user.UserKey] = user;
             return true;
         }
     }
 
     //Removes a participant.
     //True if the user was found and removed.
-    public bool RemoveUser(string username, out ControllerUser? removedUser)
+    public bool RemoveUser(string userKey, out ControllerUser? removedUser)
     {
         lock (_lock)
         {
-            if (_users.TryGetValue(username, out removedUser))
+            if (_users.TryGetValue(userKey, out removedUser))
             {
-                return _users.Remove(username);
+                return _users.Remove(userKey);
             }
             removedUser = null;
             return false;
@@ -88,5 +89,5 @@ public sealed class SessionInfo
     }
 
     //Checks whether the given user is the host of this session.
-    public bool IsHost(string username) => HostUser.Username == username;
+    public bool IsHost(string userKey) => HostUser.UserKey == userKey;
 }

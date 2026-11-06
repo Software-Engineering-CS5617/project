@@ -3,7 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Networking;
-
+using Utils;
 namespace Controller;
 
 // Host-side implementation of IControllerService.
@@ -70,7 +70,7 @@ public sealed class HostController : IControllerService
     {
         List<ControllerUser> users = _sessionManager.GetActiveUsers();
 
-        bool ended = _sessionManager.EndSession(_hostUser.Username);
+        bool ended = _sessionManager.EndSession(_hostUser.UserKey);
         if (!ended)
         {
             Trace.TraceWarning("EndMeeting failed.");
