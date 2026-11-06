@@ -46,6 +46,8 @@ public static class StorageFactory
             ModuleType.LocationTracker => "LocationTracker",
             ModuleType.UX => "UX",
             ModuleType.ScreenShare => "ScreenShare",
+            ModuleType.CrashReports => "CrashReports",
+            ModuleType.CrashGroups => "CrashGroups",
             _ => throw new ArgumentException($"Unsupported module: {module}")
         };
     }

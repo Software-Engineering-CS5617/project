@@ -39,8 +39,8 @@ jobs:
         run: dotnet build CopProject --configuration Release --no-restore
 
       - name: Test dotnet projects
-        env:
-          COSMOS_KEY: ${{ secrets.COSMOS_KEY }}
+        # env:
+        #   COSMOS_KEY: ${{ secrets.COSMOS_KEY }}
         run: dotnet test CopProject --configuration Release --no-build --verbosity normal
 
 
