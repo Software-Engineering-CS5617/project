@@ -1,0 +1,29 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="Cloud.Networking.Server.styles.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" />
+        </Found>
+        <NotFound>
+            <p>Page not found.</p>
+        </NotFound>
+    </Router>
+
+    <div id="blazor-error-ui">
+        An unhandled error occurred.
+        <a href="">Reload</a>
+        <a class="dismiss" role="button" aria-label="Dismiss">&#10005;</a>
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

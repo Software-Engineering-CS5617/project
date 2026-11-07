@@ -1,0 +1,163 @@
+﻿.page {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 1000px;
+    background: var(--surface);
+    color: var(--ok);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+h1 {
+    font-size: 1.5rem;
+    margin: 0 0 1.5rem;
+}
+
+h2 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.5rem;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.stat-label {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+}
+
+.primary {
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent-fg);
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+    .primary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 0.4rem 0.75rem 0.4rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+th {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+code {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.9em;
+}
+
+.empty {
+    color: var(--muted);
+}
+
+.ok {
+    color: var(--ok);
+}
+
+.failed {
+    color: var(--bad);
+}
+
+.send {
+    display: flex;
+    gap: 0.5rem;
+}
+
+    .send input {
+        flex: 1;
+        padding: 0.4rem 0.6rem;
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+    }
+
+    .send button {
+        padding: 0.4rem 0.9rem;
+        font: inherit;
+    }
+
+.status {
+    color: var(--muted);
+    margin: 0.5rem 0 0;
+}

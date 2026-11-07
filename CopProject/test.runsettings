@@ -15,7 +15,8 @@
                 <ModulePath>.*\\cloud\.dll$</ModulePath>
                 <ModulePath>.*\\incident\.dll$</ModulePath>
                 <ModulePath>.*\\location\.dll$</ModulePath>
-                <ModulePath>.*\\whiteboard\.dll$</ModulePath>  
+                <ModulePath>.*\\whiteboard\.dll$</ModulePath>
+                <ModulePath>.*\\cloud.networking.server\.dll$</ModulePath>
               </Include>
             </ModulePaths>
             <Sources>
@@ -24,6 +25,8 @@
                 <Source>.*\.xaml\.cs$</Source>
                 <Source>.*\.g\.cs$</Source>
                 <Source>.*\.g\.i\.cs$</Source>
+                <Source>.*\.razor\.g\.cs$</Source>
+                <Source>.*\.razor\.g\.i\.cs$</Source>
               </Exclude>
             </Sources>
             <Attributes>

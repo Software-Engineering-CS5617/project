@@ -10,6 +10,9 @@
     <Project Path="Authentication/Auth.csproj" />
     <Project Path="Chat.Test/Chat.Test.csproj" />
     <Project Path="Chat/Chat.csproj" />
+    <Project Path="Cloud.Networking.ClientConsole/Cloud.Networking.ClientConsole.csproj" />
+    <Project Path="Cloud.Networking.Server.Test/Cloud.Networking.Server.Test.csproj" />
+    <Project Path="Cloud.Networking.Server/Cloud.Networking.Server.csproj" />
     <Project Path="Cloud.Test/Cloud.Test.csproj" />
     <Project Path="Cloud/Cloud.csproj" />
     <Project Path="Controller/Controller.csproj" />

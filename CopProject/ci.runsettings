@@ -7,9 +7,9 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[FileSynchroniser]*,[Chat]*,[Networking]*,[Cloud]*,[Incident]*,[Location]*,[Whiteboard]*</Include>
+          <Include>[FileSynchroniser]*,[Chat]*,[Networking]*,[Cloud]*,[Incident]*,[Location]*,[Whiteboard]*,[Cloud.Networking.Server]*</Include>
           <ExcludeByAttribute>ExcludeFromCodeCoverage</ExcludeByAttribute>
-          <ExcludeByFile>**/obj/**,**/*.g.cs,**/*.g.i.cs,**/*.xaml.cs</ExcludeByFile>
+          <ExcludeByFile>**/obj/**,**/*.g.cs,**/*.g.i.cs,**/*.xaml.cs,**/*.razor,**/*.razor.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
 
