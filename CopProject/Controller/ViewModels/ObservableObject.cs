@@ -1,8 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace SecureMeet.Shared.Mvvm;
-
+namespace Controller.ViewModels;
 // Base class of every ViewModel.
 // Simplest use: change your properties, then call Refresh() and the whole screen updates.
 public abstract class ObservableObject : INotifyPropertyChanged

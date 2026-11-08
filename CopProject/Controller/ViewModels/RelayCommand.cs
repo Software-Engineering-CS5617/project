@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Input;
 
-namespace SecureMeet.Shared.Mvvm;
+namespace Controller.ViewModels;
 
 // A button action: new RelayCommand(Save). Bind a Button's Command to it.
 public sealed class RelayCommand : ICommand

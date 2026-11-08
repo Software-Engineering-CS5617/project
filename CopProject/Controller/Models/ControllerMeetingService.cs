@@ -4,41 +4,31 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Controller;
+using Controller.ViewModels;
 using Utils;
-using SecureMeet.Shared.Models;
-using SecureMeet.Shared.Modules;
 
-namespace UX.Models;
+namespace Controller.Models;
 
-/// <summary>
-/// Integrates the Controller module (HostController/ClientController and TCP Networking)
-/// with the UX layer through IMeetingService and IMeetingSession.
-/// </summary>
-public sealed class ControllerMeetingService : IMeetingService
+public sealed class ControllerMeetingService
 {
-    private IMeetingSession? _session;
+    private MeetingSession? _session;
     private IControllerService? _activeController;
     private bool _isHost;
     private readonly SynchronizationContext? _uiThread = SynchronizationContext.Current;
 
-    public void Initialize(IMeetingSession session)
+    public void Initialize(MeetingSession session)
     {
         _session = session;
         _session.MeetingStarted += OnMeetingStarted;
         _session.MeetingEnded += OnMeetingEnded;
     }
 
-    /// <summary>
-    /// Called when the host clicks 'Start Meeting' on the Dashboard.
-    /// Creates a HostController, starts listening on a TCP port, and returns (LocalIP, Port).
-    /// </summary>
     public (string Id, string Port) CreateMeeting()
     {
         CleanupController();
 
-        var currentUser = _session?.CurrentUser;
-        string username = !string.IsNullOrWhiteSpace(currentUser?.UserId) ? currentUser.UserId : "Host";
-        string email = !string.IsNullOrWhiteSpace(currentUser?.Email) ? currentUser.Email : $"{username}@example.com";
+        string username = !string.IsNullOrWhiteSpace(_session?.CurrentUserId) ? _session.CurrentUserId : "Host";
+        string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
         string localIp = NetworkUtils.GetLocalIpAddress();
         var hostUser = new ControllerUser(username, email, null, localIp, 0, isHost: true);
@@ -64,14 +54,12 @@ public sealed class ControllerMeetingService : IMeetingService
         CleanupController();
         _isHost = false;
 
-        var currentUser = _session?.CurrentUser;
-        string username = !string.IsNullOrWhiteSpace(currentUser?.UserId) ? currentUser.UserId : "Participant";
-        string email = !string.IsNullOrWhiteSpace(currentUser?.Email) ? currentUser.Email : $"{username}@example.com";
+        string username = !string.IsNullOrWhiteSpace(_session?.CurrentUserId) ? _session.CurrentUserId : "Participant";
+        string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
         var clientUser = new ControllerUser(username, email, null, NetworkUtils.GetLocalIpAddress(), 0, isHost: false);
         var client = ControllerFactory.CreateClient(clientUser);
 
-        // Resolve localhost / hostnames if needed
         string targetHost = hostIp.Trim();
         if (targetHost.Equals("localhost", StringComparison.OrdinalIgnoreCase))
         {
@@ -165,9 +153,8 @@ public sealed class ControllerMeetingService : IMeetingService
             }
             else
             {
-                var currentUser = _session?.CurrentUser;
-                string username = !string.IsNullOrWhiteSpace(currentUser?.UserId) ? currentUser.UserId : "Participant";
-                string email = !string.IsNullOrWhiteSpace(currentUser?.Email) ? currentUser.Email : $"{username}@example.com";
+                string username = !string.IsNullOrWhiteSpace(_session?.CurrentUserId) ? _session.CurrentUserId : "Participant";
+                string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
                 var clientUser = new ControllerUser(username, email, null, string.Empty, 0, isHost: false);
                 _activeController.LeaveMeeting(clientUser);
             }
@@ -199,10 +186,7 @@ public sealed class ControllerMeetingService : IMeetingService
 
         PostToUI(() =>
         {
-            if (_session is MeetingSession ms)
-            {
-                ms.ActiveParticipants = list;
-            }
+            _session.ActiveParticipants = list;
         });
     }
 

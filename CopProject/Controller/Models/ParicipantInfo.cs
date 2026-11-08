@@ -1,6 +1,6 @@
-using SecureMeet.Shared.Mvvm;
+using Controller.ViewModels;
 
-namespace UX.Models;
+namespace Controller.Models;
 
 public sealed class ParticipantInfo : ObservableObject
 {

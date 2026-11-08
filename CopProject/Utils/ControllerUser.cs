@@ -28,4 +28,5 @@ public class ControllerUser
     }
     public string UserKey => $"{Gmail}#{Ip}#{Port}";
     public override string ToString() => $"[{(IsHost ? "Host" : "Participant")}]{Username} ({Gmail}) @ {Ip}:{Port}";
+    public string RoleDisplay => IsHost ? "Host" : "Client";
 }
