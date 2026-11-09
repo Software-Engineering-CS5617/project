@@ -5,6 +5,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Whiteboard.ViewModels;
@@ -26,7 +28,64 @@ public sealed partial class WhiteBoardView : UserControl
 
         ToolbarInfo toolbarInfo = new(new SolidColorBrush(Colors.Black), 3, new SolidColorBrush(Colors.Red));
         _viewModel.InitializeViewModel(WhiteboardCanvas, toolbarInfo);
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
+
+    /// <summary>
+    /// Subscribes to history changes and displays the latest button availability.
+    /// </summary>
+    /// <param name="sender">Source of the event.</param>
+    /// <param name="e">Event details.</param>
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _viewModel.HistoryChanged += UpdateHistoryButtons;
+        UpdateHistoryButtons();
+    }
+
+    /// <summary>
+    /// Detaches the history listener when the view leaves the visual tree.
+    /// </summary>
+    /// <param name="sender">Source of the event.</param>
+    /// <param name="e">Event details.</param>
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        _viewModel.HistoryChanged -= UpdateHistoryButtons;
+    }
+
+    /// <summary>
+    /// Updates undo and redo availability on the UI thread.
+    /// </summary>
+    private void UpdateHistoryButtons()
+    {
+        // Network notifications arrive outside the UI thread.
+        DispatcherQueue.TryEnqueue(() => {
+            ButtonUndo.IsEnabled = _viewModel.CanUndo;
+            ButtonRedo.IsEnabled = _viewModel.CanRedo;
+        });
+    }
+
+
+    /// <summary>
+    /// Requests undo of the current user's latest available action.
+    /// </summary>
+    /// <param name="sender">Source of the event.</param>
+    /// <param name="e">Event details.</param>
+    private void ButtonUndo_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.Undo();
+    }
+
+    /// <summary>
+    /// Requests redo of the current user's latest available undone action.
+    /// </summary>
+    /// <param name="sender">Source of the event.</param>
+    /// <param name="e">Event details.</param>
+    private void ButtonRedo_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.Redo();
+    }
+
 
     private void ButtonPen_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {

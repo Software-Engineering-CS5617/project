@@ -17,6 +17,7 @@ namespace Whiteboard.Network.Messages;
 [JsonDerivedType(typeof(ResAddItem), "res_add_item")]
 [JsonDerivedType(typeof(ResDeleteItem), "res_delete_item")]
 [JsonDerivedType(typeof(ResUpdateItem), "res_update_item")]
+[JsonDerivedType(typeof(ResHistory), "res_history")]
 [ExcludeFromCodeCoverage]
 public abstract record ServerMessage
 {
@@ -51,4 +52,17 @@ public abstract record ServerMessage
     /// <param name="Item">Updated item</param>
     [ExcludeFromCodeCoverage]
     public sealed record ResUpdateItem(Guid Id, ItemDto Item) : ServerMessage;
+
+    /// <summary>
+    /// Reports undo and redo availability for one user.
+    /// Clients ignore this notification when it belongs to another user.
+    /// </summary>
+    /// <param name="UserId">User whose history is described.</param>
+    /// <param name="CanUndo">Whether this user can undo an action.</param>
+    /// <param name="CanRedo">Whether this user can redo an action.</param>
+    [ExcludeFromCodeCoverage]
+    public sealed record ResHistory(
+        string UserId,
+        bool CanUndo,
+        bool CanRedo) : ServerMessage;
 }

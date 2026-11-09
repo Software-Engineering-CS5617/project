@@ -1,4 +1,4 @@
-/// Owner   : Raagam Hitesh Parmar
+﻿/// Owner   : Raagam Hitesh Parmar
 /// LICENSE : MIT
 
 using System;
@@ -152,7 +152,7 @@ public class PenState : IViewModelState
             _canvas.Children.Remove(_polyline);
 
             // Send to whiteboard client state manager off the UI thread
-            Task.Run(() => _whiteboardClient.AddItem(freehand));
+            _whiteboardClient.AddItem(freehand);
         }
 
         // Reset polyline state back to null

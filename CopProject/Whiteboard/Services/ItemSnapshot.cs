@@ -123,20 +123,6 @@ public static class ItemSnapshot
     }
 
     /// <summary>
-    /// Copies a bounding rectangle, or returns null if it is missing.
-    /// </summary>
-    private static Rect2D CopyRect(Rect2D rectangle)
-    {
-        return rectangle is null
-            ? null
-            : new Rect2D(
-                rectangle.Left,
-                rectangle.Top,
-                rectangle.Width,
-                rectangle.Height);
-    }
-
-    /// <summary>
     /// Copies the list and its points so later edits do not affect history.
     /// </summary>
     private static List<Point2D> CopyPoints(List<Point2D> points)

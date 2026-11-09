@@ -1,4 +1,4 @@
-/// Owner   : Raagam Hitesh Parmar
+﻿/// Owner   : Raagam Hitesh Parmar
 /// LICENSE : MIT
 
 using System;
@@ -31,6 +31,26 @@ public class WhiteBoardViewModel
 
     public WhiteboardTool SelectedTool { get; private set; } = WhiteboardTool.Pen;
 
+
+    /// <summary>
+    /// Gets undo availability last received for this user.
+    /// </summary>
+    public bool CanUndo => _whiteboardClient.CanUndo;
+
+    /// <summary>
+    /// Gets redo availability last received for this user.
+    /// </summary>
+    public bool CanRedo => _whiteboardClient.CanRedo;
+
+    /// <summary>
+    /// Forwards this user's server history notifications to the view.
+    /// </summary>
+    public event Action HistoryChanged
+    {
+        add => _whiteboardClient.HistoryChanged += value;
+        remove => _whiteboardClient.HistoryChanged -= value;
+    }
+
     public WhiteBoardViewModel(IWhiteboardClient whiteboardClient)
     {
         ArgumentNullException.ThrowIfNull(whiteboardClient);
@@ -52,6 +72,22 @@ public class WhiteBoardViewModel
 
         _currentState = _penState;
         _isInitialized = true;
+    }
+
+    /// <summary>
+    /// Requests undo for the current user through the shared client.
+    /// </summary>
+    public void Undo()
+    {
+        _whiteboardClient.Undo();
+    }
+
+    /// <summary>
+    /// Requests redo for the current user through the shared client.
+    /// </summary>
+    public void Redo()
+    {
+        _whiteboardClient.Redo();
     }
 
     /// <summary>

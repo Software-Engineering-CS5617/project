@@ -41,13 +41,17 @@
 
                     <Button
                         x:Name="ButtonUndo"
-                        ToolTipService.ToolTip="Undo">
+                        ToolTipService.ToolTip="Undo your last action"
+                        IsEnabled="False"
+                        Click="ButtonUndo_Click">
                         <FontIcon Glyph="&#xE7A7;"/>
                     </Button>
 
                     <Button
                         x:Name="ButtonRedo"
-                        ToolTipService.ToolTip="Redo">
+                        ToolTipService.ToolTip="Redo your last action"
+                        IsEnabled="False"
+                        Click="ButtonRedo_Click">
                         <FontIcon Glyph="&#xE7A6;"/>
                     </Button>
 

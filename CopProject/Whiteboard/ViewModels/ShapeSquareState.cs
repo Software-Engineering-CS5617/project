@@ -1,4 +1,4 @@
-/// Owner   : Raagam Hitesh Parmar
+﻿/// Owner   : Raagam Hitesh Parmar
 /// LICENSE : MIT
 
 using System;
@@ -173,7 +173,7 @@ public class ShapeSquareState : IViewModelState
             _canvas.Children.Remove(_square);
 
             // Send to whiteboard client state manager off the UI thread
-            Task.Run(() => _whiteboardClient.AddItem(square));
+            _whiteboardClient.AddItem(square);
         }
 
         // Reset square state back to null
