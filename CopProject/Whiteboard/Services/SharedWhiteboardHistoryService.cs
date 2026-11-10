@@ -15,6 +15,8 @@ using System.Collections.Generic;
 using Whiteboard.Interfaces;
 using Whiteboard.Network.Mappers;
 using Whiteboard.Network.Serializations;
+using System.Linq;
+using Whiteboard.Network.Dtos;
 
 namespace Whiteboard.Services;
 
@@ -184,6 +186,50 @@ public sealed class SharedWhiteboardHistoryService
                 pair.Value.Redo.Count > 0);
         }
 #pragma warning restore IDE0008 // Use explicit type
+    }
+
+    /// <summary>
+    /// Exports each user's undo and redo entries for client-side storage.
+    /// </summary>
+    /// <remarks>
+    /// Enumerate while holding the server lock used for history changes.
+    /// </remarks>
+    /// <returns>
+    /// Each user's history lists, with the next operation at the end.
+    /// </returns>
+    public IEnumerable<(
+        string UserId,
+        List<HistoryEntryDto> Undo,
+        List<HistoryEntryDto> Redo)> GetHistorySnapshots()
+    {
+#pragma warning disable IDE0008 // Use explicit type
+        foreach (var pair in _histories)
+        {
+            yield return (
+                pair.Key,
+                pair.Value.Undo.Select(ToDto).ToList(),
+                pair.Value.Redo.Select(ToDto).ToList());
+        }
+#pragma warning restore IDE0008 // Use explicit type
+    }
+
+    /// <summary>
+    /// Creates a transferable copy of a saved history entry.
+    /// </summary>
+    /// <param name="change">History entry to export.</param>
+    /// <returns>An entry with independent item snapshots.</returns>
+    private static HistoryEntryDto ToDto(Change change)
+    {
+        // Copy before mapping so mutable point lists are not shared
+        // with the server's saved history.
+        return new HistoryEntryDto(
+            change.ItemId,
+            change.Before is null
+                ? null
+                : ItemMapper.ToDto(ItemSnapshot.Copy(change.Before)),
+            change.After is null
+                ? null
+                : ItemMapper.ToDto(ItemSnapshot.Copy(change.After)));
     }
 
     /// <summary>
