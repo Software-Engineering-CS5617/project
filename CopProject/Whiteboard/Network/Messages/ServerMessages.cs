@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Whiteboard.Network.Dtos;
+using System.Collections.Generic;
 
 namespace Whiteboard.Network.Messages;
 
@@ -54,15 +55,19 @@ public abstract record ServerMessage
     public sealed record ResUpdateItem(Guid Id, ItemDto Item) : ServerMessage;
 
     /// <summary>
-    /// Reports undo and redo availability for one user.
-    /// Clients ignore this notification when it belongs to another user.
+    /// Supplies the server's current undo and redo history for one user.
+    /// Clients keep only the history matching their own user ID.
     /// </summary>
-    /// <param name="UserId">User whose history is described.</param>
-    /// <param name="CanUndo">Whether this user can undo an action.</param>
-    /// <param name="CanRedo">Whether this user can redo an action.</param>
+    /// <param name="UserId">User who owns this history.</param>
+    /// <param name="Undo">
+    /// Available undo entries. The last entry is the next action to undo.
+    /// </param>
+    /// <param name="Redo">
+    /// Available redo entries. The last entry is the next action to redo.
+    /// </param>
     [ExcludeFromCodeCoverage]
     public sealed record ResHistory(
         string UserId,
-        bool CanUndo,
-        bool CanRedo) : ServerMessage;
+        List<HistoryEntryDto> Undo,
+        List<HistoryEntryDto> Redo) : ServerMessage;
 }
