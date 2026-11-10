@@ -122,12 +122,12 @@ public class WhiteboardServer : IWhiteboardServer
     private void BroadcastHistoryStates()
     {
 #pragma warning disable IDE0008 // Use explicit type
-        foreach (var state in _history.GetHistoryStates())
+        foreach (var state in _history.GetHistorySnapshots())
         {
             Broadcast(new ServerMessage.ResHistory(
                 state.UserId,
-                state.CanUndo,
-                state.CanRedo));
+                state.Undo,
+                state.Redo));
         }
 #pragma warning restore IDE0008 // Use explicit type
     }

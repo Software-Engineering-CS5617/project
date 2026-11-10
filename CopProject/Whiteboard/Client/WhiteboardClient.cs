@@ -12,6 +12,7 @@ using Whiteboard.Network.Dtos;
 using Whiteboard.Network.Mappers;
 using Whiteboard.Network.Messages;
 using Whiteboard.Network.Serializations;
+using System.Collections.Generic;
 
 namespace Whiteboard.Client;
 
@@ -32,11 +33,15 @@ public class WhiteboardClient : IWhiteboardClient
 
     public string UserId { get; }
 
-    /// <inheritdoc/>
-    public bool CanUndo { get; private set; }
+    private List<HistoryEntryDto> _undo = new();
+    private List<HistoryEntryDto> _redo = new();
 
     /// <inheritdoc/>
-    public bool CanRedo { get; private set; }
+    public bool CanUndo => _undo.Count > 0;
+
+    /// <inheritdoc/>
+    public bool CanRedo => _redo.Count > 0;
+
 
     /// <inheritdoc/>
     public event Action HistoryChanged = delegate { };
@@ -149,15 +154,15 @@ public class WhiteboardClient : IWhiteboardClient
             // History states are broadcast; only apply the current user's state.
             case ServerMessage.ResHistory(
                 var userId,
-                var canUndo,
-                var canRedo)
+                var undo,
+                var redo)
                 when string.Equals(
                     userId,
                     UserId,
                     StringComparison.Ordinal):
 
-                CanUndo = canUndo;
-                CanRedo = canRedo;
+                _undo = undo;
+                _redo = redo;
                 HistoryChanged();
                 break;
         }
