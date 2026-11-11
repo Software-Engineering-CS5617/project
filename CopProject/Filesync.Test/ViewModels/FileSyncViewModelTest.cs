@@ -1,4 +1,4 @@
-﻿// Author : Murali
+// Author : Murali
 
 using System;
 using System.Collections.Generic;
@@ -10,6 +10,7 @@ using FileSynchroniser.Models;
 using FileSynchroniser.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
+using Utils;
 using static FileSynchroniser.ViewModels.UiDispatcher;
 
 namespace Filesync.Test.ViewModels;
@@ -569,5 +570,90 @@ public sealed class FileSyncViewModelTest
 
         Assert.IsTrue(_viewModel.HasError);
         StringAssert.Contains(_viewModel.StatusMessage, "vanishing.txt");
+    }
+
+    /// <summary>
+    /// 38. SetAvailableUsers populates AvailablePeers collection and selects first
+    /// </summary>
+    [TestMethod]
+    public void SetAvailableUsers_PopulatesPeersAndSelectsFirst()
+    {
+        var users = new List<ControllerUser>
+        {
+            new("Alice", "alice@test.com", null, "192.168.1.10", 8001, isHost: true),
+            new("Bob", "bob@test.com", null, "192.168.1.11", 8002, isHost: false)
+        };
+
+        _viewModel.SetAvailableUsers(users);
+
+        Assert.AreEqual(2, _viewModel.AvailablePeers.Count);
+        Assert.AreEqual("Alice", _viewModel.SelectedPeer?.Username);
+        Assert.AreEqual("192.168.1.10", _viewModel.SelectedPeer?.Ip);
+        Assert.AreEqual(8001, _viewModel.SelectedPeer?.Port);
+    }
+
+    /// <summary>
+    /// 39. OnUserJoined adds a new user to AvailablePeers
+    /// </summary>
+    [TestMethod]
+    public void OnUserJoined_AddsNewPeer()
+    {
+        var user = new ControllerUser("Charlie", "charlie@test.com", null, "192.168.1.12", 8003, isHost: false);
+
+        _viewModel.OnUserJoined(user);
+
+        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+        Assert.AreEqual("Charlie", _viewModel.AvailablePeers[0].Username);
+        Assert.AreSame(user, _viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 40. OnUserJoined avoids adding duplicate user with same key
+    /// </summary>
+    [TestMethod]
+    public void OnUserJoined_DuplicateUser_IsNotAddedTwice()
+    {
+        var user1 = new ControllerUser("Dan", "dan@test.com", null, "192.168.1.13", 8004, isHost: false);
+        var user2 = new ControllerUser("Dan", "dan@test.com", null, "192.168.1.13", 8004, isHost: false);
+
+        _viewModel.OnUserJoined(user1);
+        _viewModel.OnUserJoined(user2);
+
+        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+    }
+
+    /// <summary>
+    /// 41. OnUserLeft removes peer and updates SelectedPeer
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_RemovesPeerAndReselectsNext()
+    {
+        var userA = new ControllerUser("Eve", "eve@test.com", null, "192.168.1.14", 8005, isHost: false);
+        var userB = new ControllerUser("Frank", "frank@test.com", null, "192.168.1.15", 8006, isHost: false);
+
+        _viewModel.SetAvailableUsers(new[] { userA, userB });
+        Assert.AreEqual("Eve", _viewModel.SelectedPeer?.Username);
+
+        _viewModel.OnUserLeft(userA);
+
+        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+        Assert.AreEqual("Frank", _viewModel.AvailablePeers[0].Username);
+        Assert.AreEqual("Frank", _viewModel.SelectedPeer?.Username);
+    }
+
+    /// <summary>
+    /// 42. Changing SelectedPeer fires PropertyChanged event
+    /// </summary>
+    [TestMethod]
+    public void SelectedPeer_ChangingFiresPropertyChanged()
+    {
+        string? changedProperty = null;
+        _viewModel.PropertyChanged += (_, e) => changedProperty = e.PropertyName;
+
+        var user = new ControllerUser("Grace", "grace@test.com", null, "192.168.1.16", 8007, isHost: false);
+        _viewModel.SelectedPeer = user;
+
+        Assert.AreEqual(nameof(FileSyncViewModel.SelectedPeer), changedProperty);
+        Assert.AreSame(user, _viewModel.SelectedPeer);
     }
 }

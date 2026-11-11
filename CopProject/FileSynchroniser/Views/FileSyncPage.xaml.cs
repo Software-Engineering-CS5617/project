@@ -1,16 +1,19 @@
-﻿// Author : Murali
+// Author : Murali
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Controller;
 using FileSynchroniser.Models;
 using FileSynchroniser.Network;
 using FileSynchroniser.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Utils;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
@@ -30,6 +33,7 @@ public sealed partial class FileSyncPage : Page
 
     private SimulatedCommunicator? _communicator;
     private NetworkSyncHandler? _syncHandler;
+    private IControllerService? _controller;
     private int _currentPort = 0;
 
     /// <summary>
@@ -137,10 +141,114 @@ public sealed partial class FileSyncPage : Page
     }
 
     /// <summary>
+    /// Attaches controller service when navigated to during a meeting
+    /// </summary>
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        if (e.Parameter is IControllerService controller)
+        {
+            AttachController(controller);
+        }
+    }
+
+    private void AttachController(IControllerService controller)
+    {
+        _controller = controller;
+
+        // Auto-fill our own listening port if controller has one
+        if (_controller.ListenPort > 0)
+        {
+            MyPortTextBox.Text = _controller.ListenPort.ToString();
+        }
+
+        // Populate active participants
+        List<ControllerUser> users = _controller.GetActiveUsers();
+        if (users != null && users.Count > 0)
+        {
+            var peers = _controller.CurrentUser != null
+                ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
+                : users;
+
+            ViewModel.SetAvailableUsers(peers);
+        }
+
+        _controller.UserJoined += OnControllerUserJoined;
+        _controller.UserLeft += OnControllerUserLeft;
+    }
+
+    private void OnControllerUserJoined(object? sender, UserJoinedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() => {
+            if (e.User != null)
+            {
+                if (_controller?.CurrentUser != null && e.User.UserKey == _controller.CurrentUser.UserKey)
+                {
+                    return;
+                }
+
+                ViewModel.OnUserJoined(e.User);
+            }
+        });
+    }
+
+    private void OnControllerUserLeft(object? sender, UserLeftEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() => {
+            if (e.User != null)
+            {
+                ViewModel.OnUserLeft(e.User);
+            }
+        });
+    }
+
+    private void OnPeerSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ViewModel.SelectedPeer is ControllerUser selected)
+        {
+            if (!string.IsNullOrWhiteSpace(selected.Ip))
+            {
+                PeerIpTextBox.Text = selected.Ip;
+            }
+
+            if (selected.Port > 0)
+            {
+                PeerPortTextBox.Text = selected.Port.ToString();
+            }
+        }
+    }
+
+    private void OnRefreshPeersClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_controller != null)
+        {
+            List<ControllerUser> users = _controller.GetActiveUsers();
+            var peers = _controller.CurrentUser != null
+                ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
+                : users;
+
+            ViewModel.SetAvailableUsers(peers);
+            StatusTextBlock.Text = $"Refreshed {peers.Count} available peer(s) from meeting.";
+        }
+        else
+        {
+            StatusTextBlock.Text = "No active meeting controller connected. You can enter IP and Port manually.";
+        }
+    }
+
+    /// <summary>
     /// Disposes the ViewModel when the user navigates away from the page.
     /// </summary>
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        if (_controller != null)
+        {
+            _controller.UserJoined -= OnControllerUserJoined;
+            _controller.UserLeft -= OnControllerUserLeft;
+            _controller = null;
+        }
+
         _communicator?.Dispose();
         ViewModel.Dispose();
         base.OnNavigatedFrom(e);
