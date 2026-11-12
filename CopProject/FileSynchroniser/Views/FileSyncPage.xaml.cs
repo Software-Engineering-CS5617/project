@@ -1,4 +1,4 @@
-// Author : Murali
+﻿// Author : Murali
 
 using System;
 using System.Collections.Generic;
@@ -147,12 +147,16 @@ public sealed partial class FileSyncPage : Page
     {
         base.OnNavigatedTo(e);
 
+        // Navigation parameter carries the meeting controller, if any
         if (e.Parameter is IControllerService controller)
         {
             AttachController(controller);
         }
     }
 
+    /// <summary>
+    /// Stores the controller, pre-fills the local port, loads current peers, and subscribes to join/leave events.
+    /// </summary>
     private void AttachController(IControllerService controller)
     {
         _controller = controller;
@@ -167,7 +171,8 @@ public sealed partial class FileSyncPage : Page
         List<ControllerUser> users = _controller.GetActiveUsers();
         if (users != null && users.Count > 0)
         {
-            var peers = _controller.CurrentUser != null
+            // Exclude ourselves from the peer list
+            List<ControllerUser> peers = _controller.CurrentUser != null
                 ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
                 : users;
 
@@ -178,11 +183,16 @@ public sealed partial class FileSyncPage : Page
         _controller.UserLeft += OnControllerUserLeft;
     }
 
+    /// <summary>
+    /// Adds a newly joined meeting participant to the peer list (ignores ourselves).
+    /// </summary>
     private void OnControllerUserJoined(object? sender, UserJoinedEventArgs e)
     {
+        // Event may fire on a background thread; marshal to the UI thread
         DispatcherQueue.TryEnqueue(() => {
             if (e.User != null)
             {
+                // Skip our own join event
                 if (_controller?.CurrentUser != null && e.User.UserKey == _controller.CurrentUser.UserKey)
                 {
                     return;
@@ -193,8 +203,12 @@ public sealed partial class FileSyncPage : Page
         });
     }
 
+    /// <summary>
+    /// Removes a participant who left the meeting from the peer list.
+    /// </summary>
     private void OnControllerUserLeft(object? sender, UserLeftEventArgs e)
     {
+        // Marshal to the UI thread before touching the ViewModel
         DispatcherQueue.TryEnqueue(() => {
             if (e.User != null)
             {
@@ -203,10 +217,14 @@ public sealed partial class FileSyncPage : Page
         });
     }
 
+    /// <summary>
+    /// Fills the peer IP and port boxes from the selected peer's details.
+    /// </summary>
     private void OnPeerSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ViewModel.SelectedPeer is ControllerUser selected)
         {
+            // Only overwrite fields when the peer has valid values
             if (!string.IsNullOrWhiteSpace(selected.Ip))
             {
                 PeerIpTextBox.Text = selected.Ip;
@@ -219,12 +237,17 @@ public sealed partial class FileSyncPage : Page
         }
     }
 
+    /// <summary>
+    /// Reloads the active peer list from the controller and reports the result in the status text.
+    /// </summary>
     private void OnRefreshPeersClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (_controller != null)
         {
             List<ControllerUser> users = _controller.GetActiveUsers();
-            var peers = _controller.CurrentUser != null
+
+            // Exclude ourselves from the peer list
+            List<ControllerUser> peers = _controller.CurrentUser != null
                 ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
                 : users;
 
@@ -233,6 +256,7 @@ public sealed partial class FileSyncPage : Page
         }
         else
         {
+            // No meeting context; user can still connect by typing IP/port
             StatusTextBlock.Text = "No active meeting controller connected. You can enter IP and Port manually.";
         }
     }
