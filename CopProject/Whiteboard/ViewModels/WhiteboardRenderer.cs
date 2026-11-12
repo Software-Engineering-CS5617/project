@@ -95,6 +95,7 @@ internal sealed class WhiteboardRenderer : IDisposable
             Whiteboard.Items.Shapes.Square square => CreateSquare(square),
             Whiteboard.Items.Shapes.Circle circle => CreateCircle(circle),
             Whiteboard.Items.Shapes.EqTriangle triangle => CreateEqTriangle(triangle),
+            Whiteboard.Items.Shapes.Ellipse ellipse => CreateEllipse(ellipse),
             _ => new Border()
         };
     }
@@ -116,6 +117,24 @@ internal sealed class WhiteboardRenderer : IDisposable
             visual.Points.Add(new Point(point.X, point.Y));
         }
 
+        ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
+        return visual;
+    }
+
+    private static XamlEllipse CreateEllipse(Whiteboard.Items.Shapes.Ellipse item)
+    {
+        XamlEllipse visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Fill = new SolidColorBrush(ToColor(item.FillColor)),
+            Stroke = new SolidColorBrush(ToColor(item.BorderColor)),
+            StrokeThickness = item.BorderWidth,
+            IsHitTestVisible = true,
+            Tag = item.Id
+        };
+
+        Canvas.SetLeft(visual, item.Center.X - item.Width / 2);
+        Canvas.SetTop(visual, item.Center.Y - item.Height / 2);
         ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
         return visual;
     }
