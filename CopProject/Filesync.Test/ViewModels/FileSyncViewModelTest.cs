@@ -1,4 +1,4 @@
-// Author : Murali
+﻿// Author : Murali
 
 using System;
 using System.Collections.Generic;
@@ -573,6 +573,14 @@ public sealed class FileSyncViewModelTest
     }
 
     /// <summary>
+    /// Creates a peer with a unique key (assumes UserKey is derived from the email).
+    /// </summary>
+    private static ControllerUser MakeUser(string name, int port, string ip = "192.168.1.50", bool isHost = false)
+    {
+        return new ControllerUser(name, $"{name.ToLower()}@test.com", null, ip, port, isHost);
+    }
+
+    /// <summary>
     /// 38. SetAvailableUsers populates AvailablePeers collection and selects first
     /// </summary>
     [TestMethod]
@@ -580,13 +588,13 @@ public sealed class FileSyncViewModelTest
     {
         var users = new List<ControllerUser>
         {
-            new("Alice", "alice@test.com", null, "192.168.1.10", 8001, isHost: true),
-            new("Bob", "bob@test.com", null, "192.168.1.11", 8002, isHost: false)
+            MakeUser("Alice", 8001, "192.168.1.10", isHost: true),
+            MakeUser("Bob", 8002, "192.168.1.11")
         };
 
         _viewModel.SetAvailableUsers(users);
 
-        Assert.AreEqual(2, _viewModel.AvailablePeers.Count);
+        Assert.HasCount(2, _viewModel.AvailablePeers);
         Assert.AreEqual("Alice", _viewModel.SelectedPeer?.Username);
         Assert.AreEqual("192.168.1.10", _viewModel.SelectedPeer?.Ip);
         Assert.AreEqual(8001, _viewModel.SelectedPeer?.Port);
@@ -598,11 +606,11 @@ public sealed class FileSyncViewModelTest
     [TestMethod]
     public void OnUserJoined_AddsNewPeer()
     {
-        var user = new ControllerUser("Charlie", "charlie@test.com", null, "192.168.1.12", 8003, isHost: false);
+        ControllerUser user = MakeUser("Charlie", 8003);
 
         _viewModel.OnUserJoined(user);
 
-        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+        Assert.HasCount(1, _viewModel.AvailablePeers);
         Assert.AreEqual("Charlie", _viewModel.AvailablePeers[0].Username);
         Assert.AreSame(user, _viewModel.SelectedPeer);
     }
@@ -613,13 +621,13 @@ public sealed class FileSyncViewModelTest
     [TestMethod]
     public void OnUserJoined_DuplicateUser_IsNotAddedTwice()
     {
-        var user1 = new ControllerUser("Dan", "dan@test.com", null, "192.168.1.13", 8004, isHost: false);
-        var user2 = new ControllerUser("Dan", "dan@test.com", null, "192.168.1.13", 8004, isHost: false);
+        ControllerUser user1 = MakeUser("Dan", 8004);
+        ControllerUser user2 = MakeUser("Dan", 8004);
 
         _viewModel.OnUserJoined(user1);
         _viewModel.OnUserJoined(user2);
 
-        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+        Assert.HasCount(1, _viewModel.AvailablePeers);
     }
 
     /// <summary>
@@ -628,15 +636,15 @@ public sealed class FileSyncViewModelTest
     [TestMethod]
     public void OnUserLeft_RemovesPeerAndReselectsNext()
     {
-        var userA = new ControllerUser("Eve", "eve@test.com", null, "192.168.1.14", 8005, isHost: false);
-        var userB = new ControllerUser("Frank", "frank@test.com", null, "192.168.1.15", 8006, isHost: false);
+        ControllerUser userA = MakeUser("Eve", 8005);
+        ControllerUser userB = MakeUser("Frank", 8006);
 
         _viewModel.SetAvailableUsers(new[] { userA, userB });
         Assert.AreEqual("Eve", _viewModel.SelectedPeer?.Username);
 
         _viewModel.OnUserLeft(userA);
 
-        Assert.AreEqual(1, _viewModel.AvailablePeers.Count);
+        Assert.HasCount(1, _viewModel.AvailablePeers);
         Assert.AreEqual("Frank", _viewModel.AvailablePeers[0].Username);
         Assert.AreEqual("Frank", _viewModel.SelectedPeer?.Username);
     }
@@ -650,10 +658,193 @@ public sealed class FileSyncViewModelTest
         string? changedProperty = null;
         _viewModel.PropertyChanged += (_, e) => changedProperty = e.PropertyName;
 
-        var user = new ControllerUser("Grace", "grace@test.com", null, "192.168.1.16", 8007, isHost: false);
+        ControllerUser user = MakeUser("Grace", 8007);
         _viewModel.SelectedPeer = user;
 
         Assert.AreEqual(nameof(FileSyncViewModel.SelectedPeer), changedProperty);
         Assert.AreSame(user, _viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 43. Assigning the same SelectedPeer does not raise PropertyChanged
+    /// </summary>
+    [TestMethod]
+    public void SelectedPeer_SameValue_DoesNotRaisePropertyChanged()
+    {
+        ControllerUser user = MakeUser("Heidi", 8008);
+        _viewModel.SelectedPeer = user;
+
+        bool eventRaised = false;
+        _viewModel.PropertyChanged += (_, _) => eventRaised = true;
+
+        _viewModel.SelectedPeer = user;
+
+        Assert.IsFalse(eventRaised);
+    }
+
+    /// <summary>
+    /// 44. Setting SelectedPeer to null clears the selection and raises PropertyChanged
+    /// </summary>
+    [TestMethod]
+    public void SelectedPeer_SetToNull_ClearsSelectionAndRaisesPropertyChanged()
+    {
+        _viewModel.SelectedPeer = MakeUser("Ivan", 8009);
+
+        string? changedProperty = null;
+        _viewModel.PropertyChanged += (_, e) => changedProperty = e.PropertyName;
+
+        _viewModel.SelectedPeer = null;
+
+        Assert.IsNull(_viewModel.SelectedPeer);
+        Assert.AreEqual(nameof(FileSyncViewModel.SelectedPeer), changedProperty);
+    }
+
+    /// <summary>
+    /// 45. SetAvailableUsers with an empty list clears peers and selection
+    /// </summary>
+    [TestMethod]
+    public void SetAvailableUsers_EmptyList_ClearsPeersAndSelection()
+    {
+        _viewModel.SetAvailableUsers(new[] { MakeUser("Judy", 8010) });
+        Assert.IsNotNull(_viewModel.SelectedPeer);
+
+        _viewModel.SetAvailableUsers(new List<ControllerUser>());
+
+        Assert.IsEmpty(_viewModel.AvailablePeers);
+        Assert.IsNull(_viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 46. SetAvailableUsers replaces the previous peers instead of appending
+    /// </summary>
+    [TestMethod]
+    public void SetAvailableUsers_CalledTwice_ReplacesPreviousPeers()
+    {
+        _viewModel.SetAvailableUsers(new[] { MakeUser("Karl", 8011), MakeUser("Liam", 8012) });
+
+        ControllerUser mia = MakeUser("Mia", 8013);
+        _viewModel.SetAvailableUsers(new[] { mia });
+
+        Assert.HasCount(1, _viewModel.AvailablePeers);
+        Assert.AreSame(mia, _viewModel.AvailablePeers[0]);
+        Assert.AreSame(mia, _viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 47. OnUserJoined with a second distinct user adds it and keeps a peer selected
+    /// </summary>
+    [TestMethod]
+    public void OnUserJoined_SecondDistinctUser_AddsPeerAndKeepsSelection()
+    {
+        ControllerUser first = MakeUser("Nina", 8014);
+        ControllerUser second = MakeUser("Oscar", 8015);
+
+        _viewModel.OnUserJoined(first);
+        _viewModel.OnUserJoined(second);
+
+        Assert.HasCount(2, _viewModel.AvailablePeers);
+        Assert.IsNotNull(_viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 48. OnUserJoined with the same key but a different instance keeps the original peer
+    /// </summary>
+    [TestMethod]
+    public void OnUserJoined_SameKeyDifferentInstance_KeepsOriginalPeer()
+    {
+        ControllerUser original = MakeUser("Pam", 8016);
+        ControllerUser duplicate = MakeUser("Pam", 8016);
+
+        _viewModel.OnUserJoined(original);
+        _viewModel.OnUserJoined(duplicate);
+
+        Assert.HasCount(1, _viewModel.AvailablePeers);
+        Assert.AreSame(original, _viewModel.AvailablePeers[0]);
+    }
+
+    /// <summary>
+    /// 49. OnUserLeft matches by key, so a different instance with the same key is removed
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_SameKeyDifferentInstance_RemovesPeer()
+    {
+        _viewModel.OnUserJoined(MakeUser("Quinn", 8017));
+
+        _viewModel.OnUserLeft(MakeUser("Quinn", 8017));
+
+        Assert.IsEmpty(_viewModel.AvailablePeers);
+    }
+
+    /// <summary>
+    /// 50. OnUserLeft for a user that is not in the list changes nothing
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_UnknownUser_DoesNothing()
+    {
+        ControllerUser known = MakeUser("Rita", 8018);
+        _viewModel.OnUserJoined(known);
+
+        _viewModel.OnUserLeft(MakeUser("Stranger", 9999));
+
+        Assert.HasCount(1, _viewModel.AvailablePeers);
+        Assert.AreSame(known, _viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 51. OnUserLeft for a non-selected user keeps the current selection
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_NonSelectedUser_KeepsSelection()
+    {
+        ControllerUser selected = MakeUser("Sam", 8019);
+        ControllerUser other = MakeUser("Tina", 8020);
+
+        _viewModel.SetAvailableUsers(new[] { selected, other });
+        Assert.AreSame(selected, _viewModel.SelectedPeer);
+
+        _viewModel.OnUserLeft(other);
+
+        Assert.HasCount(1, _viewModel.AvailablePeers);
+        Assert.AreSame(selected, _viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 52. OnUserLeft for the last remaining peer clears the selection
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_LastPeer_ClearsSelection()
+    {
+        ControllerUser only = MakeUser("Uma", 8021);
+        _viewModel.OnUserJoined(only);
+
+        _viewModel.OnUserLeft(only);
+
+        Assert.IsEmpty(_viewModel.AvailablePeers);
+        Assert.IsNull(_viewModel.SelectedPeer);
+    }
+
+    /// <summary>
+    /// 53. OnUserJoined with null does nothing (remove if your code throws on null instead)
+    /// </summary>
+    [TestMethod]
+    public void OnUserJoined_NullUser_DoesNothing()
+    {
+        _viewModel.OnUserJoined(null!);
+
+        Assert.IsEmpty(_viewModel.AvailablePeers);
+    }
+
+    /// <summary>
+    /// 54. OnUserLeft with null does nothing (remove if your code throws on null instead)
+    /// </summary>
+    [TestMethod]
+    public void OnUserLeft_NullUser_DoesNothing()
+    {
+        ControllerUser known = MakeUser("Vera", 8022);
+        _viewModel.OnUserJoined(known);
+
+        _viewModel.OnUserLeft(null!);
+
+        Assert.HasCount(1, _viewModel.AvailablePeers);
     }
 }

@@ -1,4 +1,4 @@
-// Author : Eswar
+﻿// Author : Eswar
 
 using System;
 using System.Collections.Generic;
@@ -631,7 +631,7 @@ public class NetworkSyncHandlerTest
 
         Assert.IsTrue(completed);
         Assert.IsNotNull(logged);
-        Assert.IsTrue(logged.Contains("peer confirmed receipt"));
-        Assert.IsTrue(logged.Contains("notes.txt"));
+        Assert.Contains("peer confirmed receipt", logged);
+        Assert.Contains("notes.txt", logged);
     }
 }
