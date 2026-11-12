@@ -64,7 +64,7 @@ public class BoundingBoxTests : BaseGenerator
         };
 
         Assert.Equal(ellipse.Center.X - (ellipse.Width / 2), ellipse.BoundingBox.Left);
-        Assert.Equal(ellipse.Center.Y + (ellipse.Height / 2), ellipse.BoundingBox.Top);
+        Assert.Equal(ellipse.Center.Y - (ellipse.Height / 2), ellipse.BoundingBox.Top);
         Assert.Equal(ellipse.Width, ellipse.BoundingBox.Width);
         Assert.Equal(ellipse.Height, ellipse.BoundingBox.Height);
     }
