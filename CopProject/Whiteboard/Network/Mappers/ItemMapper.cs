@@ -143,7 +143,7 @@ public class ItemMapper
 
             ItemPayload.EqTriangle eqTriangle => new EqTriangle {
                 Center = eqTriangle.Center,
-                Left = eqTriangle.Center.X - eqTriangle.SideLength / 2,
+                Left = eqTriangle.Center.X - (eqTriangle.SideLength / 2),
                 Top = eqTriangle.Center.Y - (eqTriangle.SideLength * Math.Sqrt(3) / 4),
                 SideLength = eqTriangle.SideLength,
                 FillColor = HexToColor(eqTriangle.Style.FillColor),

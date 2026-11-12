@@ -56,7 +56,8 @@ public static class ItemSnapshot
                 Center = CopyPoint(item.Center),
                 Left = item.Left,
                 Top = item.Top,
-                SideLength = item.SideLength
+                SideLength = item.SideLength,
+                BoundingBox = CopyRect(item.BoundingBox)
             },
 
             Polygon item => new Polygon {

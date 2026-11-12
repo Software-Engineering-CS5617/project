@@ -38,6 +38,23 @@ public class BoundingBoxTests : BaseGenerator
     }
 
     [Fact]
+    public void EquilateralTriangleBoundingBox_UsesSideLengthAndTriangleHeight()
+    {
+        Whiteboard.Items.Shapes.EqTriangle triangle = new() {
+            Left = 10,
+            Top = 20,
+            SideLength = 30
+        };
+
+        Rect2D boundingBox = triangle.BoundingBox;
+
+        Assert.Equal(10, boundingBox.Left);
+        Assert.Equal(20, boundingBox.Top);
+        Assert.Equal(30, boundingBox.Width);
+        Assert.Equal(30 * Math.Sqrt(3) / 2, boundingBox.Height);
+    }
+
+    [Fact]
     public void Ellipse()
     {
         IEllipse ellipse = new Whiteboard.Items.Shapes.Ellipse() {
