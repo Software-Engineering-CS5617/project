@@ -1,11 +1,27 @@
 ﻿namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// A clickable candidate shown by the whiteboard suggestion overlay.
-/// CanonicalValue is the value the board should draw, for example "M", "8", or "Circle".
+/// A selectable suggestion. Shape is used for geometric drawings;
+/// RecognizedText is used for letters, digits, and handwritten text.
 /// </summary>
 public sealed record SuggestionCandidate(
-    string Label,
     DrawingCategory Category,
-    string CanonicalValue,
-    bool IsRecommended);
+    ShapeType Shape,
+    string? RecognizedText,
+    bool IsRecommended)
+{
+    /// <summary>
+    /// A UI-friendly label for displaying this candidate.
+    /// </summary>
+    public string Label => Category switch {
+        DrawingCategory.Shape => Shape switch {
+            ShapeType.EquilateralTriangle => "Equilateral Triangle",
+            ShapeType.Unknown => "Unknown",
+            _ => Shape.ToString()
+        },
+        DrawingCategory.Letter => $"Letter {RecognizedText}",
+        DrawingCategory.Digit => $"Digit {RecognizedText}",
+        DrawingCategory.Text => RecognizedText ?? string.Empty,
+        _ => "Unknown"
+    };
+}

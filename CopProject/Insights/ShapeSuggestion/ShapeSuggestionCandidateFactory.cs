@@ -1,8 +1,7 @@
 ﻿namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// Converts the AI result into simple clickable options for any UI framework.
-/// Keeping this outside WPF lets a WinUI or other whiteboard host reuse the same logic.
+/// Creates selectable, strongly typed options from a validated AI result.
 /// </summary>
 public static class ShapeSuggestionCandidateFactory
 {
@@ -10,98 +9,115 @@ public static class ShapeSuggestionCandidateFactory
     {
         ArgumentNullException.ThrowIfNull(suggestion);
 
-        var candidates = new List<SuggestionCandidate>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        Add(suggestion.BestMatch, suggestion.Category, isRecommended: true);
-
-        foreach (string alternative in suggestion.Alternatives.Take(3))
+        if (!TryCreateCandidate(
+            suggestion.Category,
+            suggestion.BestMatch,
+            suggestion.RecognizedText,
+            isRecommended: true,
+            out SuggestionCandidate primary))
         {
-            Add(alternative, suggestion.Category, isRecommended: false);
+            return Array.Empty<SuggestionCandidate>();
+        }
+
+        var candidates = new List<SuggestionCandidate> { primary };
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GetKey(primary)
+        };
+
+        foreach (SuggestionCandidate alternative in suggestion.Alternatives)
+        {
+            if (candidates.Count == 4)
+            {
+                break;
+            }
+
+            if (alternative.Category != suggestion.Category
+                || !TryCreateCandidate(
+                    alternative.Category,
+                    alternative.Shape,
+                    alternative.RecognizedText,
+                    isRecommended: false,
+                    out SuggestionCandidate candidate))
+            {
+                continue;
+            }
+
+            if (seen.Add(GetKey(candidate)))
+            {
+                candidates.Add(candidate);
+            }
         }
 
         return candidates;
+    }
 
-        void Add(string? sourceLabel, DrawingCategory fallbackCategory, bool isRecommended)
+    private static bool TryCreateCandidate(
+        DrawingCategory category,
+        ShapeType shape,
+        string? recognizedText,
+        bool isRecommended,
+        out SuggestionCandidate candidate)
+    {
+        candidate = null!;
+
+        switch (category)
         {
-            if (string.IsNullOrWhiteSpace(sourceLabel))
-            {
-                return;
-            }
+            case DrawingCategory.Shape:
+                if (!Enum.IsDefined(shape) || shape == ShapeType.Unknown)
+                {
+                    return false;
+                }
 
-            string raw = sourceLabel.Trim();
-            DrawingCategory category = InferCategory(raw, fallbackCategory);
+                candidate = new SuggestionCandidate(category, shape, null, isRecommended);
+                return true;
 
-            if (category == DrawingCategory.Unknown
-                && raw.Equals("Unclear", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
+            case DrawingCategory.Letter:
+                if (shape != ShapeType.Unknown
+                    || string.IsNullOrWhiteSpace(recognizedText)
+                    || recognizedText.Length != 1
+                    || recognizedText[0] is < 'A' or > 'Z')
+                {
+                    return false;
+                }
 
-            string value = GetCanonicalValue(raw, category);
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return;
-            }
+                candidate = new SuggestionCandidate(category, ShapeType.Unknown, recognizedText, isRecommended);
+                return true;
 
-            string key = $"{category}:{value}";
-            if (!seen.Add(key))
-            {
-                return;
-            }
+            case DrawingCategory.Digit:
+                if (shape != ShapeType.Unknown
+                    || string.IsNullOrWhiteSpace(recognizedText)
+                    || recognizedText.Length != 1
+                    || recognizedText[0] is < '0' or > '9')
+                {
+                    return false;
+                }
 
-            string label = GetDisplayLabel(raw, category, value);
-            candidates.Add(new SuggestionCandidate(label, category, value, isRecommended));
+                candidate = new SuggestionCandidate(category, ShapeType.Unknown, recognizedText, isRecommended);
+                return true;
+
+            case DrawingCategory.Text:
+                if (shape != ShapeType.Unknown || string.IsNullOrWhiteSpace(recognizedText))
+                {
+                    return false;
+                }
+
+                candidate = new SuggestionCandidate(
+                    category,
+                    ShapeType.Unknown,
+                    recognizedText.Trim(),
+                    isRecommended);
+                return true;
+
+            default:
+                return false;
         }
     }
 
-    private static DrawingCategory InferCategory(string label, DrawingCategory fallback)
+    private static string GetKey(SuggestionCandidate candidate)
     {
-        if (label.StartsWith("Letter ", StringComparison.OrdinalIgnoreCase))
-        {
-            return DrawingCategory.Letter;
-        }
-
-        if (label.StartsWith("Digit ", StringComparison.OrdinalIgnoreCase))
-        {
-            return DrawingCategory.Digit;
-        }
-
-        if (fallback == DrawingCategory.Letter && label.Length == 1 && char.IsLetter(label[0]))
-        {
-            return DrawingCategory.Letter;
-        }
-
-        if (fallback == DrawingCategory.Digit && label.Length == 1 && char.IsDigit(label[0]))
-        {
-            return DrawingCategory.Digit;
-        }
-
-        return fallback;
-    }
-
-    private static string GetCanonicalValue(string label, DrawingCategory category)
-    {
-        return category switch {
-            DrawingCategory.Letter => RemovePrefix(label, "Letter ").Trim().ToUpperInvariant(),
-            DrawingCategory.Digit => RemovePrefix(label, "Digit ").Trim(),
-            _ => label
-        };
-    }
-
-    private static string GetDisplayLabel(string raw, DrawingCategory category, string value)
-    {
-        return category switch {
-            DrawingCategory.Letter => $"Letter {value}",
-            DrawingCategory.Digit => $"Digit {value}",
-            _ => raw
-        };
-    }
-
-    private static string RemovePrefix(string value, string prefix)
-    {
-        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            ? value[prefix.Length..]
-            : value;
+        return candidate.Category == DrawingCategory.Shape
+            ? $"{candidate.Category}:{candidate.Shape}"
+            : $"{candidate.Category}:{candidate.RecognizedText}";
     }
 }
