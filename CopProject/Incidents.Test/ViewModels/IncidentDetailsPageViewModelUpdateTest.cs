@@ -15,8 +15,8 @@ public class IncidentDetailsPageViewModelUpdateTest
     private IIncidentController _controller = null!;
     private IncidentDetailsPageViewModel _viewModel = null!;
 
-    private readonly Guid _currentUserId =
-        Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly string _currentUserId =
+        "11111111-1111-1111-1111-111111111111";
 
     /// <summary>
     /// Initializes the real IncidentController and IncidentDetailsPageViewModel
@@ -226,7 +226,7 @@ public class IncidentDetailsPageViewModelUpdateTest
     [TestMethod]
     public async Task AddEvidenceItemsAsync_NoIncident_DoesNothing()
     {
-        List<IncidentEvidence> evidences = [];
+        List<(IncidentEvidence, byte[])> evidences = [];
 
         await _viewModel.AddEvidenceItemsAsync(evidences);
 
@@ -263,7 +263,7 @@ public class IncidentDetailsPageViewModelUpdateTest
             DateTime.UtcNow,
             _currentUserId);
 
-        await _viewModel.AddEvidenceItemsAsync([evidence]);
+        await _viewModel.AddEvidenceItemsAsync([(evidence, [])]);
 
         Assert.IsNotNull(_viewModel.Incident);
         Assert.HasCount(1, _viewModel.Evidences);
@@ -286,7 +286,7 @@ public class IncidentDetailsPageViewModelUpdateTest
             DateTime.UtcNow,
             _currentUserId);
 
-        await _viewModel.AddEvidenceItemsAsync([evidence]);
+        await _viewModel.AddEvidenceItemsAsync([(evidence, [])]);
 
         Assert.IsNotNull(_viewModel.Incident);
         Assert.AreEqual(originalIncident.Id, _viewModel.Incident.Id);
@@ -308,7 +308,7 @@ public class IncidentDetailsPageViewModelUpdateTest
             DateTime.UtcNow,
             _currentUserId);
 
-        await _viewModel.AddEvidenceItemsAsync([evidence]);
+        await _viewModel.AddEvidenceItemsAsync([(evidence, [])]);
 
         Assert.IsFalse(_viewModel.IsBusy);
         Assert.IsTrue(_viewModel.IsNotBusy);
@@ -331,7 +331,7 @@ public class IncidentDetailsPageViewModelUpdateTest
             DateTime.UtcNow,
             _currentUserId);
 
-        await _viewModel.AddEvidenceItemsAsync([evidence]);
+        await _viewModel.AddEvidenceItemsAsync([(evidence, [])]);
 
         Assert.AreEqual(string.Empty, _viewModel.ErrorMessage);
         Assert.AreEqual(Visibility.Collapsed, _viewModel.ErrorVisibility);

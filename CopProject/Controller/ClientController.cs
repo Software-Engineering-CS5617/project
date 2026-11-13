@@ -112,7 +112,7 @@ public sealed class ClientController : IControllerService
         _hostPort = hostPort;
         _currentUser = user;
         user.IsHost = false;
-        user.Ip = NetworkUtils.GetLocalIpAddress();
+        user.Ip = _communicator.ListenIpAddress.ToString();
         user.Port = _communicator.ListenPort;
         user.JoinedAt = DateTime.UtcNow;
         lock (_knownUsers)

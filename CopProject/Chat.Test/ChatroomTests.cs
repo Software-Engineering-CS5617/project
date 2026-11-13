@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chat;
@@ -212,12 +212,12 @@ public class ChatroomTests
     }
 
     [Fact]
-    public void DeleteMessageForbidsDeletingAnotherUsersMessage()
+    public void DeleteMessageAllowsHostToDeleteAnotherUsersMessage()
     {
         Chatroom chatroom = new("room", "host");
         Guid id = chatroom.AddMessage(NewMessage("guest", "Hello"));
 
-        Assert.Equal(RoomResult.Forbidden, chatroom.DeleteMessage(id, "host"));
+        Assert.Equal(RoomResult.Ok, chatroom.DeleteMessage(id, "host"));
     }
 
     [Fact]

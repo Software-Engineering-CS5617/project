@@ -61,7 +61,7 @@ public sealed class CorrelateIncidentsDialogViewModelTest
         return new Incident(
             title: title,
             description: "Test incident description.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(

@@ -115,7 +115,7 @@ internal static class IncidentSerializer
     private sealed record IncidentChange(
         string Description,
         DateTime ChangedTime,
-        Guid ChangedBy) : IChange;
+        string ChangedBy) : IChange;
 }
 
 [XmlRoot("Incident")]
@@ -124,7 +124,7 @@ public class IncidentXmlDocument
     public Guid Id { get; set; }
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
-    public Guid CreatedBy { get; set; }
+    public string CreatedBy { get; set; } = "";
 
     public IncidentLocationXml Location { get; set; } = new();
 
@@ -162,7 +162,7 @@ public class IncidentEvidenceXml
     public string Description { get; set; } = "";
     public string? FilePath { get; set; }
     public DateTime UploadTime { get; set; }
-    public Guid UploadedBy { get; set; }
+    public string UploadedBy { get; set; } = "";
 
     public IncidentEvidenceXml() { }
 }
@@ -171,7 +171,7 @@ public class ChangeXmlDocument
 {
     public string Description { get; set; } = "";
     public DateTime ChangedTime { get; set; }
-    public Guid ChangedBy { get; set; }
+    public string ChangedBy { get; set; } = "";
 
     public ChangeXmlDocument() { }
 }

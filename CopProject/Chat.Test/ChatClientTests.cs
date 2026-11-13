@@ -96,7 +96,7 @@ public class ChatClientTests
         ChatClientRequestEnvelope envelope = AssertRequest<SendMessage>(communicator.LastSentMessage!, requestId);
         SendMessage send = Assert.IsType<SendMessage>(envelope.Request);
         Assert.Equal("Hello", send.Content);
-        Assert.Equal(parentId, send.ParentMessageId);
+        Assert.Equal(parentId, send.ThreadParentMessageId);
         using JsonDocument payload = JsonDocument.Parse(communicator.LastSentMessage!);
         JsonElement usernames = payload.RootElement
             .GetProperty("Request")
@@ -104,6 +104,22 @@ public class ChatClientTests
             .GetProperty("Usernames");
         Assert.Contains(usernames.EnumerateArray(), username => username.GetString() == "host");
         AssertSentToServer(communicator);
+    }
+
+    [Fact]
+    public void SendMessageSendsInlineReplyIdSeparatelyFromThreadParent()
+    {
+        RecordingCommunicator communicator = new();
+        using ChatClient client = NewClient(communicator);
+        Guid threadParentId = Guid.NewGuid();
+        Guid inlineReplyId = Guid.NewGuid();
+
+        Guid requestId = client.SendMessage("Hello", new Mentions(), threadParentId, inlineReplyId);
+
+        SendMessage send = Assert.IsType<SendMessage>(
+            AssertRequest<SendMessage>(communicator.LastSentMessage!, requestId).Request);
+        Assert.Equal(threadParentId, send.ThreadParentMessageId);
+        Assert.Equal(inlineReplyId, send.ReplyToMessageId);
     }
 
     [Fact]
@@ -135,7 +151,7 @@ public class ChatClientTests
         EditMessage edit = Assert.IsType<EditMessage>(envelope.Request);
         Assert.Equal(messageId, edit.MessageId);
         Assert.Equal("Edited", edit.NewContent);
-        Assert.Equal(parentId, edit.ParentMessageId);
+        Assert.Equal(parentId, edit.ThreadParentMessageId);
         AssertSentToServer(communicator);
     }
 
@@ -152,7 +168,7 @@ public class ChatClientTests
         ChatClientRequestEnvelope envelope = AssertRequest<DeleteMessage>(communicator.LastSentMessage!, requestId);
         DeleteMessage delete = Assert.IsType<DeleteMessage>(envelope.Request);
         Assert.Equal(messageId, delete.MessageId);
-        Assert.Equal(parentId, delete.ParentMessageId);
+        Assert.Equal(parentId, delete.ThreadParentMessageId);
         AssertSentToServer(communicator);
     }
 
@@ -170,7 +186,7 @@ public class ChatClientTests
         ToggleReaction reaction = Assert.IsType<ToggleReaction>(envelope.Request);
         Assert.Equal(messageId, reaction.MessageId);
         Assert.Equal("👍", reaction.Emoji);
-        Assert.Equal(parentId, reaction.ParentMessageId);
+        Assert.Equal(parentId, reaction.ThreadParentMessageId);
         AssertSentToServer(communicator);
     }
 

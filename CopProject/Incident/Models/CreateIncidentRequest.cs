@@ -17,7 +17,7 @@ public class CreateIncidentRequest
     public string Title { get; }
     public string Description { get; }
 
-    public Guid CreatedBy { get; }
+    public string CreatedBy { get; } = "";
     public IncidentStatus Status { get; }
     public IncidentCategory Category { get; }
     public IncidentSeverity Severity { get; }
@@ -29,7 +29,7 @@ public class CreateIncidentRequest
     public CreateIncidentRequest(
         string title,
         string description,
-        Guid createdBy,
+        string createdBy,
         IncidentCategory category,
         IncidentSeverity severity,
         IncidentLocation location,

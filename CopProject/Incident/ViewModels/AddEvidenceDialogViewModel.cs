@@ -111,7 +111,7 @@ public sealed class AddEvidenceDialogViewModel : ViewModelBase
     /// <param name="uploadedBy">Id of the user adding the evidence.</param>
     /// <returns>Evidence metadata and its file contents.</returns>
     public async Task<(IncidentEvidence Evidence, byte[] Content)> BuildEvidenceAsync(
-        Guid uploadedBy)
+        string uploadedBy)
     {
         if (!IsValid)
         {

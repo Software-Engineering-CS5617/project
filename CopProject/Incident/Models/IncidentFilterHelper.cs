@@ -83,12 +83,12 @@ internal static class IncidentFilterHelper
 
     private static bool MatchesCreator(Incident incident, IncidentFilter filter)
     {
-        if (!filter.CreatedBy.HasValue)
+        if (string.IsNullOrWhiteSpace(filter.CreatedBy))
         {
             return true;
         }
 
-        return incident.CreatedBy == filter.CreatedBy.Value;
+        return incident.CreatedBy == filter.CreatedBy;
     }
 
     private static bool MatchesLocation(Incident incident, IncidentFilter filter)

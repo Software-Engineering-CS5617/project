@@ -1,11 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
 using Chat;
+using Controller;
 using Networking;
+using Utils;
 
 namespace Chat.Test;
 
@@ -19,7 +21,8 @@ public class ChatServerTests
         RecordingCommunicator communicator = new();
         RecordingController controller = new();
 
-        Assert.Throws<ArgumentNullException>(() => new ChatServer(null!, communicator, controller));
+        controller.Communicator = communicator;
+        Assert.Throws<ArgumentNullException>(() => new ChatServer(null!, controller));
     }
 
     [Fact]
@@ -27,17 +30,15 @@ public class ChatServerTests
     {
         RecordingController controller = new();
 
-        Assert.Throws<ArgumentNullException>(
-            () => new ChatServer(new Chatroom("room", "host"), null!, controller));
+        Assert.Throws<InvalidOperationException>(
+            () => new ChatServer(new Chatroom("room", "host"), controller));
     }
 
     [Fact]
     public void ConstructorRejectsNullController()
     {
-        RecordingCommunicator communicator = new();
-
         Assert.Throws<ArgumentNullException>(
-            () => new ChatServer(new Chatroom("room", "host"), communicator, null!));
+            () => new ChatServer(new Chatroom("room", "host"), null!));
     }
 
     [Fact]
@@ -62,7 +63,7 @@ public class ChatServerTests
 
         Assert.Equal(1, communicator.RemoveSubscriberCount);
         Assert.Equal(ChatConstants.ModuleId, communicator.RemovedModule);
-        controller.RaiseParticipantAdded("guest");
+        controller.RaiseUserJoined("guest");
         Assert.DoesNotContain("guest", server.Chatroom.Participants);
     }
 
@@ -156,7 +157,7 @@ public class ChatServerTests
         using ChatServer server = NewServer(communicator, controller);
         controller.AddEndpoint("guest", ClientAddress);
 
-        controller.RaiseParticipantAdded("guest");
+        controller.RaiseUserJoined("guest");
         Assert.Contains("guest", server.Chatroom.Participants);
     }
 
@@ -167,8 +168,8 @@ public class ChatServerTests
         RecordingController controller = new();
         using ChatServer server = NewServer(communicator, controller);
         controller.AddEndpoint("guest", ClientAddress);
-        controller.RaiseParticipantAdded("guest");
-        controller.RaiseParticipantRemoved("guest");
+        controller.RaiseUserJoined("guest");
+        controller.RaiseUserLeft("guest");
 
         Assert.DoesNotContain("guest", server.Chatroom.Participants);
     }
@@ -307,12 +308,46 @@ public class ChatServerTests
             Assert.True(server.Chatroom.TryGetMessage(parentMessageId, out ChatMessage parent));
             ChatMessage reply = Assert.Single(Assert.IsType<ChatMessageWithThreads>(parent).ThreadById.Values);
             Assert.Equal("Thread reply", reply.Content);
-            Assert.Equal(parentMessageId, reply.ParentMessageId);
+            Assert.Null(reply.ParentMessageId);
             MessageAdded operation = Assert.IsType<MessageAdded>(
                 Assert.Single(Assert.IsType<ChatServerOperationBatch>(
                     ReadUpdate(communicator.Sent[1]).Update).Operations));
-            Assert.Equal(parentMessageId, operation.Message.ParentMessageId);
+            Assert.Null(operation.Message.ParentMessageId);
+            Assert.Equal(parentMessageId, operation.ThreadParentMessageId);
             Assert.Equal(reply.Content, operation.Message.Content);
+        }
+    }
+
+    [Fact]
+    public void ClientInlineReplyRequestAddsMessageToRoomAndPreservesReference()
+    {
+        (ChatServer server, RecordingCommunicator communicator, Guid referencedMessageId) =
+            NewServerWithGuestMessage();
+        using (server)
+        {
+            server.HandleRequest(new ChatClientRequestEnvelope(
+                Guid.NewGuid(),
+                new SendMessage(
+                    DateTimeOffset.UtcNow,
+                    new Mentions(),
+                    "Inline reply",
+                    null,
+                    referencedMessageId),
+                "guest"));
+
+            Assert.Equal(1, server.Version);
+            Assert.True(server.Chatroom.TryGetMessage(referencedMessageId, out ChatMessage referencedMessage));
+            ChatMessageWithThreads referencedRoomMessage = Assert.IsType<ChatMessageWithThreads>(referencedMessage);
+            Assert.Empty(referencedRoomMessage.ThreadById);
+
+            MessageAdded operation = Assert.IsType<MessageAdded>(
+                Assert.Single(Assert.IsType<ChatServerOperationBatch>(
+                    ReadUpdate(communicator.Sent[1]).Update).Operations));
+            Assert.Equal(referencedMessageId, operation.Message.ParentMessageId);
+            Assert.Null(operation.ThreadParentMessageId);
+            Assert.Equal("Inline reply", operation.Message.Content);
+            Assert.True(server.Chatroom.TryGetMessage(operation.MessageId, out ChatMessage inlineReply));
+            Assert.Equal(referencedMessageId, inlineReply.ParentMessageId);
         }
     }
 
@@ -364,12 +399,12 @@ public class ChatServerTests
         {
             server.HandleRequest(new ChatClientRequestEnvelope(
                 Guid.NewGuid(),
-                new ToggleReaction(messageId, "👍", null),
+                new ToggleReaction(messageId, "??", null),
                 "guest"));
 
             Assert.Equal(1, server.Version);
             Assert.True(server.Chatroom.TryGetMessage(messageId, out ChatMessage message));
-            Assert.Contains("guest", message.Reactions["👍"]);
+            Assert.Contains("guest", message.Reactions["??"]);
             Assert.IsType<ReactionToggled>(
                 Assert.Single(Assert.IsType<ChatServerOperationBatch>(
                     ReadUpdate(communicator.Sent[1]).Update).Operations));
@@ -504,7 +539,8 @@ public class ChatServerTests
 
     private static ChatServer NewServer(RecordingCommunicator communicator, RecordingController controller)
     {
-        return new ChatServer(new Chatroom("room", "host"), communicator, controller);
+        controller.Communicator = communicator;
+        return new ChatServer(new Chatroom("room", "host"), controller);
     }
 
     private static (ChatServer Server, RecordingCommunicator Communicator, Guid MessageId)
@@ -520,7 +556,8 @@ public class ChatServerTests
         RecordingCommunicator communicator = new();
         RecordingController controller = new();
         controller.AddEndpoint("guest", ClientAddress);
-        ChatServer server = new(chatroom, communicator, controller);
+        controller.Communicator = communicator;
+        ChatServer server = new(chatroom, controller);
         server.RegisterClient("guest");
         communicator.Sent.Clear();
         return (server, communicator, messageId);
@@ -584,33 +621,86 @@ public class ChatServerTests
         }
     }
 
-    private sealed class RecordingController : IChatController
+    private sealed class RecordingController : IControllerService
     {
-        private readonly Dictionary<string, IPEndPoint> _endpoints = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ControllerUser> _users = new(StringComparer.Ordinal);
 
-        public event Action<string>? ParticipantAdded;
-        public event Action<string>? ParticipantRemoved;
+        public RecordingController()
+        {
+            CurrentUser = new ControllerUser(
+                "host",
+                "host@example.com",
+                null,
+                IPAddress.Loopback.ToString(),
+                12345,
+                isHost: true);
+            _users[CurrentUser.UserKey] = CurrentUser;
+        }
+
+        public int ListenPort => Communicator?.ListenPort ?? 0;
+        public ICommunicator? Communicator { get; set; }
+        public ControllerUser? CurrentUser { get; }
+        public event EventHandler<UserJoinedEventArgs>? UserJoined;
+        public event EventHandler<UserLeftEventArgs>? UserLeft;
+        public event EventHandler<MeetingEndedEventArgs>? MeetingEnded;
 
         public void AddEndpoint(string username, IPEndPoint endpoint)
         {
-            _endpoints[username] = endpoint;
+            ControllerUser user = new(
+                username,
+                $"{username}@example.com",
+                null,
+                endpoint.Address.ToString(),
+                endpoint.Port);
+            _users[user.UserKey] = user;
         }
 
-        public void RaiseParticipantAdded(string username)
+        public void RaiseUserJoined(string username)
         {
-            ParticipantAdded?.Invoke(username);
+            ControllerUser user = _users.Values.FirstOrDefault(user =>
+                string.Equals(user.Username, username, StringComparison.Ordinal))
+                ?? new ControllerUser(
+                    username,
+                    $"{username}@example.com",
+                    null,
+                    IPAddress.Loopback.ToString(),
+                    ClientAddress.Port);
+            _users[user.UserKey] = user;
+            UserJoined?.Invoke(this, new UserJoinedEventArgs(user, _users.Count));
         }
 
-        public void RaiseParticipantRemoved(string username)
+        public void RaiseUserLeft(string username)
         {
-            ParticipantRemoved?.Invoke(username);
+            ControllerUser user = _users.Values.FirstOrDefault(user =>
+                string.Equals(user.Username, username, StringComparison.Ordinal))
+                ?? new ControllerUser(
+                    username,
+                    $"{username}@example.com",
+                    null,
+                    IPAddress.Loopback.ToString(),
+                    ClientAddress.Port);
+            UserLeft?.Invoke(this, new UserLeftEventArgs(user, _users.Count - 1));
         }
 
-        public IPEndPoint GetParticipantEndPoint(string username)
+        public bool StartMeeting() => true;
+        public bool EndMeeting() => true;
+        public bool JoinMeeting(string hostIp, int hostPort, ControllerUser user) => true;
+        public void LeaveMeeting(ControllerUser user)
         {
-            return _endpoints.TryGetValue(username, out IPEndPoint? endpoint)
-                ? endpoint
-                : throw new KeyNotFoundException($"No endpoint for {username}.");
+        }
+
+        public int GetActiveUserCount() => _users.Count;
+        public List<ControllerUser> GetActiveUsers() => _users.Values.ToList();
+        public void RegisterNotificationHandler(IUserNotificationHandler handler)
+        {
+        }
+
+        public void UnregisterNotificationHandler(IUserNotificationHandler handler)
+        {
+        }
+
+        public void Dispose()
+        {
         }
     }
 }

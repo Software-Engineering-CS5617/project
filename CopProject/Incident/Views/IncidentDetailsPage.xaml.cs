@@ -87,7 +87,7 @@ public sealed partial class IncidentDetailsPage : Page
             (IncidentEvidence Evidence, byte[] Content) res = await dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
             IncidentEvidence evidence = res.Evidence;
             byte[] content = res.Content;
-            await ViewModel.AddEvidenceItemsAsync([evidence]);
+            await ViewModel.AddEvidenceItemsAsync([(evidence, content)]);
         }
     }
 

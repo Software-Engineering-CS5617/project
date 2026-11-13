@@ -6,6 +6,7 @@
     xmlns:local="using:UX"
     xmlns:controller="using:Controller.Views"
     xmlns:screenshare="using:ScreenShare.Views">
+    xmlns:chat="using:UI.Views">
 
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
         <Grid.RowDefinitions>
@@ -218,10 +219,7 @@
             <Border x:Name="ChatPanel" Grid.Column="1" Grid.RowSpan="2" Width="320"
                     Background="White" CornerRadius="10" Margin="0,16,16,16"
                     Visibility="Collapsed">
-                <StackPanel Padding="16">
-                    <!-- CHAT TEAM: add your UI here -->
-                    <TextBlock Text="Chat module goes here"/>
-                </StackPanel>
+                <chat:ChatPanel x:Name="MeetingChatPanel"/>
             </Border>
             <local:ResizeHandle x:Name="ChatResizer" Grid.Column="1" Grid.RowSpan="2" Width="10"
                                 HorizontalAlignment="Left" Margin="0,16,0,16"

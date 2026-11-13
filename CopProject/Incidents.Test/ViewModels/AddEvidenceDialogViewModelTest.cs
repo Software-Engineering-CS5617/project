@@ -155,7 +155,7 @@ public sealed class AddEvidenceDialogViewModelTest
     [TestMethod]
     public async Task BuildEvidence_CreatesEvidenceWithCorrectValues()
     {
-        Guid uploadedBy = Guid.NewGuid();
+        string uploadedBy = Guid.NewGuid().ToString();
         byte[] expectedContent = [1, 2, 3, 4];
         string filePath = CreateTemporaryFile(expectedContent);
 
@@ -192,8 +192,8 @@ public sealed class AddEvidenceDialogViewModelTest
             _viewModel.FilePath = filePath;
             _viewModel.Description = "Evidence";
 
-            (IncidentEvidence Evidence, byte[] Content) first = await _viewModel.BuildEvidenceAsync(Guid.NewGuid());
-            (IncidentEvidence Evidence, byte[] Content) second = await _viewModel.BuildEvidenceAsync(Guid.NewGuid());
+            (IncidentEvidence Evidence, byte[] Content) first = await _viewModel.BuildEvidenceAsync(Guid.NewGuid().ToString());
+            (IncidentEvidence Evidence, byte[] Content) second = await _viewModel.BuildEvidenceAsync(Guid.NewGuid().ToString());
 
             Assert.AreNotEqual(first.Evidence.Id, second.Evidence.Id);
         }

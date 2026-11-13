@@ -133,6 +133,12 @@
                                 Header="Address / Landmark (Optional)"
                                 PlaceholderText="Enter street address or location details..."
                                 Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            
+                            <ContentControl
+                                x:Name="MiniMapHost"
+                                x:FieldModifier="public"
+                                HorizontalContentAlignment="Stretch" />
+
                         </StackPanel>
                     </Border>
 

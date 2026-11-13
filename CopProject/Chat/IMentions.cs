@@ -1,4 +1,4 @@
-namespace Chat;
+﻿namespace Chat;
 
 /// <summary>
 /// Operations related to mentions in a chat message.

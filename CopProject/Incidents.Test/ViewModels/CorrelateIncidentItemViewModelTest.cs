@@ -24,7 +24,7 @@ public sealed class CorrelateIncidentItemViewModelTest
             id: Guid.NewGuid(),
             title: "Test Incident",
             description: "Test incident description",
-            createdBy: Guid.NewGuid(),
+            createdBy: Guid.NewGuid().ToString(),
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.High,
             status: IncidentStatus.Reported,

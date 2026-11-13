@@ -21,7 +21,7 @@ internal static class VMTestHelpers
     /// </summary>
     public static async Task<Incident> CreateIncidentAsync(
         IIncidentController controller,
-        Guid currentUserId)
+        string currentUserId)
     {
         CreateIncidentRequest request = new(
             "Vehicle accident",
@@ -41,7 +41,7 @@ internal static class VMTestHelpers
     public static async Task<Incident> LoadCreatedIncidentAsync(
         IIncidentController controller,
         IncidentDetailsPageViewModel viewModel,
-        Guid currentUserId)
+        string currentUserId)
     {
         Incident incident = await CreateIncidentAsync(controller, currentUserId);
         await viewModel.LoadIncidentAsync(incident.Id);

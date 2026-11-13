@@ -15,6 +15,6 @@ public record IncidentEvidence(
     string Description,
     string? FilePath,
     DateTime UploadTime,
-    Guid UploadedBy,
+    string UploadedBy,
     string? StoragePath = null
 );

@@ -98,8 +98,9 @@ public sealed partial class CreateIncidentPage : Page
         if (result == ContentDialogResult.Primary && dialogViewModel.IsValid && ViewModel != null)
         {
             //todo(@sreenath): Add evidence as well as bytes of the file uploaded
-            Task<(IncidentEvidence Evidence, byte[] Content)> evidence = dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
-            ViewModel.Evidences.Add(await evidence);
+            (IncidentEvidence Evidence, byte[] Content) evidence = await dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
+            ViewModel.Evidences.Add(evidence.Evidence);
+            ViewModel._evidenceContents.Add(evidence);
         }
     }
 }

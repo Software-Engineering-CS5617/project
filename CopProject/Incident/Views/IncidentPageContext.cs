@@ -10,7 +10,7 @@ namespace Incidents.Views;
 [ExcludeFromCodeCoverage]
 public sealed record IncidentPageContext(
     IIncidentController IncidentController,
-    Guid CurrentUserId,
+    string CurrentUserId,
     IntPtr WindowHandle
 );
 
