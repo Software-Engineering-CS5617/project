@@ -14,6 +14,7 @@ namespace Controller.Views;
 public sealed partial class MeetingView : UserControl
 {
     private MeetingViewModel? _viewModel;
+
     public MeetingViewModel ViewModel
     {
         get => _viewModel!;
@@ -37,6 +38,7 @@ public sealed partial class MeetingView : UserControl
     {
         InitializeComponent();
     }
+
     private void DrawCharts()
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -71,13 +73,14 @@ public sealed partial class MeetingView : UserControl
         double pw = Math.Max(10, w - left - right);
         double ph = Math.Max(10, h - top - bottom);
 
+        double currentSec = ViewModel.ElapsedSeconds;
         var points = ViewModel.GraphPoints.ToList();
         if (points.Count == 0)
         {
             points.Add(new Models.ParticipantDataPoint { Seconds = 0, TimeLabel = "00:00", Count = Math.Max(1, ViewModel.Participants) });
         }
 
-        double maxSec = Math.Max(60, points.Max(p => p.Seconds));
+        double maxSec = Math.Max(60, Math.Max(currentSec, points.Max(p => p.Seconds)));
         if (maxSec <= 120) maxSec = 120;
         else if (maxSec <= 300) maxSec = 300;
         else if (maxSec <= 900) maxSec = 900;
@@ -132,6 +135,18 @@ public sealed partial class MeetingView : UserControl
             linePoints.Add(new Point(x, y));
         }
 
+        // Extend polyline to current time
+        double currentX = left + Math.Min(pw, (currentSec / maxSec) * pw);
+        double currentY = linePoints.Last().Y;
+        if (currentX > linePoints.Last().X)
+        {
+            linePoints.Add(new Point(currentX, currentY));
+        }
+        else if (linePoints.Count == 1)
+        {
+            linePoints.Add(new Point(currentX + 1, currentY));
+        }
+
         var polyline = new Polyline
         {
             Points = linePoints,
@@ -150,6 +165,12 @@ public sealed partial class MeetingView : UserControl
             Canvas.SetTop(dot, y - 3);
             canvas.Children.Add(dot);
         }
+
+        // Live head dot moving at current time
+        var currentDot = new Ellipse { Width = 6, Height = 6, Fill = new SolidColorBrush(ColorHelper.FromArgb(255, 15, 95, 194)) };
+        Canvas.SetLeft(currentDot, currentX - 3);
+        Canvas.SetTop(currentDot, currentY - 3);
+        canvas.Children.Add(currentDot);
     }
 
     private void GraphCard_Tapped(object sender, TappedRoutedEventArgs e) => ViewModel?.MaximizeGraph();
