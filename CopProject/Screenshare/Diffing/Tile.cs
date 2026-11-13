@@ -1,4 +1,5 @@
-﻿namespace ScreenShare;
+﻿using System.Diagnostics;
+namespace ScreenShare;
 
 /// <summary>
 /// represents a changed rectangular region of a screen frame
@@ -58,5 +59,12 @@ public sealed class Tile
         Height = height;
         Hash = hash;
         _data = (byte[])data.Clone();
+        Trace.TraceInformation(
+            "[Screenshare] Tile created at ({0}, {1}). Dimensions: {2}x{3}, Encoded payload size: {4} bytes.",
+            X,
+            Y,
+            Width,
+            Height,
+            _data.Length);
     }
 }
