@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -42,6 +43,11 @@ public class ScreenSharingService : IDisposable
         // so, the first frame must be treated as a full frame.
         if (_previousFrame == null)
         {
+            Trace.TraceInformation(
+            "[Screenshare] First frame captured. Dimensions: {0}x{1}. Sending full frame.",
+            currentFrame.Width,
+            currentFrame.Height);
+
             _previousFrame = new Bitmap(currentFrame);
 
             return ImageDiffResult.CreateFullFrame(new Bitmap(_previousFrame));
@@ -69,6 +75,8 @@ public class ScreenSharingService : IDisposable
         _previousFrame?.Dispose();
 
         _previousFrame = null;
+
+        Trace.TraceInformation("[Screenshare] Screen sharing service reset. Previous frame cleared.");
     }
 
     /// <summary>
@@ -85,5 +93,6 @@ public class ScreenSharingService : IDisposable
         _previousFrame = null;
 
         _disposed = true;
+        Trace.TraceInformation("[Screenshare] Screen sharing service disposed.");
     }
 }
