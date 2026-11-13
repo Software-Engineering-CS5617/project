@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Networking;
 
-namespace FileSynchroniser.Network;
+namespace FileSync.ConsoleApp;
 
 /// <summary>
 /// simple tcp communicator implementation of ICommunicator for testing network sync
@@ -18,7 +18,8 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
 {
     private readonly TcpListener _listener;
     private readonly CancellationTokenSource _cts = new();
-    private readonly ConcurrentDictionary<int, IMessageListener> _subscribers = new();
+    private readonly ConcurrentDictionary<int, IMessageListener> _subscribers =
+        new();
     private readonly ConcurrentBag<IPEndPoint> _knownPeers = new();
     private bool _disposed;
 
@@ -26,7 +27,8 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
     public IPAddress ListenIpAddress { get; }
 
     /// <summary>
-    /// initializes the TCP communicator, starts the listener, and launches the background listening loop
+    /// initializes the TCP communicator, starts the listener, and launches the
+    /// background listening loop
     /// </summary>
     public SimulatedCommunicator(int port)
     {
@@ -42,10 +44,7 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
     /// <summary>
     /// registers a peer endpoint so that broadcast messages can be sent to it
     /// </summary>
-    public void RegisterPeer(IPEndPoint peer)
-    {
-        _knownPeers.Add(peer);
-    }
+    public void RegisterPeer(IPEndPoint peer) { _knownPeers.Add(peer); }
 
     /// <summary>
     /// registers a message listener for a specific module
@@ -66,7 +65,8 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
     /// <summary>
     /// sends a message to a specific peer using a TCP connection
     /// </summary>
-    public void SendMessage(IPEndPoint ipEndPoint, byte[] message, int module, int priority)
+    public void SendMessage(IPEndPoint ipEndPoint, byte[] message, int module,
+                            int priority)
     {
         if (_disposed)
         {
@@ -116,15 +116,50 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
     public void LeaveMulticastGroup(int multicastGroup, IPEndPoint clientIp) { }
 
     /// <summary>
-    /// sends a message to the specified multicast group by broadcasting it to registered peers
+    /// sends a message to the specified multicast group by broadcasting it to
+    /// registered peers
     /// </summary>
-    public void MulticastMessage(int multicastGroup, byte[] message, int module, int priority)
+    public void MulticastMessage(int multicastGroup, byte[] message, int module,
+                                 int priority)
     {
         BroadcastMessage(message, module, priority);
     }
 
     /// <summary>
-    /// continuously listens for incoming TCP connections and dispatches connected clients for handling
+    /// Adds a subscriber for lossy messages.
+    /// </summary>
+    public void AddLossySubscriber(int module, IMessageListenerLossy subscriber)
+    {
+    }
+
+    /// <summary>
+    /// Removes a subscriber for lossy messages.
+    /// </summary>
+    public void RemoveLossySubscriber(int module) { }
+
+    /// <summary>
+    /// Sends the given message using lossy transport (UDP) to the given ip and
+    /// port.
+    /// </summary>
+    public void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message,
+                                 int module, int priority)
+    { }
+
+    /// <summary>
+    /// Broadcasts the message using lossy transport (UDP) to all listeners.
+    /// </summary>
+    public void BroadcastMessageLossy(byte[] message, int module, int priority) { }
+
+    /// <summary>
+    /// Sends a message using lossy transport (UDP) to all users in a multicast
+    /// group.
+    /// </summary>
+    public void MulticastMessageLossy(int multicastGroup, byte[] message,
+                                      int module, int priority)
+    { }
+    /// <summary>
+    /// continuously listens for incoming TCP connections and dispatches connected
+    /// clients for handling
     /// </summary>
     private async Task ListenLoopAsync()
     {
@@ -135,20 +170,29 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
                 TcpClient client = await _listener.AcceptTcpClientAsync(_cts.Token);
                 _ = Task.Run(() => HandleClient(client));
             }
-            catch (OperationCanceledException) { break; }
-            catch (ObjectDisposedException) { break; }
-            catch (SocketException) { break; }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            catch (SocketException)
+            {
+                break;
+            }
         }
     }
 
     /// <summary>
-    /// processes an incoming TCP client, reads the message packet, and forwards it to the registered subscriber
+    /// processes an incoming TCP client, reads the message packet, and forwards
+    /// it to the registered subscriber
     /// </summary>
     private void HandleClient(TcpClient client)
     {
-        using (client)
-        using (NetworkStream stream = client.GetStream())
-        using (var reader = new BinaryReader(stream))
+        using (client) using (NetworkStream stream = client.GetStream()) using (
+            var reader = new BinaryReader(stream))
         {
             try
             {
@@ -166,8 +210,12 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
                     break;
                 }
             }
-            catch (EndOfStreamException) { }
-            catch (IOException) { }
+            catch (EndOfStreamException)
+            {
+            }
+            catch (IOException)
+            {
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"[network] handle client error: {ex.Message}");
@@ -176,7 +224,8 @@ public class SimulatedCommunicator : ICommunicator, IDisposable
     }
 
     /// <summary>
-    /// releases the TCP listener and cancellation resources and stops the communicator
+    /// releases the TCP listener and cancellation resources and stops the
+    /// communicator
     /// </summary>
     public void Dispose()
     {
