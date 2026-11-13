@@ -2,10 +2,17 @@
 /// LICENSE : MIT
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Whiteboard.Client;
+using Whiteboard.Models;
+using Whiteboard.Network.Dtos;
+using Whiteboard.Network.Mappers;
+using Whiteboard.Services;
 using Whiteboard.Interfaces;
 using Whiteboard.Views;
 
@@ -37,6 +44,9 @@ public class WhiteBoardViewModel
 
     public WhiteboardTool SelectedTool { get; private set; } = WhiteboardTool.Pen;
 
+    private readonly string _sessionId;
+    private WhiteboardSnapshotStore? _snapshotStore;
+
 
     /// <summary>
     /// Gets undo availability last received for this user.
@@ -57,11 +67,13 @@ public class WhiteBoardViewModel
         remove => _whiteboardClient.HistoryChanged -= value;
     }
 
-    public WhiteBoardViewModel(IWhiteboardClient whiteboardClient)
+    public WhiteBoardViewModel(IWhiteboardClient whiteboardClient, string sessionId)
     {
         ArgumentNullException.ThrowIfNull(whiteboardClient);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
 
         _whiteboardClient = whiteboardClient;
+        _sessionId = sessionId;
     }
 
     public void InitializeViewModel(Canvas canvas, ToolbarInfo toolbarInfo)
@@ -149,5 +161,36 @@ public class WhiteBoardViewModel
         {
             throw new InvalidOperationException("The whiteboard view model has not been initialized.");
         }
+    }
+
+    private async Task<WhiteboardSnapshotStore> GetSnapshotStoreAsync()
+    {
+        _snapshotStore ??= await WhiteboardSnapshotStore.CreateAsync();
+        return _snapshotStore;
+    }
+
+    public async Task SaveSnapshotAsync()
+    {
+        List<ItemDto> items = _whiteboardClient.Canvas.Items.Values.Select(ItemMapper.ToDto).ToList();
+
+        WhiteboardSnapshotStore store = await GetSnapshotStoreAsync();
+
+        await store.SaveSnapshotAsync( _sessionId, _whiteboardClient.UserId, items);
+    }
+
+    public async Task<List<WhiteboardSnapshotSummary>> ListSnapshotsAsync()
+    {
+        WhiteboardSnapshotStore store = await GetSnapshotStoreAsync();
+        return await store.ListAsync(_sessionId);
+    }
+
+    public async Task RestoreSnapshotAsync(string snapshotId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(snapshotId);
+
+        WhiteboardSnapshotStore store = await GetSnapshotStoreAsync();
+        WhiteboardSnapshot snapshot = await store.LoadAsync(_sessionId, snapshotId);
+
+        _whiteboardClient.RestoreSnapshot(new WhiteboardDto(snapshot.Items));
     }
 }
