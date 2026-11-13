@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System.Diagnostics;
+using System.Drawing;
 using System.Drawing.Imaging;
 
 namespace ScreenShare;
@@ -64,6 +65,7 @@ public class ScreenCapturer : IImageSource
 
         if (width <= 0 || height <= 0)
         {
+            Trace.TraceWarning("[Screenshare] Invalid screen dimensions received: {0}x{1}.", width, height);    
             throw new InvalidOperationException(
                 $"Invalid screen dimensions: {width}x{height}");
         }
@@ -76,8 +78,10 @@ public class ScreenCapturer : IImageSource
             _platform.CopyFromScreen(screenshot, bounds);
             return screenshot;
         }
-        catch
+        catch (Exception exception)
         {
+            Trace.TraceError(
+            "[Screenshare] Failed to capture screen ({0}x{1}): {2}", width, height, exception);
             screenshot.Dispose();
             throw;
         }
