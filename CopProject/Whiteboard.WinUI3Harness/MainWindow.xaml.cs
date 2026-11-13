@@ -24,6 +24,11 @@ public sealed partial class MainWindow : Window
     private const int ServerPort = 40000;
 
     /// <summary>
+    /// Session Id to be used for UI testing
+    /// </summary>
+    private const string WhiteboardSessionId = "whiteboard-harness";
+
+    /// <summary>
     /// Using loopback to test locally
     /// </summary>
     private static readonly IPEndPoint s_serverEndPoint = new(IPAddress.Loopback, ServerPort);
@@ -83,7 +88,7 @@ public sealed partial class MainWindow : Window
 
         Title = $"Whiteboard Harness - {username} {(isServerInstance ? "[Host Server]" : "[Client]")}";
 
-        var viewModel = new WhiteBoardViewModel(client);
+        var viewModel = new WhiteBoardViewModel(client, WhiteboardSessionId);
         var view = new WhiteBoardView(viewModel);
 
         this.Content = view;
