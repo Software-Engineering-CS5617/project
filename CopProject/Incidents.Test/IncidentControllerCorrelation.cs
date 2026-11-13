@@ -6,8 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using FileSynchroniser.Models;
-using Incident_module;
-using Incident_module.Implementations;
+using Incidents;
+using Incidents.Test.Implementations;
 using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.EventHandlers;
 using Cloud.Persistence;
 
@@ -27,7 +27,7 @@ public sealed class IncidentControllerCorrelationTest
         new Incident(
             title: "Test Incident 1",
             description: "This is a test incident 1.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
@@ -37,21 +37,21 @@ public sealed class IncidentControllerCorrelationTest
                     Description: "Test Evidence 1",
                     FilePath: "path/to/evidence1.jpg",
                     UploadTime: DateTime.Now,
-                    UploadedBy: Guid.Empty
+                    UploadedBy: string.Empty
                 ),
                 new IncidentEvidence(
                     Id: Guid.NewGuid(),
                     Description: "Test Evidence 2",
                     FilePath: "path/to/evidence2.jpg",
                     UploadTime: DateTime.Now,
-                    UploadedBy: Guid.Empty
+                    UploadedBy: string.Empty
                 )
             ]
         ),
         new Incident(
             title: "Test Incident 2",
             description: "This is a test incident 2.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.DrunkDriving,
             severity: IncidentSeverity.High,
             location: new IncidentLocation(Latitude: 1.0, Longitude: 1.0)
@@ -60,7 +60,7 @@ public sealed class IncidentControllerCorrelationTest
             id: Guid.NewGuid(),
             title: "Test Incident 3",
             description: "This is a test incident 3.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             status: IncidentStatus.Resolved,
             category: IncidentCategory.Theft,
             severity: IncidentSeverity.Low,
@@ -71,7 +71,7 @@ public sealed class IncidentControllerCorrelationTest
                     new CategoryChange(
                         Description: "Changed Category from In progess to resolved",
                         ChangedTime: DateTime.Today.AddDays(-1),
-                        ChangedBy:Guid.Empty
+                        ChangedBy:string.Empty
                     )
                 ],
             evidence: [],
@@ -81,7 +81,7 @@ public sealed class IncidentControllerCorrelationTest
             id: Guid.NewGuid(),
             title: "Test Incident 4",
             description: "This is a test incident 4.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             status: IncidentStatus.Resolved,
             category: IncidentCategory.DrunkDriving,
             severity: IncidentSeverity.High,
@@ -92,7 +92,7 @@ public sealed class IncidentControllerCorrelationTest
                     new CategoryChange(
                         Description: "Changed Category from In progess to resolved",
                         ChangedTime: DateTime.Today.AddDays(-1),
-                        ChangedBy:Guid.Empty
+                        ChangedBy:string.Empty
                     )
                 ],
             evidence: [],
@@ -105,7 +105,7 @@ public sealed class IncidentControllerCorrelationTest
             id: Guid.NewGuid(),
             title: "Invalid Incident",
             description: "This is an invalid Incident",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
             status: IncidentStatus.InProgress,
             category: IncidentCategory.Accident,

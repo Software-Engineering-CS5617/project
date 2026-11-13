@@ -1,12 +1,18 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Incident_module.ViewModels;
+using Incidents.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 
-namespace Incident_module.Views;
+namespace Incidents.Views;
 
+/// <summary>
+/// Dialog where the user adds a file and description as incident evidence.
+/// </summary>
 [ExcludeFromCodeCoverage]
 public sealed partial class AddEvidenceDialog : ContentDialog
 {
+    /// <summary>
+    /// Creates the dialog and loads its XAML layout.
+    /// </summary>
     public AddEvidenceDialog()
     {
         InitializeComponent();

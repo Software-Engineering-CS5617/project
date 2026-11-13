@@ -1,8 +1,9 @@
 ﻿
 using System;
-using Incident_module;
-using Incident_module.ViewModels;
+using Incidents;
+using Incidents.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.IO;
 
 namespace Incidents.Test.ViewModels;
 
@@ -133,38 +134,73 @@ public sealed class AddEvidenceDialogViewModelTest
     }
 
     /// <summary>
+    /// Helper function to create a temporary file
+    /// </summary>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    private string CreateTemporaryFile(byte[] content)
+    {
+        string filePath = Path.Combine(
+            Path.GetTempPath(),
+            $"{Guid.NewGuid()}.png");
+
+        File.WriteAllBytes(filePath, content);
+
+        return filePath;
+    }
+
+    /// <summary>
     /// BuildEvidence creates an evidence object with the supplied details.
     /// </summary>
     [TestMethod]
-    public void BuildEvidence_CreatesEvidenceWithCorrectValues()
+    public async Task BuildEvidence_CreatesEvidenceWithCorrectValues()
     {
-        Guid uploadedBy = Guid.NewGuid();
+        string uploadedBy = Guid.NewGuid().ToString();
+        byte[] expectedContent = [1, 2, 3, 4];
+        string filePath = CreateTemporaryFile(expectedContent);
 
-        _viewModel.FilePath = "C:/Evidence/image.png";
-        _viewModel.Description = "  Accident photograph  ";
+        try
+        {
+            _viewModel.FilePath = filePath;
+            _viewModel.Description = "  Accident photograph  ";
 
-        IncidentEvidence evidence = _viewModel.BuildEvidence(uploadedBy);
+            (IncidentEvidence Evidence, byte[] Content) result = await _viewModel.BuildEvidenceAsync(uploadedBy);
 
-        Assert.AreNotEqual(Guid.Empty, evidence.Id);
-        Assert.AreEqual("Accident photograph", evidence.Description);
-        Assert.AreEqual("C:/Evidence/image.png", evidence.FilePath);
-        Assert.AreEqual(uploadedBy, evidence.UploadedBy);
-        Assert.AreNotEqual(default, evidence.UploadTime);
+            Assert.AreNotEqual(Guid.Empty, result.Evidence.Id);
+            Assert.AreEqual("Accident photograph", result.Evidence.Description);
+            Assert.AreEqual(filePath, result.Evidence.FilePath);
+            Assert.AreEqual(uploadedBy, result.Evidence.UploadedBy);
+            Assert.AreNotEqual(default, result.Evidence.UploadTime);
+            CollectionAssert.AreEqual(expectedContent, result.Content);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
     }
 
     /// <summary>
     /// BuildEvidence generates a unique ID for each evidence object.
     /// </summary>
     [TestMethod]
-    public void BuildEvidence_GeneratesUniqueIds()
+    public async Task BuildEvidence_GeneratesUniqueIds()
     {
-        _viewModel.FilePath = "C:/Evidence/image.png";
-        _viewModel.Description = "Evidence";
+        string filePath = CreateTemporaryFile([1, 2, 3, 4]);
 
-        IncidentEvidence first = _viewModel.BuildEvidence(Guid.NewGuid());
-        IncidentEvidence second = _viewModel.BuildEvidence(Guid.NewGuid());
+        try
+        {
+            _viewModel.FilePath = filePath;
+            _viewModel.Description = "Evidence";
 
-        Assert.AreNotEqual(first.Id, second.Id);
+            (IncidentEvidence Evidence, byte[] Content) first = await _viewModel.BuildEvidenceAsync(Guid.NewGuid().ToString());
+            (IncidentEvidence Evidence, byte[] Content) second = await _viewModel.BuildEvidenceAsync(Guid.NewGuid().ToString());
+
+            Assert.AreNotEqual(first.Evidence.Id, second.Evidence.Id);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
     }
 
     /// <summary>

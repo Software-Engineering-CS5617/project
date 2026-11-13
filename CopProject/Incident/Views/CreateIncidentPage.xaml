@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page
-    x:Class="Incident_module.Views.CreateIncidentPage"
+    x:Class="Incidents.Views.CreateIncidentPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Incident_module.Views"
+    xmlns:local="using:Incidents.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -133,6 +133,12 @@
                                 Header="Address / Landmark (Optional)"
                                 PlaceholderText="Enter street address or location details..."
                                 Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            
+                            <ContentControl
+                                x:Name="MiniMapHost"
+                                x:FieldModifier="public"
+                                HorizontalContentAlignment="Stretch" />
+
                         </StackPanel>
                     </Border>
 
@@ -163,7 +169,11 @@
                                     <DataTemplate>
                                         <Grid Padding="4" ColumnSpacing="12">
                                             <StackPanel Spacing="2">
-                                                <TextBlock Text="{Binding FilePath}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding FilePath}" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="Uploaded by:" FontWeight="SemiBold"  />
+                                                    <TextBlock Text="{Binding UploadedBy}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Grid>

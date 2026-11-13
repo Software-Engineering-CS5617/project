@@ -1,47 +1,70 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
-using Microsoft.UI.Dispatching;
+﻿// Author : Murali
 
 namespace FileSynchroniser.ViewModels;
 
 /// <summary>
-/// Builds a dispatcher that marshals work onto the current UI thread.
-/// Excluded from code coverage because it depends on the WinUI runtime,
-/// which is not available in a plain unit test host.
+/// Marshals work onto the thread of an <see cref="IDispatcherQueue"/>.
 /// </summary>
-[ExcludeFromCodeCoverage]
-internal static class UiDispatcher
+public sealed class UiDispatcher : IUiDispatcher
 {
-    /// <summary>
-    /// Returns an action that runs work on the current UI thread, or null when no
-    /// WinUI runtime/dispatcher exists (e.g. unit tests), in which case callers run inline.
-    /// </summary>
-    public static Action<Action>? Create()
+    private readonly IDispatcherQueue _queue;
+
+    public UiDispatcher(IDispatcherQueue queue)
     {
-        try
+        ArgumentNullException.ThrowIfNull(queue);
+
+        _queue = queue;
+    }
+
+    /// <summary>
+    /// Runs inline when already on the UI thread; otherwise enqueues the action.
+    /// </summary>
+    public void Run(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (_queue.HasThreadAccess)
         {
-            DispatcherQueue? queue = DispatcherQueue.GetForCurrentThread();
-
-            if (queue is null)
-            {
-                return null;
-            }
-
-            return action => {
-                if (queue.HasThreadAccess)
-                {
-                    action();
-                }
-                else
-                {
-                    queue.TryEnqueue(() => action());
-                }
-            };
+            action();
         }
-        catch (COMException)
+        else
         {
-            // "Class not registered": the Windows App SDK runtime isn't available.
-            return null;
+            _queue.TryEnqueue(action);
+        }
+    }
+
+    /// <summary>
+    /// Creates a dispatcher for the current UI thread, or one that runs inline
+    /// when no WinUI runtime/dispatcher exists (e.g. unit tests).
+    /// </summary>
+    public static IUiDispatcher Create()
+    {
+        return Create(WinUiDispatcherQueue.TryCreate);
+    }
+
+    /// <summary>
+    /// Creates a dispatcher from the given queue factory; falls back to inline
+    /// execution when the factory returns null.
+    /// </summary>
+    public static IUiDispatcher Create(Func<IDispatcherQueue?> queueFactory)
+    {
+        ArgumentNullException.ThrowIfNull(queueFactory);
+
+        IDispatcherQueue? queue = queueFactory();
+
+        return queue is null ? new InlineUiDispatcher() : new UiDispatcher(queue);
+    }
+
+    /// <summary>
+    /// Dispatcher that runs every action immediately on the calling thread.
+    /// </summary>
+    public sealed class InlineUiDispatcher : IUiDispatcher
+    {
+        public void Run(Action action)
+        {
+            ArgumentNullException.ThrowIfNull(action);
+
+            action();
         }
     }
 }

@@ -1,5 +1,5 @@
-using System.Runtime.CompilerServices;
-using Incident_module;
+﻿using System.Runtime.CompilerServices;
+using Incidents;
 
 namespace Location.Test.Fakes;
 
@@ -48,7 +48,7 @@ internal sealed class FakeIncidentController : IIncidentController
     {
         throw new NotSupportedException();
     }
-    public Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
+    public Task<bool> AddEvidence(Incident incident, List<(IncidentEvidence, byte[])> evidence)
     {
         throw new NotSupportedException();
     }

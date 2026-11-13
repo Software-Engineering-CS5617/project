@@ -1,4 +1,4 @@
-namespace LocationTracker.Interfaces;
+﻿namespace LocationTracker.Interfaces;
 
 public interface IGeocodingService
 {

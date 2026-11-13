@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Author : Murali
+
+using System;
 
 namespace FileSynchroniser.Models;
 

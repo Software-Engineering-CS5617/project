@@ -1,11 +1,11 @@
-﻿namespace Incident_module;
+﻿namespace Incidents;
 
 public partial class Incident
 {
     public Guid Id { get; }
     public string Title { get; }
     public string Description { get; }
-    public Guid CreatedBy { get; }
+    public string CreatedBy { get; }
     public IncidentLocation Location { get; private set; }
     public IncidentStatus Status { get; private set; }
     public IncidentCategory Category { get; private set; }
@@ -28,7 +28,7 @@ public partial class Incident
     internal Incident(
         string title,
         string description,
-        Guid createdBy,
+        string createdBy,
         IncidentCategory category,
         IncidentSeverity severity,
         IncidentLocation location,
@@ -54,7 +54,7 @@ public partial class Incident
         Guid id,
         string title,
         string description,
-        Guid createdBy,
+        string createdBy,
         IncidentLocation location,
         IncidentStatus status,
         IncidentCategory category,

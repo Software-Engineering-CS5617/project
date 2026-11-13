@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Incident_module.Implementations;
-using Incident_module;
-using Incident_module.ViewModels;
+using Incidents.Test.Implementations;
+using Incidents;
+using Incidents.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.UI.Xaml;
 
@@ -16,8 +16,8 @@ public class CreateIncidentPageViewModelTest
     private IIncidentController _controller = null!;
     private CreateIncidentPageViewModel _viewModel = null!;
 
-    private readonly Guid _currentUserId =
-        Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly string _currentUserId =
+            "11111111-1111-1111-1111-111111111111";
 
     /// <summary>
     /// Initializes the real IncidentController and CreateIncidentPageViewModel
@@ -480,7 +480,7 @@ public class CreateIncidentPageViewModelTest
         _viewModel.Latitude = 90.1;
         _viewModel.SubmitCommand.Execute(null);
 
-        Assert.AreEqual("Latitude must be between -90 and 90.",_viewModel.ErrorMessage);
+        Assert.AreEqual("Latitude must be between -90 and 90.", _viewModel.ErrorMessage);
         Assert.IsEmpty(await _controller.GetAllIncidents());
     }
 
@@ -508,7 +508,7 @@ public class CreateIncidentPageViewModelTest
         _viewModel.Longitude = 180.1;
         _viewModel.SubmitCommand.Execute(null);
 
-        Assert.AreEqual("Longitude must be between -180 and 180.",_viewModel.ErrorMessage);
+        Assert.AreEqual("Longitude must be between -180 and 180.", _viewModel.ErrorMessage);
         Assert.IsEmpty(await _controller.GetAllIncidents());
     }
 
@@ -528,7 +528,7 @@ public class CreateIncidentPageViewModelTest
 
         await VMTestHelpers.SubmitAndWaitForIncidentCreatedAsync(_viewModel);
 
-        List<Incident> incidents =await _controller.GetAllIncidents();
+        List<Incident> incidents = await _controller.GetAllIncidents();
 
         Assert.HasCount(1, incidents);
 

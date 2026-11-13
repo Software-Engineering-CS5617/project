@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Incident_module;
-using Incident_module.Implementations;
-using Incident_module.ViewModels;
+using Incidents;
+using Incidents.Test.Implementations;
+using Incidents.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -16,8 +16,8 @@ public class IncidentDetailsPageViewModelDisplayTest
     private IIncidentController _controller = null!;
     private IncidentDetailsPageViewModel _viewModel = null!;
 
-    private readonly Guid _currentUserId =
-        Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly string _currentUserId =
+        "11111111-1111-1111-1111-111111111111";
 
     /// <summary>
     /// Initializes the real IncidentController and IncidentDetailsPageViewModel
@@ -58,6 +58,7 @@ public class IncidentDetailsPageViewModelDisplayTest
 
         Assert.IsEmpty(_viewModel.Evidences);
         Assert.IsEmpty(_viewModel.ChangeTimeline);
+        Assert.IsEmpty(_viewModel.CorrelatedIncidents);
     }
 
     /// <summary>
@@ -124,9 +125,13 @@ public class IncidentDetailsPageViewModelDisplayTest
             {
                 nameof(_viewModel.IsEditMode),
                 nameof(_viewModel.IsReadOnlyMode),
-                nameof(_viewModel.EditButtonText),
+                nameof(_viewModel.IsResolved),
+                nameof(_viewModel.EditButtonVisibility),
+                nameof(_viewModel.UnresolveButtonVisibility),
+                nameof(_viewModel.EditActionsVisibility),
                 nameof(_viewModel.EditVisibility),
-                nameof(_viewModel.ReadOnlyVisibility)
+                nameof(_viewModel.ReadOnlyVisibility),
+                nameof(_viewModel.EditButtonText)
             },
             changedProperties);
     }
@@ -699,6 +704,96 @@ public class IncidentDetailsPageViewModelDisplayTest
         Assert.AreEqual(incident.Location.Latitude, _viewModel.EditableLatitude);
         Assert.AreEqual(incident.Location.Longitude, _viewModel.EditableLongitude);
         Assert.AreEqual(incident.Location.Address, _viewModel.EditableAddress);
+    }
+
+    // CorrelatedIncidents tests
+
+    /// <summary>
+    /// Loading an incident also loads its correlated incidents.
+    /// </summary>
+    [TestMethod]
+    public async Task LoadIncidentAsync_ExistingIncident_LoadsCorrelatedIncidents()
+    {
+        Incident currentIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        Incident correlatedIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        // Establish a correlation using the real controller.
+        Incident storedCurrent =
+            await _controller.GetIncidentById(currentIncident.Id);
+
+        Incident storedCorrelated =
+            await _controller.GetIncidentById(correlatedIncident.Id);
+
+        await _controller.CorrelateIncident(storedCurrent, storedCorrelated);
+
+        await _viewModel.LoadIncidentAsync(currentIncident.Id);
+
+        Assert.IsTrue(_viewModel.CorrelatedIncidents.Any(
+            incident => incident.Id == correlatedIncident.Id));
+    }
+
+    /// <summary>
+    /// Loading an incident does not include unrelated incidents
+    /// in the correlated incidents collection.
+    /// </summary>
+    [TestMethod]
+    public async Task LoadIncidentAsync_ExistingIncident_ExcludesUncorrelatedIncidents()
+    {
+        Incident currentIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        Incident unrelatedIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        await _viewModel.LoadIncidentAsync(currentIncident.Id);
+
+        Assert.IsFalse(_viewModel.CorrelatedIncidents.Any(
+            incident => incident.Id == unrelatedIncident.Id));
+    }
+
+    /// <summary>
+    /// RefreshCorrelatedIncidentsAsync does nothing when no incident is loaded.
+    /// </summary>
+    [TestMethod]
+    public async Task RefreshCorrelatedIncidentsAsync_NoIncident_DoesNothing()
+    {
+        await _viewModel.RefreshCorrelatedIncidentsAsync();
+
+        Assert.IsNull(_viewModel.Incident);
+        Assert.IsEmpty(_viewModel.CorrelatedIncidents);
+    }
+
+    /// <summary>
+    /// RefreshCorrelatedIncidentsAsync reloads the correlated incidents
+    /// for the currently loaded incident.
+    /// </summary>
+    [TestMethod]
+    public async Task RefreshCorrelatedIncidentsAsync_IncidentLoaded_RefreshesCollection()
+    {
+        Incident currentIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        Incident correlatedIncident =
+            await VMTestHelpers.CreateIncidentAsync(_controller, _currentUserId);
+
+        await _viewModel.LoadIncidentAsync(currentIncident.Id);
+
+        // Create the correlation after the initial load.
+        Incident storedCurrent =
+            await _controller.GetIncidentById(currentIncident.Id);
+
+        Incident storedCorrelated =
+            await _controller.GetIncidentById(correlatedIncident.Id);
+
+        await _controller.CorrelateIncident(storedCurrent, storedCorrelated);
+
+        await _viewModel.RefreshCorrelatedIncidentsAsync();
+
+        Assert.IsTrue(_viewModel.CorrelatedIncidents.Any(
+            incident => incident.Id == correlatedIncident.Id));
     }
 
 }

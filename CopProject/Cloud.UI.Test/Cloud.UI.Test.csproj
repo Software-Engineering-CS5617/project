@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Cloud.UI.Test</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Moq" Version="4.21.0" />
+        <PackageReference Include="MSTest" Version="3.10.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Cloud.UI\Cloud.UI.csproj" />
+        <ProjectReference Include="..\Cloud\Cloud.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    </ItemGroup>
+
+</Project>

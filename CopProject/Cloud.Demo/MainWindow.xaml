@@ -1,0 +1,89 @@
+<Window x:Class="Cloud.Demo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cloud persistence demo" Height="760" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Padding" Value="14,5"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Margin" Value="0,2,8,8"/>
+        </Style>
+        <Style TargetType="TextBlock" x:Key="Label">
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="Cloud persistence demo" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource Label}" Margin="0,2,0,12"
+                       Text="Calls every IStorage method against Azure Cosmos DB. Values are text here and stored as bytes."/>
+
+            <TextBlock Style="{StaticResource Label}" Text="Module (each module uses its own container)"/>
+            <ComboBox x:Name="ModuleBox" Width="240" HorizontalAlignment="Left" Margin="0,2,0,12"/>
+
+            <GroupBox Header="Single item" Padding="10" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Key"/>
+                            <TextBox x:Name="KeyBox" Text="demo-1"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Style="{StaticResource Label}" Text="Value"/>
+                            <TextBox x:Name="ValueBox" Text="Hello from the demo"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Style="{StaticResource Label}" Text="ETag (filled by ReadEtag, sent by Update)"/>
+                    <TextBox x:Name="EtagBox"/>
+                    <WrapPanel>
+                        <Button Content="Create" Tag="create" Click="OpClick"/>
+                        <Button Content="Read" Tag="read" Click="OpClick"/>
+                        <Button Content="ReadEtag" Tag="readEtag" Click="OpClick"/>
+                        <Button Content="Update" Tag="update" Click="OpClick"/>
+                        <Button Content="Delete" Tag="delete" Click="OpClick"/>
+                    </WrapPanel>
+                    <TextBlock Style="{StaticResource Label}" TextWrapping="Wrap"
+                               Text="Try: ReadEtag, then Update succeeds. Click Update again without a fresh ReadEtag and it fails, because the ETag is stale."/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Bulk operations" Padding="10" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Label}" Text="One key=value per line"/>
+                    <TextBox x:Name="BulkBox" AcceptsReturn="True" Height="90"
+                             FontFamily="Consolas" VerticalScrollBarVisibility="Auto"
+                             Text="demo-a=data1&#x0A;demo-b=data2&#x0A;demo-c=data3"/>
+                    <WrapPanel>
+                        <Button Content="CreateAll" Tag="createAll" Click="OpClick"/>
+                        <Button Content="ReadAll" Tag="readAll" Click="OpClick"/>
+                        <Button Content="ReadAllEtags" Tag="readAllEtags" Click="OpClick"/>
+                        <Button Content="GetAllKeys" Tag="getAllKeys" Click="OpClick"/>
+                        <Button Content="UpdateAll" Tag="updateAll" Click="OpClick"/>
+                        <Button Content="DeleteAll" Tag="deleteAll" Click="OpClick"/>
+                    </WrapPanel>
+                    <TextBlock Style="{StaticResource Label}" TextWrapping="Wrap"
+                               Text="Run ReadAllEtags before UpdateAll: UpdateAll sends the saved ETags. ReadAll and DeleteAll use the keys from the lines above."/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Results" Padding="10">
+                <StackPanel>
+                    <TextBox x:Name="ResultBox" IsReadOnly="True" Height="220"
+                             FontFamily="Consolas" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"/>
+                    <Button Content="Clear" HorizontalAlignment="Left" Click="ClearClick"/>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

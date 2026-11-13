@@ -2,19 +2,34 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Net;
 using System.Text;
 using Cloud.Persistence;
+using Microsoft.Azure.Cosmos;
+using Moq;
 
 namespace Cloud.Test;
 
 /// <summary>
-/// This class contains integration tests for the persistence layer.
+/// This class contains unit tests for the persistence layer.
+/// Not integrating with an actual Cosmos DB server. Uses Moq to simulate Azure Cosmos DB.
 /// </summary>
 [TestClass]
 public class TestPersistence
 {
+    /* mock object used to simulate the Cosmos db container */
+    private Mock<Container> _mockContainer = null!;
     private IStorage _storage = null!;
-    private readonly List<string> _keysToCleanUp = [];
+    /* 
+      this in-memory dictionary acts as the database
+          key : item id
+          value : PersistenceItem
+    */
+    private readonly Dictionary<string, PersistenceItem> _items = [];
+    /* version counter. 
+       Used to generate unique ETags and increment timestamps */
+    private int _version;
+
     /// <summary>
     /// Current test context. useful for logging
     /// </summary>
@@ -22,34 +37,39 @@ public class TestPersistence
 
     /// <summary>
     /// This method is called before each test method is executed.
+    /// Simulate Cosmos DB environment
     /// </summary>
     /// <returns>TestContext</returns>
     [TestInitialize]
-    public async Task Setup()
+    public void Setup()
     {
-        // These are integration tests against the configured Cosmos DB account.
-        // we will skip the tests to avoid build failures if the COSMOS_KEY environment variable is not set.
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("COSMOS_KEY")))
-        {
-            Assert.Inconclusive("COSMOS_KEY is not set; skipping Cosmos DB integration tests.");
-        }
+        _mockContainer = new Mock<Container>();
+        _items.Clear();
+        _version = 0;
+        SetupMockContainer(); /* configure mocked Cosmos DB API methods */
 
-        _storage = await StorageFactory.CreateAsync(ModuleType.Chat);
-        TestContext.WriteLine("Starting persistence test against Cosmos DB.");
+        _storage = new CosmosStorage(
+            _mockContainer.Object, /* this mock instance of container has API functions */
+            /* iterator factories that simulate Cosmos db LINQ query results */
+            () => CreateIterator(_items.Keys.ToList()),
+            () => CreateIterator(_items.Values.ToList()),
+            count => CreateIterator(_items.Values
+                .OrderByDescending(item => long.Parse(item.TimeStamp))
+                .Take(count)
+                .ToList()));
     }
+
     /// <summary>
     /// This method is called after each test method is executed.
     /// </summary>
     /// <returns>Task</returns>
-
     [TestCleanup]
-    public async Task CleanUp()
+    public void CleanUp()
     {
-        foreach (string key in _keysToCleanUp)
-        {
-            await _storage.Delete(key);
-        }
+        /* clears in-memory database */
+        _items.Clear();
     }
+
     /// <summary>
     /// Tests that creating an item succeeds and rejects duplicate keys.
     /// </summary>
@@ -225,6 +245,76 @@ public class TestPersistence
     }
 
     [TestMethod]
+    public async Task ReadAllEtagsReturnsEmptyDictionaryWhenThereAreNoItems()
+    {
+        (bool success, Dictionary<string, string> etags) = await _storage.ReadAllEtags();
+
+        Assert.IsTrue(success);
+        Assert.AreEqual(0, etags.Count);
+    }
+
+    [TestMethod]
+    ///<summary>
+    /// tests the exception branch of ReadAllTags
+    ///</summary>
+    public async Task ReadAllEtagsReturnsFailureWhenQueryThrows()
+    {
+        IStorage storage = new CosmosStorage(
+            _mockContainer.Object,
+            () => CreateIterator(new List<string>()),
+            () => throw CosmosError(HttpStatusCode.InternalServerError),
+            count => CreateIterator(new List<PersistenceItem>()));
+
+        (bool success, Dictionary<string, string> etags) =
+            await storage.ReadAllEtags();
+
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, etags.Count);
+    }
+
+    [TestMethod]
+    public async Task GetAllKeysReturnsFailureWhenQueryThrows()
+    {
+        IStorage storage = new CosmosStorage(
+            _mockContainer.Object,
+            () => throw CosmosError(HttpStatusCode.InternalServerError),
+            () => CreateIterator(new List<PersistenceItem>()),
+            count => CreateIterator(new List<PersistenceItem>()));
+
+        (bool success, List<string> keys) = await storage.GetAllKeys();
+
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, keys.Count);
+    }
+
+    [TestMethod]
+    public async Task ReadAllEtagsReturnsFailureWhenAnItemHasNoEtag()
+    {
+        IStorage storage = new CosmosStorage(
+            _mockContainer.Object,
+            () => CreateIterator(new List<string>()),
+            () => CreateIterator(new List<PersistenceItem> {
+                new() { Id = NewKey(), Etag = null! }
+            }),
+            count => CreateIterator(new List<PersistenceItem>()));
+
+        (bool success, Dictionary<string, string> etags) = await storage.ReadAllEtags();
+
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, etags.Count);
+    }
+
+    [TestMethod]
+    public async Task ReadEtagsReturnsFailureWhenAKeyIsMissing()
+    {
+        (bool success, Dictionary<string, string> etags) =
+            await _storage.ReadEtags([NewKey()]);
+
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, etags.Count);
+    }
+
+    [TestMethod]
     ///<summary>
     /// Updating multiple items updates them and rejects stale Etags.
     /// </summary>
@@ -257,6 +347,16 @@ public class TestPersistence
     }
 
     [TestMethod]
+    public async Task UpdateAllReturnsFalseWhenAnItemHasNoEtag()
+    {
+        Dictionary<string, byte[]> updates = new() {
+            [NewKey()] = Bytes("update")
+        };
+
+        Assert.IsFalse(await _storage.UpdateAll(updates, new Dictionary<string, string>()));
+    }
+
+    [TestMethod]
     ///<summary>
     /// Deleting multiple items removes them and reports missing keys.
     ///</summary>
@@ -276,6 +376,28 @@ public class TestPersistence
         (bool firstFound, _) = await _storage.Read(firstKey);
         (bool secondFound, _) = await _storage.Read(secondKey);
         Assert.IsFalse(firstFound || secondFound);
+    }
+
+    /// <summary>
+    /// Tests that ReadEtags returns the ETags for the specified items.
+    /// </summary>
+    /// <returns></returns>
+    [TestMethod]
+    public async Task ReadEtagsReturnsEtagsForSpecifiedItems()
+    {
+        string firstKey = NewKey();
+        string secondKey = NewKey();
+        Assert.IsTrue(await _storage.CreateAll(new Dictionary<string, byte[]> {
+            [firstKey] = Bytes("first"),
+            [secondKey] = Bytes("second")
+        }));
+
+        (bool success, Dictionary<string, string> etags) = await _storage.ReadEtags([firstKey, secondKey]);
+
+        Assert.IsTrue(success);
+        Assert.IsTrue(etags.ContainsKey(firstKey));
+        Assert.IsTrue(etags.ContainsKey(secondKey));
+        Assert.AreEqual(2, etags.Count);
     }
 
     /// <summary>
@@ -301,15 +423,100 @@ public class TestPersistence
         TestContext.WriteLine($"Test completed for key: {key}");
     }
 
+    [TestMethod]
+    /// <summary>
+    /// Tests that ReadLatest(n) returns the latest n items from the storage.
+    /// </summary>
+    /// <returns></returns>
+    public async Task ReadLatestReturnsLatestItems()
+    {
+        string firstKey = NewKey();
+        string secondKey = NewKey();
+        Assert.IsTrue(await _storage.CreateAll(new Dictionary<string, byte[]> {
+            [firstKey] = Bytes("first"),
+            [secondKey] = Bytes("second")
+        }));
+        (bool success, Dictionary<string, byte[]> items) = await _storage.ReadLatest(2);
+        Assert.IsTrue(success);
+        Assert.AreEqual(2, items.Count);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// ReadLatest(n) returns FALSE and an empty dictionary when there are no items in the storage.
+    /// </summary>
+    /// <returns></returns>
+    public async Task ReadLatestRejectsZeroAndNegativeCounts()
+    {
+        (bool success, Dictionary<string, byte[]> items) = await _storage.ReadLatest(0);
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, items.Count);
+
+        (success, items) = await _storage.ReadLatest(-1);
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, items.Count);
+    }
+
+    [TestMethod]
+    ///<summary>
+    /// hits the exception branch of ReadLatest
+    ///</summary>
+    public async Task ReadLatestReturnsFailureWhenQueryThrows()
+    {
+        IStorage storage = new CosmosStorage(
+            _mockContainer.Object,
+            () => CreateIterator(new List<string>()),
+            () => CreateIterator(new List<PersistenceItem>()),
+            count => throw CosmosError(HttpStatusCode.InternalServerError));
+
+        (bool success, Dictionary<string, byte[]> items) = await storage.ReadLatest(1);
+
+        Assert.IsFalse(success);
+        Assert.AreEqual(0, items.Count);
+    }
+
+    [TestMethod]
+    ///<summary>
+    /// verifies that the CosmosStorage constructor accepts valid credentials and container names.
+    ///</summary>
+    public void ConstructorAcceptsCosmosClientAndContainerNames()
+    {
+        Mock<CosmosClient> client = new();
+
+        CosmosStorage storage = new(client.Object, "TestDatabase", "TestContainer");
+
+        Assert.IsNotNull(storage);
+    }
+
+    [TestMethod]
+    ///<summary>
+    /// verifies CosmosStorage constructor throws exceptions when dependencies are missing
+    ///</summary>
+    public void ConstructorRejectsMissingDependencies()
+    {
+        Func<FeedIterator<string>> keys = () => CreateIterator(new List<string>());
+        Func<FeedIterator<PersistenceItem>> etags = () => CreateIterator(new List<PersistenceItem>());
+        Func<int, FeedIterator<PersistenceItem>> latest =
+            _ => CreateIterator(new List<PersistenceItem>());
+
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => new CosmosStorage(null!, keys, etags, latest));
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => new CosmosStorage(_mockContainer.Object, null!, etags, latest));
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => new CosmosStorage(_mockContainer.Object, keys, null!, latest));
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => new CosmosStorage(_mockContainer.Object, keys, etags, null!));
+    }
+
+
     /// <summary>
     /// Generates a new unique key for testing and adds it to the cleanup list.
     /// </summary>
     /// <returns>the generated key</returns>
-    private string NewKey()
+    private static string NewKey()
     {
-        string key = $"persistence-test-{Guid.NewGuid():N}";
-        _keysToCleanUp.Add(key);
-        return key;
+        return $"persistence-test-{Guid.NewGuid():N}";
     }
 
     /// <summary>
@@ -320,5 +527,121 @@ public class TestPersistence
     private static byte[] Bytes(string value)
     {
         return Encoding.UTF8.GetBytes(value);
+    }
+
+    private void SetupMockContainer()
+    {
+        /* 
+           Setup the mock container to simulate Cosmos DB behavior for unit testing.
+           This includes handling Create, Read, Update, and Delete operations with appropriate responses.
+        */
+
+        /* Configure mock container's CreateItemAsync method */
+        _mockContainer.Setup(container => container.CreateItemAsync(
+                It.IsAny<PersistenceItem>(),
+                It.IsAny<PartitionKey?>(),
+                It.IsAny<ItemRequestOptions>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((PersistenceItem item, PartitionKey? _, ItemRequestOptions? _, CancellationToken _) => {
+                if (_items.ContainsKey(item.Id))
+                {
+                    return Task.FromException<ItemResponse<PersistenceItem>>(CosmosError(HttpStatusCode.Conflict));
+                }
+
+                item.Etag = NextEtag();
+                item.TimeStamp = (++_version).ToString();
+                _items.Add(item.Id, item);
+                return Task.FromResult(CreateResponse(item, item.Etag));
+            });
+
+        /* configure ReadItemAsync method */
+        _mockContainer.Setup(container => container.ReadItemAsync<PersistenceItem>(
+                It.IsAny<string>(),
+                It.IsAny<PartitionKey>(),
+                It.IsAny<ItemRequestOptions>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((string key, PartitionKey _, ItemRequestOptions? _, CancellationToken _) => {
+                if (!_items.TryGetValue(key, out PersistenceItem? item))
+                {
+                    return Task.FromException<ItemResponse<PersistenceItem>>(CosmosError(HttpStatusCode.NotFound));
+                }
+
+                return Task.FromResult(CreateResponse(item, item.Etag));
+            });
+
+        /* configure ReplaceItemAsync method */
+        _mockContainer.Setup(container => container.ReplaceItemAsync(
+                It.IsAny<PersistenceItem>(), It.IsAny<string>(), It.IsAny<PartitionKey?>(),
+                It.IsAny<ItemRequestOptions>(), It.IsAny<CancellationToken>()))
+            .Returns((PersistenceItem replacement, string key, PartitionKey? _, ItemRequestOptions? options, CancellationToken _) => {
+                if (!_items.TryGetValue(key, out PersistenceItem? current))
+                {
+                    return Task.FromException<ItemResponse<PersistenceItem>>(CosmosError(HttpStatusCode.NotFound));
+                }
+
+                if (options?.IfMatchEtag != current.Etag) /* check etag */
+                {
+                    return Task.FromException<ItemResponse<PersistenceItem>>(CosmosError(HttpStatusCode.PreconditionFailed));
+                }
+
+                replacement.Etag = NextEtag();
+                replacement.TimeStamp = (++_version).ToString();
+                _items[key] = replacement;
+                return Task.FromResult(CreateResponse(replacement, replacement.Etag));
+            });
+
+
+        /* configure DeleteItemAsync method */
+        _mockContainer.Setup(container => container.DeleteItemAsync<PersistenceItem>(
+                It.IsAny<string>(),
+                It.IsAny<PartitionKey>(),
+                It.IsAny<ItemRequestOptions>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((string key, PartitionKey _, ItemRequestOptions? _, CancellationToken _) => {
+                if (!_items.Remove(key))
+                {
+                    return Task.FromException<ItemResponse<PersistenceItem>>(CosmosError(HttpStatusCode.NotFound));
+                }
+
+                return Task.FromResult(Mock.Of<ItemResponse<PersistenceItem>>());
+            });
+    }
+
+    private string NextEtag()
+    {
+        string etag = $"etag-{_version + 1}";
+        return etag;
+    }
+
+    /* mocked ItemResponse */
+    private static ItemResponse<PersistenceItem> CreateResponse(PersistenceItem item, string etag)
+    {
+        Mock<ItemResponse<PersistenceItem>> response = new();
+        response.SetupGet(value => value.Resource).Returns(item);
+        response.SetupGet(value => value.ETag).Returns(etag);
+        return response.Object;
+    }
+
+    private static CosmosException CosmosError(HttpStatusCode statusCode)
+    {
+        return new CosmosException("Mock Cosmos DB error", statusCode, 0, "mock-activity-id", 0);
+    }
+
+    /* mocked iterator */
+    private static FeedIterator<T> CreateIterator<T>(IReadOnlyList<T> items)
+    {
+        Mock<FeedIterator<T>> iterator = new();
+        Mock<FeedResponse<T>> response = new();
+        response.As<IEnumerable<T>>()
+            .Setup(page => page.GetEnumerator())
+            .Returns(items.GetEnumerator());
+
+        iterator.SetupSequence(value => value.HasMoreResults)
+            .Returns(true)
+            .Returns(false);
+        iterator.Setup(value => value.ReadNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response.Object);
+
+        return iterator.Object;
     }
 }

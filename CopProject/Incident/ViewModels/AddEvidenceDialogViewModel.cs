@@ -2,27 +2,41 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
-using Incident_module.ViewModels.Utils;
+using Incidents.ViewModels.Utils;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
+using System.IO;
 
-namespace Incident_module.ViewModels;
+namespace Incidents.ViewModels;
 
+/// <summary>
+/// ViewModel for the dialog where the user adds a file and description as incident evidence.
+/// </summary>
 public sealed class AddEvidenceDialogViewModel : ViewModelBase
 {
     private string _filePath = string.Empty;
     private string _description = string.Empty;
     private readonly IntPtr _windowHandle;
 
+    /// <summary>
+    /// Creates the ViewModel with the window handle the file picker needs.
+    /// </summary>
+    /// <param name="windowHandle">Handle of the window that owns the file picker.</param>
     public AddEvidenceDialogViewModel(IntPtr windowHandle)
     {
         _windowHandle = windowHandle;
         BrowseFileCommand = new RelayCommand(async () => await BrowseFileAsync());
     }
 
+    /// <summary>
+    /// Opens the file picker when the Browse button is clicked.
+    /// </summary>
     public RelayCommand BrowseFileCommand { get; }
 
+    /// <summary>
+    /// Path of the file chosen as evidence.
+    /// </summary>
     public string FilePath
     {
         get => _filePath;
@@ -34,6 +48,9 @@ public sealed class AddEvidenceDialogViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Text describing the evidence.
+    /// </summary>
     public string Description
     {
         get => _description;
@@ -45,6 +62,9 @@ public sealed class AddEvidenceDialogViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// True when both a file path and a description have been entered.
+    /// </summary>
     public bool IsValid => !string.IsNullOrWhiteSpace(FilePath) && !string.IsNullOrWhiteSpace(Description);
 
     /// <summary>
@@ -85,14 +105,30 @@ public sealed class AddEvidenceDialogViewModel : ViewModelBase
         }
     }
 
-    public IncidentEvidence BuildEvidence(Guid uploadedBy)
+    /// <summary>
+    /// Creates an evidence record and reads the selected file's contents.
+    /// </summary>
+    /// <param name="uploadedBy">Id of the user adding the evidence.</param>
+    /// <returns>Evidence metadata and its file contents.</returns>
+    public async Task<(IncidentEvidence Evidence, byte[] Content)> BuildEvidenceAsync(
+        string uploadedBy)
     {
-        return new IncidentEvidence(
+        if (!IsValid)
+        {
+            throw new InvalidOperationException(
+                "A file and description are required.");
+        }
+
+        byte[] content = await File.ReadAllBytesAsync(FilePath);
+
+        IncidentEvidence evidence = new(
             Id: Guid.NewGuid(),
             Description: Description.Trim(),
             FilePath: FilePath,
             UploadTime: DateTime.Now,
             UploadedBy: uploadedBy
         );
+
+        return (evidence, content);
     }
 }

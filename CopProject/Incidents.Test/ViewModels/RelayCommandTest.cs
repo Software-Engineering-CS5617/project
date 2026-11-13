@@ -1,5 +1,5 @@
 ﻿using System;
-using Incident_module.ViewModels.Utils;
+using Incidents.ViewModels.Utils;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Incidents.Test.ViewModels;

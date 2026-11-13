@@ -1,24 +1,33 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Incident_module.ViewModels;
-using Incident_module.ViewModels.Utils;
+using Incidents.ViewModels;
+using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.UI;
 
-namespace Incident_module.Views;
+namespace Incidents.Views;
 
+/// <summary>
+/// Page that lists all incidents and lets the user open one or create a new one.
+/// </summary>
 [ExcludeFromCodeCoverage]
 public sealed partial class AllIncidentsPage : Page
 {
     private AllIncidentsPageViewModel? ViewModel => DataContext as AllIncidentsPageViewModel;
     private IncidentPageContext? _context;
 
+    /// <summary>
+    /// Creates the page and loads its XAML layout.
+    /// </summary>
     public AllIncidentsPage()
     {
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Creates the ViewModel from the navigation context if needed and loads the incidents.
+    /// </summary>
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -47,6 +56,9 @@ public sealed partial class AllIncidentsPage : Page
         }
     }
 
+    /// <summary>
+    /// Opens the Create Incident page.
+    /// </summary>
     private void CreateIncident_Click(object _, RoutedEventArgs __)
     {
         if (_context != null)
@@ -55,6 +67,9 @@ public sealed partial class AllIncidentsPage : Page
         }
     }
 
+    /// <summary>
+    /// Opens the details page for the incident the user clicked.
+    /// </summary>
     private void Incident_ItemClick(object _, ItemClickEventArgs e)
     {
         if (e.ClickedItem is Incident incident && _context != null)
@@ -63,6 +78,17 @@ public sealed partial class AllIncidentsPage : Page
                 typeof(IncidentDetailsPage),
                 new IncidentDetailsPageParameters(_context, incident.Id)
             );
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes with the cloud and refreshes the incidents list.
+    /// </summary>
+    private async void Sync_Click(object _, RoutedEventArgs __)
+    {
+        if (ViewModel != null)
+        {
+            await ViewModel.LoadAsync();
         }
     }
 }

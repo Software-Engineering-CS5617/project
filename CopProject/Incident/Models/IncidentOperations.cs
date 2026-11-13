@@ -1,4 +1,4 @@
-﻿namespace Incident_module;
+﻿namespace Incidents;
 
 public partial class Incident
 {
@@ -23,7 +23,7 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateStatus(IncidentStatus newStatus, Guid changedBy)
+    internal void UpdateStatus(IncidentStatus newStatus, string changedBy)
     {
         if (Status == newStatus) { return; }
 
@@ -40,7 +40,7 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateCategory(IncidentCategory newCategory, Guid changedBy)
+    internal void UpdateCategory(IncidentCategory newCategory, string changedBy)
     {
         if (Category == newCategory) { return; }
 
@@ -57,7 +57,7 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateSeverity(IncidentSeverity newSeverity, Guid changedBy)
+    internal void UpdateSeverity(IncidentSeverity newSeverity, string changedBy)
     {
         if (Severity == newSeverity) { return; }
 
@@ -74,7 +74,7 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal void UpdateLocation(IncidentLocation location, Guid changedBy)
+    internal void UpdateLocation(IncidentLocation location, string changedBy)
     {
         ArgumentNullException.ThrowIfNull(location);
 
@@ -104,7 +104,7 @@ public partial class Incident
         UpdateTime = changedTime;
     }
 
-    internal static bool AddAdjacentIncident(Incident incident1, Incident incident2, Guid changedBy)
+    internal static bool AddAdjacentIncident(Incident incident1, Incident incident2, string changedBy)
     {
         if (incident1.Id == incident2.Id
             || incident1._edges.Contains(incident2.Id)

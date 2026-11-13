@@ -1,0 +1,58 @@
+﻿:root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --fg: #1c1f25;
+    --muted: #646b75;
+    --line: #e1e4e8;
+    --accent: #2f5bea;
+    --accent-fg: #ffffff;
+    --accent-soft: #e8edfd;
+    --ok: #1a7f4b;
+    --bad: #b3261e;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0f1215;
+        --surface: #181c21;
+        --fg: #e6e8eb;
+        --muted: #9aa1ab;
+        --line: #2a3038;
+        --accent: #7b9cff;
+        --accent-fg: #0b1020;
+        --accent-soft: #1d2745;
+        --ok: #5cc98f;
+        --bad: #ff8a80;
+        --shadow: none;
+    }
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset: auto 0 0 0;
+    padding: 0.6rem 1.25rem;
+    background: var(--bad);
+    color: var(--bg);
+    z-index: 1000;
+}
+
+    #blazor-error-ui a {
+        color: inherit;
+        margin-left: 0.75rem;
+        cursor: pointer;
+    }

@@ -131,6 +131,101 @@ public class PacketSerializationTests
         Assert.IsNotNull(deserialized);
         Assert.AreEqual(5050, deserialized.Port);
         Assert.AreEqual("192.168.1.100", deserialized.Address.ToString());
+
+        IPEndPoint? nullDeserialized = JsonSerializer.Deserialize<IPEndPoint>("null", options);
+        Assert.IsNull(nullDeserialized);
+    }
+
+    /// <summary>
+    /// Checks that BroadcastPacket serialization and deserialization preserves all fields.
+    /// </summary>
+    [TestMethod]
+    public void Serializer_BroadcastPacket_RoundTripsSuccessfully()
+    {
+        Serializer<BroadcastPacket> serializer = new();
+        byte[] payload = Encoding.UTF8.GetBytes("Broadcast Payload");
+        IPEndPoint endpoint = new(IPAddress.Loopback, 5000);
+        BroadcastPacket packet = new(payload, 10, 2, endpoint);
+
+        byte[] serialized = serializer.Serialize(packet);
+        BroadcastPacket? deserialized = serializer.Deserialize(serialized);
+
+        Assert.IsNotNull(deserialized);
+        Assert.AreEqual(10, deserialized.Module);
+        Assert.AreEqual(2, deserialized.Priority);
+        Assert.AreEqual(5000, deserialized.ClientIp.Port);
+        CollectionAssert.AreEqual(payload, deserialized.Message);
+    }
+
+    /// <summary>
+    /// Checks that MulticastPacket serialization and deserialization preserves all fields.
+    /// </summary>
+    [TestMethod]
+    public void Serializer_MulticastPacket_RoundTripsSuccessfully()
+    {
+        Serializer<MulticastPacket> serializer = new();
+        byte[] payload = Encoding.UTF8.GetBytes("Multicast Payload");
+        IPEndPoint endpoint = new(IPAddress.Loopback, 6000);
+        MulticastPacket packet = new(77, payload, 12, 1, endpoint);
+
+        byte[] serialized = serializer.Serialize(packet);
+        MulticastPacket? deserialized = serializer.Deserialize(serialized);
+
+        Assert.IsNotNull(deserialized);
+        Assert.AreEqual(77, deserialized.MulticastGroup);
+        Assert.AreEqual(12, deserialized.Module);
+        Assert.AreEqual(1, deserialized.Priority);
+        Assert.AreEqual(6000, deserialized.ClientIp.Port);
+        CollectionAssert.AreEqual(payload, deserialized.Message);
+    }
+
+    /// <summary>
+    /// Checks polymorphic NetworkMessage serialization and deserialization for BroadcastPacket and MulticastPacket.
+    /// </summary>
+    [TestMethod]
+    public void Serializer_NetworkMessage_PolymorphicRoundTripsSuccessfully()
+    {
+        Serializer<NetworkMessage> serializer = new();
+
+        BroadcastPacket broadcast = new(Encoding.UTF8.GetBytes("Polymorphic Broadcast"), 10, 1, new IPEndPoint(IPAddress.Loopback, 5001));
+        byte[] broadcastBytes = serializer.Serialize(broadcast);
+        NetworkMessage? deserializedBroadcast = serializer.Deserialize(broadcastBytes);
+
+        Assert.IsNotNull(deserializedBroadcast);
+        Assert.IsInstanceOfType<BroadcastPacket>(deserializedBroadcast);
+        BroadcastPacket castBroadcast = (BroadcastPacket)deserializedBroadcast;
+        Assert.AreEqual(10, castBroadcast.Module);
+        CollectionAssert.AreEqual(broadcast.Message, castBroadcast.Message);
+
+        MulticastPacket multicast = new(88, Encoding.UTF8.GetBytes("Polymorphic Multicast"), 11, 2, new IPEndPoint(IPAddress.Loopback, 5002));
+        byte[] multicastBytes = serializer.Serialize(multicast);
+        NetworkMessage? deserializedMulticast = serializer.Deserialize(multicastBytes);
+
+        Assert.IsNotNull(deserializedMulticast);
+        Assert.IsInstanceOfType<MulticastPacket>(deserializedMulticast);
+        MulticastPacket castMulticast = (MulticastPacket)deserializedMulticast;
+        Assert.AreEqual(88, castMulticast.MulticastGroup);
+        CollectionAssert.AreEqual(multicast.Message, castMulticast.Message);
+
+        JoinGroupPacket join = new(42, new IPEndPoint(IPAddress.Loopback, 5003));
+        byte[] joinBytes = serializer.Serialize(join);
+        NetworkMessage? deserializedJoin = serializer.Deserialize(joinBytes);
+
+        Assert.IsNotNull(deserializedJoin);
+        Assert.IsInstanceOfType<JoinGroupPacket>(deserializedJoin);
+        JoinGroupPacket castJoin = (JoinGroupPacket)deserializedJoin;
+        Assert.AreEqual(42, castJoin.MulticastGroup);
+        Assert.AreEqual(5003, castJoin.ClientIp.Port);
+
+        LeaveGroupPacket leave = new(42, new IPEndPoint(IPAddress.Loopback, 5003));
+        byte[] leaveBytes = serializer.Serialize(leave);
+        NetworkMessage? deserializedLeave = serializer.Deserialize(leaveBytes);
+
+        Assert.IsNotNull(deserializedLeave);
+        Assert.IsInstanceOfType<LeaveGroupPacket>(deserializedLeave);
+        LeaveGroupPacket castLeave = (LeaveGroupPacket)deserializedLeave;
+        Assert.AreEqual(42, castLeave.MulticastGroup);
+        Assert.AreEqual(5003, castLeave.ClientIp.Port);
     }
 
     /// <summary>

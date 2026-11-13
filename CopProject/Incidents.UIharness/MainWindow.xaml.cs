@@ -1,13 +1,15 @@
 ﻿using System;
-using Incident_module;
-using Incident_module.Implementations;
-using Incident_module.Views;
+using Incidents;
+using Incidents.Views;
 using Cloud.Persistence;
 using FileSynchroniser.Models;
 using Microsoft.UI.Xaml;
 
 namespace Incidents.UIharness;
 
+/// <summary>
+/// A TEST Harness for the indenpendent development of Incidents WinUI Pages.
+/// </summary>
 public sealed partial class MainWindow : Window
 {
     public MainWindow()
@@ -16,6 +18,9 @@ public sealed partial class MainWindow : Window
         InitializeAndStartAsync();
     }
 
+    /// <summary>
+    /// Methods for Initializing all the setup for the function start up.
+    /// </summary>
     private async void InitializeAndStartAsync()
     {
         // Instantiate services/controllers
@@ -23,11 +28,13 @@ public sealed partial class MainWindow : Window
         IFileOperations fileSynchroniser = new Synchroniser();
 
         IIncidentController controller = await IncidentController.CreateAsync(storageService, fileSynchroniser);
-        Guid currentUserId = Guid.NewGuid();
+        string currentUserId = "TestUser";
         IntPtr windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
         IncidentPageContext context = new(controller, currentUserId, windowHandle);
         RootFrame.Navigate(typeof(AllIncidentsPage), context);
+        //IncidentCreatePageWithLocation locationContext = new(context, 37.7749, -122.4194, "San Francisco, CA");
+        //RootFrame.Navigate(typeof(CreateIncidentPage), locationContext);
 
     }
 }

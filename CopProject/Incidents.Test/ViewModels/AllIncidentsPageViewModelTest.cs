@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Incident_module;
-using Incident_module.Implementations;
-using Incident_module.ViewModels;
+using Incidents;
+using Incidents.Test.Implementations;
+using Incidents.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -16,11 +16,11 @@ public class AllIncidentsPageViewModelTests
     private IIncidentController _controller = null!;
     private AllIncidentsPageViewModel _viewModel = null!;
 
-    private readonly Guid _user1 =
-        Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly string _user1 =
+        "11111111-1111-1111-1111-111111111111";
 
-    private readonly Guid _user2 =
-        Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private readonly string _user2 =
+        "22222222-2222-2222-2222-222222222222";
 
     private Incident _vehicleIncident = null!;
     private Incident _theftIncident = null!;
@@ -75,7 +75,7 @@ public class AllIncidentsPageViewModelTests
 
     private async Task<Incident> CreateTestIncident(
         string title,
-        Guid createdBy,
+        string createdBy,
         IncidentCategory category,
         IncidentSeverity severity)
     {
@@ -356,16 +356,6 @@ public class AllIncidentsPageViewModelTests
         Assert.HasCount(2, _viewModel.Incidents);
     }
 
-    /// <summary>
-    /// Invalid GUID input does not apply a creator filter.
-    /// </summary>
-    [TestMethod]
-    public void CreatedByInput_InvalidGuid_DoesNotFilterIncidents()
-    {
-        _viewModel.CreatedByInput = "invalid-guid";
-
-        Assert.HasCount(4, _viewModel.Incidents);
-    }
 
     /// <summary>
     /// Multiple filters are applied together.

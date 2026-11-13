@@ -1,24 +1,34 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using Incident_module.ViewModels;
-using Incident_module.ViewModels.Utils;
+using System.Security.Policy;
+using Incidents.ViewModels;
+using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
-namespace Incident_module.Views;
+namespace Incidents.Views;
 
+/// <summary>
+/// Page that shows the details of one incident and lets the user edit it or add evidence.
+/// </summary>
 [ExcludeFromCodeCoverage]
 public sealed partial class IncidentDetailsPage : Page
 {
     private IncidentDetailsPageViewModel? ViewModel => DataContext as IncidentDetailsPageViewModel;
     private IncidentPageContext? _context;
 
+    /// <summary>
+    /// Creates the page and loads its XAML layout.
+    /// </summary>
     public IncidentDetailsPage()
     {
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Creates the ViewModel from the navigation parameters and loads the selected incident.
+    /// </summary>
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -42,6 +52,9 @@ public sealed partial class IncidentDetailsPage : Page
         }
     }
 
+    /// <summary>
+    /// Goes back to the previous page.
+    /// </summary>
     private void BackButton_Click(object _, RoutedEventArgs __)
     {
         if (this.Frame.CanGoBack)
@@ -50,6 +63,9 @@ public sealed partial class IncidentDetailsPage : Page
         }
     }
 
+    /// <summary>
+    /// Shows the Add Evidence dialog and adds the evidence to the incident if the user confirms.
+    /// </summary>
     private async void AddEvidence_Click(object _, RoutedEventArgs __)
     {
         if (_context == null)
@@ -68,9 +84,42 @@ public sealed partial class IncidentDetailsPage : Page
 
         if (result == ContentDialogResult.Primary && dialogViewModel.IsValid && ViewModel != null)
         {
-            IncidentEvidence evidence = dialogViewModel.BuildEvidence(_context.CurrentUserId);
+            (IncidentEvidence Evidence, byte[] Content) res = await dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
+            IncidentEvidence evidence = res.Evidence;
+            byte[] content = res.Content;
+            await ViewModel.AddEvidenceItemsAsync([(evidence, content)]);
+        }
+    }
 
-            await ViewModel.AddEvidenceItemsAsync([evidence]);
+    /// <summary>
+    /// Shows the Correlate Incidents dialog and correlates the selected incidents.
+    /// </summary>
+    private async void CorrelateIncidents_Click(object _, RoutedEventArgs __)
+    {
+        if (_context == null || ViewModel?.Incident == null)
+        {
+            return;
+        }
+
+        CorrelateIncidentsDialogViewModel dialogViewModel = new(
+            _context.IncidentController,
+            ViewModel.Incident.Id
+        );
+
+        await dialogViewModel.LoadIncidentsAsync();
+
+        CorrelateIncidentsDialog dialog = new() {
+            XamlRoot = this.XamlRoot,
+            DataContext = dialogViewModel
+        };
+
+        ContentDialogResult result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            List<Guid> selectedIds = dialogViewModel.GetSelectedIncidentIds();
+
+            await ViewModel.CorrelateIncidentsAsync(selectedIds);
         }
     }
 }

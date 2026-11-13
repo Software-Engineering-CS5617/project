@@ -1,4 +1,4 @@
-namespace Chat;
+﻿namespace Chat;
 
 /// <summary>
 /// Represents the users mentioned in a message.
@@ -13,7 +13,7 @@ public sealed class Mentions : IMentions
     /// <summary>
     /// Stores explicit usernames mentioned by a message.
     /// </summary>
-    public HashSet<string> Usernames { get; } = new();
+    public HashSet<string> Usernames { get; init; } = new();
 
     /// <summary>
     /// Creates a copy of these mentions.
@@ -21,9 +21,11 @@ public sealed class Mentions : IMentions
     /// <returns>A new mentions object with the same values.</returns>
     public Mentions Clone()
     {
-        Mentions clone = new() { All = All };
-        clone.Usernames.UnionWith(Usernames);
-        return clone;
+        return new Mentions
+        {
+            All = All,
+            Usernames = new HashSet<string>(Usernames, Usernames.Comparer)
+        };
     }
 
     /// <inheritdoc />

@@ -1,4 +1,4 @@
-using Incident_module;
+using Incidents;
 using Location.Test.Fakes;
 using LocationTracker.Models;
 using LocationTracker.Services;

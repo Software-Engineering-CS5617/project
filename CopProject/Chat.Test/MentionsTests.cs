@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.Json;
 using Chat;
 
 namespace Chat.Test;
@@ -55,6 +56,18 @@ public class MentionsTests
         Assert.Contains("guest", clone.Usernames);
         Assert.Contains("host", clone.Usernames);
         Assert.DoesNotContain("host", mentions.Usernames);
+    }
+
+    [Fact]
+    public void UsernamesSurviveJsonRoundTrip()
+    {
+        Mentions mentions = new();
+        mentions.Usernames.Add("guest");
+
+        Mentions roundTripped = JsonSerializer.Deserialize<Mentions>(
+            JsonSerializer.Serialize(mentions))!;
+
+        Assert.Contains("guest", roundTripped.Usernames);
     }
 
     [Fact]

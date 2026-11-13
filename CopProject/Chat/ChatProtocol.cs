@@ -33,41 +33,43 @@ public abstract record ChatRoomChangeRequest : ChatClientRequest;
 /// <param name="Timestamp">The time at which the message was composed.</param>
 /// <param name="Mentions">The users mentioned by the message.</param>
 /// <param name="Content">The message content.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
+/// <param name="ReplyToMessageId">The room message this message replies to inline.</param>
 public sealed record SendMessage(
     DateTimeOffset Timestamp,
     Mentions Mentions,
     string Content,
-    Guid? ParentMessageId) : ChatRoomChangeRequest;
+    Guid? ThreadParentMessageId,
+    Guid? ReplyToMessageId = null) : ChatRoomChangeRequest;
 
 /// <summary>
 /// Requests an edit to a room message or thread message.
 /// </summary>
 /// <param name="MessageId">The message ID.</param>
 /// <param name="NewContent">The replacement content.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
 public sealed record EditMessage(
     Guid MessageId,
     string NewContent,
-    Guid? ParentMessageId) : ChatRoomChangeRequest;
+    Guid? ThreadParentMessageId) : ChatRoomChangeRequest;
 
 /// <summary>
 /// Requests deletion of a room message or thread message.
 /// </summary>
 /// <param name="MessageId">The message ID.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
-public sealed record DeleteMessage(Guid MessageId, Guid? ParentMessageId) : ChatRoomChangeRequest;
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
+public sealed record DeleteMessage(Guid MessageId, Guid? ThreadParentMessageId) : ChatRoomChangeRequest;
 
 /// <summary>
 /// Toggles a reaction on a room message or thread message.
 /// </summary>
 /// <param name="MessageId">The message ID.</param>
 /// <param name="Emoji">The reaction emoji.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for the room.</param>
 public sealed record ToggleReaction(
     Guid MessageId,
     string Emoji,
-    Guid? ParentMessageId) : ChatRoomChangeRequest;
+    Guid? ThreadParentMessageId) : ChatRoomChangeRequest;
 
 /// <summary>
 /// Wraps a client request with its ID and username.
@@ -95,7 +97,11 @@ public abstract record ChatOperation;
 /// </summary>
 /// <param name="MessageId">The ID assigned to the message.</param>
 /// <param name="Message">The added message.</param>
-public sealed record MessageAdded(Guid MessageId, ChatMessageWithThreads Message) : ChatOperation;
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
+public sealed record MessageAdded(
+    Guid MessageId,
+    ChatMessageWithThreads Message,
+    Guid? ThreadParentMessageId = null) : ChatOperation;
 
 /// <summary>
 /// Records a message edit.
@@ -103,23 +109,23 @@ public sealed record MessageAdded(Guid MessageId, ChatMessageWithThreads Message
 /// <param name="MessageId">The edited message ID.</param>
 /// <param name="NewContent">The replacement content.</param>
 /// <param name="ActorUsername">The username that performed the edit.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
 public sealed record MessageEdited(
     Guid MessageId,
     string NewContent,
     string ActorUsername,
-    Guid? ParentMessageId) : ChatOperation;
+    Guid? ThreadParentMessageId) : ChatOperation;
 
 /// <summary>
 /// Records a message deletion.
 /// </summary>
 /// <param name="MessageId">The deleted message ID.</param>
 /// <param name="ActorUsername">The username that deleted the message.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
 public sealed record MessageDeleted(
     Guid MessageId,
     string ActorUsername,
-    Guid? ParentMessageId) : ChatOperation;
+    Guid? ThreadParentMessageId) : ChatOperation;
 
 /// <summary>
 /// Records a reaction toggle on a message.
@@ -127,12 +133,12 @@ public sealed record MessageDeleted(
 /// <param name="MessageId">The message ID.</param>
 /// <param name="Emoji">The reaction emoji.</param>
 /// <param name="ActorUsername">The username that toggled the reaction.</param>
-/// <param name="ParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
+/// <param name="ThreadParentMessageId">The thread root message ID, or <see langword="null"/> for a room message.</param>
 public sealed record ReactionToggled(
     Guid MessageId,
     string Emoji,
     string ActorUsername,
-    Guid? ParentMessageId) : ChatOperation;
+    Guid? ThreadParentMessageId) : ChatOperation;
 
 /// <summary>
 /// Applies accepted chat operations to a room.
@@ -154,7 +160,7 @@ public static class ChatProtocol
         {
             case MessageAdded added:
                 ChatMessageWithThreads message = added.Message.DeepCloneWithoutThreadMessages();
-                if (message.ParentMessageId is Guid parentId)
+                if (added.ThreadParentMessageId is Guid parentId)
                 {
                     return chatroom.AddThreadMessageById(parentId, added.MessageId, message);
                 }
@@ -167,20 +173,20 @@ public static class ChatProtocol
                     edit.MessageId,
                     edit.NewContent,
                     edit.ActorUsername,
-                    edit.ParentMessageId);
+                    edit.ThreadParentMessageId);
 
             case MessageDeleted delete:
                 return chatroom.DeleteMessage(
                     delete.MessageId,
                     delete.ActorUsername,
-                    delete.ParentMessageId);
+                    delete.ThreadParentMessageId);
 
             case ReactionToggled reaction:
                 return chatroom.ToggleReaction(
                     reaction.MessageId,
                     reaction.Emoji,
                     reaction.ActorUsername,
-                    reaction.ParentMessageId);
+                    reaction.ThreadParentMessageId);
 
             default:
                 return RoomResult.Forbidden;

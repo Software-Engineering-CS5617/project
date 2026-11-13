@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Incident_module;
+namespace Incidents;
 
 public interface IIncidentController
 {
@@ -13,7 +13,7 @@ public interface IIncidentController
 
     Task<List<Incident>> GetCorrelatedIncidents(Guid id);
 
-    Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence);
+    Task<bool> AddEvidence(Incident incident, List<(IncidentEvidence, byte[])> evidence);
 
     Task<bool> UpdateStatus(Incident incident, IncidentStatus newStatus);
 

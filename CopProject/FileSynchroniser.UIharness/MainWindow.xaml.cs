@@ -1,4 +1,6 @@
-﻿using FileSynchroniser.Views;
+﻿// Author : Eswar
+
+using FileSynchroniser.Views;
 using Microsoft.UI.Xaml;
 
 namespace FileSynchroniser.UIharness;

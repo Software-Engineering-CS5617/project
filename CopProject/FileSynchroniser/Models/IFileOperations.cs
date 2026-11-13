@@ -1,9 +1,14 @@
-﻿using System;
+﻿// Author : Murali
+
+using System;
+using System.Collections.Generic;
 
 namespace FileSynchroniser.Models;
 
 /// <summary>
-/// Declares File Operations that synchroniser can use on  files across shared folder
+/// Declares File Operations that synchroniser can use on  files across shared folder.
+/// Every operation accepts one or many files; to work on a single file, pass a
+/// collection containing one entry.
 /// </summary>
 public interface IFileOperations
 {
@@ -15,39 +20,39 @@ public interface IFileOperations
 
 
     /// <summary>
-    /// Saves a new file in the synchronised root directory
+    /// Saves one or more new files in the synchronised root directory.
+    /// Existing files are never overwritten.
     /// </summary>
-    /// <param name="relativePath">Relative path of the file with respect to the synchronised root directory</param>
-    /// <param name="content">Byte array containing the file content to be saved</param>
-    /// <returns>True if the file is saved successfully, false otherwise</returns>
-    bool SaveFile(string relativePath, byte[] content);
+    /// <param name="files">Map of relative path (with respect to the synchronised root directory) to file content</param>
+    /// <returns>Map of relative path to success flag, one entry per input file</returns>
+    IReadOnlyDictionary<string, bool> SaveFile(IReadOnlyDictionary<string, byte[]> files);
 
     /// <summary>
-    /// Reads the file in the synchronised root directory
+    /// Reads one or more files from the synchronised root directory
     /// </summary>
-    /// <param name="relativePath">Relative path of the file with respect to the synchronised root directory</param>
-    /// <returns>True if the file is saved successfully, false otherwise</returns>
-    byte[] ReadFile(string relativePath);
+    /// <param name="relativePaths">Relative paths of the files with respect to the synchronised root directory</param>
+    /// <returns>Map of relative path to file content, or null if that file could not be read</returns>
+    IReadOnlyDictionary<string, byte[]?> ReadFile(IEnumerable<string> relativePaths);
 
     /// <summary>
-    /// Updates the file in the synchronised root directory
+    /// Updates one or more existing files in the synchronised root directory
     /// </summary>
-    /// <param name="relativePath">Relative path of the file with respect to the synchronised root directory</param>
-    /// <returns>True if the file is update successfully, false otherwise</returns>
-    bool UpdateFile(string relativePath, byte[] content);
+    /// <param name="files">Map of relative path to new file content</param>
+    /// <returns>Map of relative path to success flag, one entry per input file</returns>
+    IReadOnlyDictionary<string, bool> UpdateFile(IReadOnlyDictionary<string, byte[]> files);
 
     /// <summary>
-    /// Deletes the file in the synchronised root directory
+    /// Deletes one or more files from the synchronised root directory
     /// </summary>
-    /// <param name="relativePath">Relative path of the file with respect to the synchronised root directory</param>
-    /// <returns>True if the file is deleted successfully, false otherwise</returns>
-    bool DeleteFile(string relativePath);
+    /// <param name="relativePaths">Relative paths of the files with respect to the synchronised root directory</param>
+    /// <returns>Map of relative path to success flag, one entry per input path</returns>
+    IReadOnlyDictionary<string, bool> DeleteFile(IEnumerable<string> relativePaths);
 
     /// <summary>
     /// Check if file exist in the synchronised root directory
     /// </summary>
     /// <param name="relativePath">Relative path of the file with respect to the synchronised root directory</param>
-    /// <returns>True if the file is exist successfully, false otherwise</returns>
+    /// <returns>True if the file exists, false otherwise</returns>
     bool FileExists(string relativePath);
 
 }

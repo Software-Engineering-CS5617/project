@@ -1,0 +1,196 @@
+﻿@attribute [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+@page "/"
+@rendermode InteractiveServer
+@implements IDisposable
+
+@* The view only talks to the ViewModel *@
+@inject DashboardViewModel Vm
+
+<PageTitle>Message server</PageTitle>
+
+@{
+    /* for complete independence from Models & .. there is ConnectionItem & MessageItem*/
+    /* ViewModel owns the data, View just consumes it */
+    IReadOnlyList<ConnectionItem> connections = Vm.Connections;
+    IReadOnlyList<MessageItem> messages = Vm.Messages;
+    int length = Vm.Text.Length;
+}
+
+<main class="page">
+    <header class="page-header">
+        <div>
+            <h1>Message server</h1>
+            <p class="subtitle">Live view of connections and broadcast messages.</p>
+        </div>
+        <span class="pill" title="This page updates in real time"><span class="dot"></span>Live</span>
+    </header>
+
+    @* Basic stats *@
+    <section class="stats" aria-label="Summary">
+        <div class="stat">
+            <span class="stat-label">Connected clients</span>
+            <span class="stat-value">@connections.Count</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Recent messages</span>
+            <span class="stat-value">@messages.Count</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Latest message</span>
+            <span class="stat-value">@(messages.Count > 0 ? messages[0].Time : "-")</span>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Broadcast a notification</h2>
+
+        <div class="send">
+            <input @bind="Vm.Text"
+                   @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   maxlength="@DashboardViewModel.MaxLength"
+                   aria-label="Message to all clients"
+                   placeholder="Message to all clients" />
+
+            @* Disables button on based on CanSend property *@
+            <button class="primary" @onclick="Vm.SendAsync" disabled="@(!Vm.CanSend)">
+                @(Vm.IsSending ? "Sending…" : "Send to all")
+            </button>
+        </div>
+
+        <p class="hint">
+            <span>Offline clients will receive it the next time they sync.</span>
+            <span class="counter">@length / @DashboardViewModel.MaxLength</span>
+        </p>
+
+        @if (Vm.Status is not null)
+        {
+            @* green on success, red on failure *@
+            <p class="@(Vm.StatusIsError ? "status failed" : "status ok")" role="status">@Vm.Status</p>
+        }
+    </section>
+
+    <section class="card">
+        <h2>Connected clients <span class="badge">@connections.Count</span></h2>
+
+        @if (connections.Count == 0)
+        {
+            <p class="empty">
+                No clients are connected. Connect a client through /hub and it will show up here.
+            </p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Connection</th>
+                            <th class="nowrap">Connected at</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (ConnectionItem connection in connections)
+                        {
+                            <tr>
+                                <td><code>@connection.ConnectionId</code></td>
+                                <td class="nowrap">@connection.ConnectedAt</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="card">
+        <h2>Newest messages <span class="badge">latest @DashboardViewModel.RecentMessageCount</span></h2>
+
+        @if (messages.Count == 0)
+        {
+            <p class="empty">
+                No messages yet. Send one from a client or broadcast one from above.
+            </p>
+        }
+        else
+        {
+            <div class="table-wrap scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="nowrap">Time</th>
+                            <th>Id</th>
+                            <th>From</th>
+                            <th>Content</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (MessageItem message in messages)
+                        {
+                            <tr class="@(message.IsFromServer ? "from-server" : null)">
+                                <td class="nowrap">@message.Time</td>
+                                <td><code class="muted">@message.Id</code></td>
+                                @* messages sent by the server itself are highlighted *@
+                                <td>
+                                    @if (message.IsFromServer)
+                                    {
+                                        <span class="badge server">server</span>
+                                    }
+                                    else
+                                    {
+                                        <code>@message.From</code>
+                                    }
+                                </td>
+                                <td class="content">
+                                    @* long messages are cut to one line; hover or focus shows all of it *@
+                                    <div class="clip" title="@message.Content" tabindex="0">@message.Content</div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</main>
+
+@code {
+    /* to refer to the same handler for "OnInitialized" and "Dispose" */
+    private void OnViewModelChanged()
+    {
+        // the circuit can already be gone on a "late" change
+        // there is nothing left to refresh then
+        _ = InvokeAsync(() =>
+        {
+            try
+            {
+                StateHasChanged();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        });
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Vm.Changed += OnViewModelChanged; /* to propagate the changes from Vm to View. */
+        await Vm.RefreshAsync(); /* first snapshot of messages from the store */
+    }
+
+    /* OnKeyDown "Enter" will be like clicking the button */
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Vm.SendAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        Vm.Changed -= OnViewModelChanged;
+    }
+}

@@ -1,4 +1,4 @@
-﻿namespace Incident_module;
+﻿namespace Incidents;
 
 public enum IncidentStatus
 {

@@ -4,15 +4,18 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Incident_module.ViewModels.Utils;
+using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
 
-namespace Incident_module.ViewModels;
+namespace Incidents.ViewModels;
 
+/// <summary>
+/// ViewModel for the All Incidents page that loads incidents and applies the search and filters.
+/// </summary>
 public sealed class AllIncidentsPageViewModel : ViewModelBase
 {
     private readonly IIncidentController _incidentController;
-    private readonly Guid _currentUserId;
+    private readonly string _currentUserId;
 
     private List<Incident> _allIncidents = [];
     private string _searchText = string.Empty;
@@ -29,18 +32,39 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
     // User filter
     private string _createdByInput = string.Empty;
 
+    /// <summary>
+    /// Incidents currently shown in the list after filtering.
+    /// </summary>
     public ObservableCollection<Incident> Incidents { get; } = [];
 
     // String collections with "All" explicitly added as option 0
+
+    /// <summary>
+    /// Choices for the status dropdown.
+    /// </summary>
     public List<string> StatusOptions { get; }
+
+    /// <summary>
+    /// Choices for the category dropdown.
+    /// </summary>
     public List<string> CategoryOptions { get; }
+
+    /// <summary>
+    /// Choices for the severity dropdown.
+    /// </summary>
     public List<string> SeverityOptions { get; }
 
+    /// <summary>
+    /// Resets every filter back to its default value.
+    /// </summary>
     public RelayCommand ClearFiltersCommand { get; }
 
+    /// <summary>
+    /// Creates the ViewModel and builds the dropdown options.
+    /// </summary>
     public AllIncidentsPageViewModel(
         IIncidentController incidentController,
-        Guid currentUserId)
+        string currentUserId)
     {
         _incidentController = incidentController ?? throw new ArgumentNullException(nameof(incidentController));
         _currentUserId = currentUserId;
@@ -53,6 +77,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         ClearFiltersCommand = new RelayCommand(ClearFilters);
     }
 
+    /// <summary>
+    /// Text typed in the search box, matched against incident titles.
+    /// </summary>
     public string SearchText
     {
         get => _searchText;
@@ -64,6 +91,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Status chosen in the dropdown, or "All".
+    /// </summary>
     public string SelectedStatus
     {
         get => _selectedStatus;
@@ -75,6 +105,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Category chosen in the dropdown, or "All".
+    /// </summary>
     public string SelectedCategory
     {
         get => _selectedCategory;
@@ -86,6 +119,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Severity chosen in the dropdown, or "All".
+    /// </summary> 
     public string SelectedSeverity
     {
         get => _selectedSeverity;
@@ -97,6 +133,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Start of the date range filter.
+    /// </summary>
     public DateTimeOffset? FromDate
     {
         get => _fromDate;
@@ -108,6 +147,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// End of the date range filter.
+    /// </summary>
     public DateTimeOffset? ToDate
     {
         get => _toDate;
@@ -119,6 +161,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// User Id typed in to filter incidents by creator.
+    /// </summary>
     public string CreatedByInput
     {
         get => _createdByInput;
@@ -130,15 +175,24 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Shows the "no incidents" message only when the list is empty.
+    /// </summary>
     public Visibility EmptyMessageVisibility =>
         Incidents.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
+    /// <summary>
+    /// Loads all incidents from the controller and applies the current filters.
+    /// </summary>
     public async Task LoadAsync()
     {
         _allIncidents = await _incidentController.GetAllIncidents();
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Resets all filters to their defaults and refreshes the list once.
+    /// </summary>
     public void ClearFilters()
     {
         _searchText = string.Empty;
@@ -160,6 +214,9 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Builds a filter from the current inputs and refills the list with the matching incidents, newest first.
+    /// </summary>
     private void ApplyFilter()
     {
         string search = SearchText.Trim();
@@ -169,9 +226,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         IncidentStatus? statusFilter = Enum.TryParse<IncidentStatus>(SelectedStatus, out IncidentStatus s) ? s : null;
         IncidentCategory? categoryFilter = Enum.TryParse<IncidentCategory>(SelectedCategory, out IncidentCategory c) ? c : null;
         IncidentSeverity? severityFilter = Enum.TryParse<IncidentSeverity>(SelectedSeverity, out IncidentSeverity v) ? v : null;
-
-        // Convert string to Guid if valid
-        Guid? createdByGuid = Guid.TryParse(CreatedByInput.Trim(), out Guid parsedGuid) ? parsedGuid : null;
+        string createdByFilter = CreatedByInput.Trim();
 
         IncidentFilter filter = new(
             Title: titlePattern,
@@ -180,7 +235,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
             Severity: severityFilter,
             FromDateTime: FromDate?.DateTime,
             ToDateTime: ToDate?.DateTime,
-            CreatedBy: createdByGuid,
+            CreatedBy: createdByFilter,
             Location: null
         );
 

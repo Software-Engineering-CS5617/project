@@ -1,4 +1,4 @@
-﻿namespace Incident_module;
+﻿namespace Incidents;
 
 public record IncidentFilter(
     string? Title = null,
@@ -7,6 +7,6 @@ public record IncidentFilter(
     IncidentSeverity? Severity = null,
     DateTime? FromDateTime = null,
     DateTime? ToDateTime = null,
-    Guid? CreatedBy = null,
+    string? CreatedBy = null,
     IncidentLocationFilter? Location = null
 );

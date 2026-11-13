@@ -1,5 +1,6 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 namespace UX;
+
 public partial class App : Application
 {
     private Window? _window;

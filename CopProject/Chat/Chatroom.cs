@@ -139,7 +139,9 @@ public class Chatroom : IChatroom
                 return RoomResult.NotFound;
             }
 
-            if (!string.Equals(message.SenderName, deleter, StringComparison.Ordinal) || message.IsDeleted)
+            bool isHost = string.Equals(deleter, HostName, StringComparison.Ordinal);
+            if ((!isHost && !string.Equals(message.SenderName, deleter, StringComparison.Ordinal))
+                || message.IsDeleted)
             {
                 return RoomResult.Forbidden;
             }
