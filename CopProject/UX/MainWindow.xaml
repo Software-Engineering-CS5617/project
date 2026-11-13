@@ -5,8 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:UX"
     xmlns:controller="using:Controller.Views"
+    xmlns:chat="using:UI.Views"
     xmlns:screenshare="using:ScreenShare.Views">
-    xmlns:chat="using:UI.Views">
 
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
         <Grid.RowDefinitions>
