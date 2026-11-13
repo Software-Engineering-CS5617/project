@@ -111,6 +111,11 @@ public sealed partial class WhiteBoardView : UserControl
         _viewModel.SelectTool(WhiteboardTool.EqTriangle);
     }
 
+    private void ButtonTextBox_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        _viewModel.SelectTool(WhiteboardTool.Textbox);
+    }
+
     private void ButtonEraseItems_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         _viewModel.SelectTool(WhiteboardTool.Eraser);

@@ -91,15 +91,48 @@ internal sealed class WhiteboardRenderer : IDisposable
         _canvas.DispatcherQueue.TryEnqueue(() => action());
     }
 
-    private static Microsoft.UI.Xaml.UIElement CreateVisual(IItem item)
+    private Microsoft.UI.Xaml.UIElement CreateVisual(IItem item)
     {
         return item switch {
             IFreehand freehand => CreateFreehand(freehand),
+            ITextbox textbox => CreateTextbox(textbox),
             Whiteboard.Items.Shapes.Square square => CreateSquare(square),
             Whiteboard.Items.Shapes.Circle circle => CreateCircle(circle),
             Whiteboard.Items.Shapes.EqTriangle triangle => CreateEqTriangle(triangle),
             _ => new Border()
         };
+    }
+
+    private TextBox CreateTextbox(ITextbox item)
+    {
+        TextBox visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Text = item.Content,
+            FontFamily = new FontFamily(item.FontFamily),
+            FontSize = item.FontSize,
+            Foreground = new SolidColorBrush(item.FontColor),
+            TextWrapping = TextWrapping.Wrap,
+            AcceptsReturn = true,
+            IsHitTestVisible = true,
+            Tag = item.Id
+        };
+
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
+        ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
+
+        visual.LostFocus += (_, _) => {
+            if (visual.Text == item.Content)
+            {
+                return;
+            }
+
+            item.Content = visual.Text;
+            _board.EditItem(item);
+        };
+
+        return visual;
     }
 
     private static XamlPolyline CreateFreehand(IFreehand item)

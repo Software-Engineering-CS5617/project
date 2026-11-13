@@ -17,6 +17,7 @@ public enum WhiteboardTool
     Square,
     Circle,
     EqTriangle,
+    Textbox,
     Eraser
 }
 
@@ -28,6 +29,7 @@ public class WhiteBoardViewModel
     private IViewModelState _squareState;
     private IViewModelState _circleState;
     private IViewModelState _eqTriangleState;
+    private IViewModelState _textboxState;
     private IViewModelState _eraserState;
     private readonly IWhiteboardClient _whiteboardClient;
     private WhiteboardRenderer _renderer;
@@ -77,6 +79,7 @@ public class WhiteBoardViewModel
         _circleState = new ShapeCircleState(_whiteboardClient, preview, toolbarInfo);
         _eraserState = new EraserState(_whiteboardClient);
         _eqTriangleState = new ShapeEqTriangleState(_whiteboardClient, preview, toolbarInfo);
+        _textboxState = new TextboxState(_whiteboardClient, preview, toolbarInfo);
         _renderer = new WhiteboardRenderer(_whiteboardClient.Canvas, canvas);
 
         _currentState = _penState;
@@ -111,6 +114,7 @@ public class WhiteBoardViewModel
             WhiteboardTool.Square => _squareState,
             WhiteboardTool.Circle => _circleState,
             WhiteboardTool.EqTriangle => _eqTriangleState,
+            WhiteboardTool.Textbox => _textboxState,
             WhiteboardTool.Eraser => _eraserState,
             _ => throw new ArgumentOutOfRangeException(nameof(tool))
         };
