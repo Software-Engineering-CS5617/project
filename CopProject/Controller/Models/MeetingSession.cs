@@ -16,6 +16,7 @@ public sealed class MeetingSession
 
     public MeetingInfo? Meeting { get; private set; }
     public bool InMeeting => Meeting != null;
+    public DateTime? MeetingStartTime { get; private set; }
 
     public int ParticipantCount
     {
@@ -51,6 +52,7 @@ public sealed class MeetingSession
     {
         Meeting = info;
         participantCount = 1;
+        MeetingStartTime = DateTime.Now;
         Changed?.Invoke();
         MeetingStarted?.Invoke(info);
     }
@@ -60,6 +62,7 @@ public sealed class MeetingSession
         if (Meeting == null) return;
         MeetingEnding?.Invoke();
         Meeting = null;
+        MeetingStartTime = null;
         _activeParticipants = Array.Empty<ParticipantInfo>();
         ParticipantsChanged?.Invoke(_activeParticipants);
         MeetingEnded?.Invoke();
