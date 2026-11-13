@@ -11,6 +11,12 @@ namespace Whiteboard.ViewModels;
 public interface IViewModelState
 {
     /// <summary>
+    /// Whether a pointer press that lands on a rendered textbox should be handled by this state.
+    /// When false, the press is left to the textbox (e.g. so the user can type into it).
+    /// </summary>
+    bool HandlesPointerOnTextbox { get; }
+
+    /// <summary>
     /// Called every time the pointer is pressed on the canvas
     /// </summary>
     void PointerPressed(Point2D point);

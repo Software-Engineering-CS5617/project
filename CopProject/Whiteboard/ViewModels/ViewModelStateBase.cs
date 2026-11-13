@@ -67,6 +67,9 @@ public abstract class ViewModelStateBase : IViewModelState
     }
 
     /// <inheritdoc/>
+    public virtual bool HandlesPointerOnTextbox => true;
+
+    /// <inheritdoc/>
     public abstract void PointerPressed(Point2D point);
 
     /// <inheritdoc/>

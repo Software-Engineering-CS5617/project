@@ -19,6 +19,11 @@ public class EraserState : IViewModelState
         _whiteboardClient = whiteboardClient;
     }
 
+    /// <summary>
+    /// The eraser must receive presses on textboxes so they can be erased.
+    /// </summary>
+    public bool HandlesPointerOnTextbox => true;
+
     public void PointerPressed(Point2D point)
     {
         IItem? item = _whiteboardClient.Canvas.HitTestTopmost(new Point2D(point.X, point.Y));
