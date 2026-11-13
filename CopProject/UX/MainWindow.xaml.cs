@@ -8,6 +8,7 @@ using Incidents;
 using Incidents.Views ;
 using LocationTracker.Services;
 using LocationTracker.Views;
+using Utils;
 using Controller.Models;
 using Controller.ViewModels;
 using Microsoft.UI;
