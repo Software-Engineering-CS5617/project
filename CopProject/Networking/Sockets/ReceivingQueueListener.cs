@@ -45,7 +45,7 @@ public class ReceivingQueueListener : IDisposable
         {
             if (_receivingQueue.IsEmpty())
             {
-                _receivingQueue.WaitForItem(100);
+                Thread.Sleep(100);
                 continue;
             }
             Packet? packet = _receivingQueue.Dequeue();

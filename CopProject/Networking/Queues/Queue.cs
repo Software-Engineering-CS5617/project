@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,11 +12,9 @@ namespace Networking.Queues;
 /// <summary>
 /// Queue using locks
 /// </summary>
-public class Queue : IQueue, IDisposable
+public class Queue : IQueue
 {
     private ConcurrentQueue<Packet> _queue;
-    private readonly AutoResetEvent _itemAdded = new(false);
-    private bool _disposed;
 
     public Queue()
     {
@@ -28,7 +26,6 @@ public class Queue : IQueue, IDisposable
     {
         Trace.WriteLine($"[Networking] Enqueuing to the queue {this.GetType().Name}");
         _queue.Enqueue(packet);
-        SignalItemAdded();
     }
 
     public virtual Packet? Dequeue()
@@ -54,41 +51,6 @@ public class Queue : IQueue, IDisposable
     public virtual void Clear()
     {
         _queue.Clear();
-        ResetItemAdded();
-    }
-
-    public virtual bool WaitForItem(int timeoutMs)
-    {
-        try
-        {
-            return _itemAdded.WaitOne(timeoutMs);
-        }
-        catch (ObjectDisposedException)
-        {
-            return false;
-        }
-    }
-
-    protected void SignalItemAdded()
-    {
-        try
-        {
-            _itemAdded.Set();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-    }
-
-    protected void ResetItemAdded()
-    {
-        try
-        {
-            _itemAdded.Reset();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
     }
 
     public virtual int Size()
@@ -99,14 +61,5 @@ public class Queue : IQueue, IDisposable
     public virtual bool IsEmpty()
     {
         return _queue.IsEmpty;
-    }
-
-    public virtual void Dispose()
-    {
-        if (!_disposed)
-        {
-            _disposed = true;
-            _itemAdded.Dispose();
-        }
     }
 }

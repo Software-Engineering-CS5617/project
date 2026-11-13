@@ -44,7 +44,7 @@ public class SocketListener : IDisposable
         _receivedBuffer = new byte[BufferSize];
         _isRunning = true;
         NetworkStream stream = tcpClient.GetStream();
-        _listeningThread = new Thread(() => ListenStream(stream)) { IsBackground = true };
+        _listeningThread = new Thread(() => ListenStream(stream));
         _listeningThread.Start();
     }
 
@@ -121,8 +121,6 @@ public class SocketListener : IDisposable
 
             _isRunning = false;
         }
-
-        _tcpClient?.Close();
     }
 
 

@@ -335,48 +335,4 @@ public class SendingQueueTests
         Assert.AreEqual(producerCount * itemsPerProducer, dequeuedCount);
         Assert.IsTrue(queue.IsEmpty());
     }
-
-    /// <summary>
-    /// Checks that WaitForItem signals when packets are enqueued at various priorities.
-    /// </summary>
-    [TestMethod]
-    public void SendingQueue_WaitForItem_SignalsWhenPacketEnqueued()
-    {
-        using SendingQueue queue = new();
-
-        // Enqueue High priority
-        queue.Enqueue(CreatePacket("HighItem", 3));
-        Assert.IsTrue(queue.WaitForItem(100));
-
-        // Dequeue it
-        Assert.IsNotNull(queue.Dequeue());
-
-        // Queue is now empty, WaitForItem should time out
-        Assert.IsFalse(queue.WaitForItem(50));
-
-        // Enqueue Medium priority
-        queue.Enqueue(CreatePacket("MedItem", 1));
-        Assert.IsTrue(queue.WaitForItem(100));
-        Assert.IsNotNull(queue.Dequeue());
-        Assert.IsFalse(queue.WaitForItem(50));
-
-        // Enqueue Low priority
-        queue.Enqueue(CreatePacket("LowItem", 0));
-        Assert.IsTrue(queue.WaitForItem(100));
-        Assert.IsNotNull(queue.Dequeue());
-        Assert.IsFalse(queue.WaitForItem(50));
-    }
-
-    /// <summary>
-    /// Checks that SendingQueue.Clear resets the AutoResetEvent signal.
-    /// </summary>
-    [TestMethod]
-    public void SendingQueue_Clear_ResetsSignal()
-    {
-        using SendingQueue queue = new();
-        queue.Enqueue(CreatePacket("item", 2));
-        queue.Clear();
-
-        Assert.IsFalse(queue.WaitForItem(50));
-    }
 }

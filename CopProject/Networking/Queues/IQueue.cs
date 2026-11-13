@@ -21,5 +21,4 @@ public interface IQueue
 
     public bool IsEmpty();
 
-    public bool WaitForItem(int timeoutMs);
 }
