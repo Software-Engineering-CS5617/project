@@ -167,5 +167,7 @@ public sealed class HostController : IControllerService
         _sessionManager.MeetingEnded -= OnMeetingEnded;
 
         _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
+        Thread.Sleep(150);
+        (_communicator as IDisposable)?.Dispose();
     }
 }
