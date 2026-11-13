@@ -129,6 +129,11 @@ public sealed partial class WhiteBoardView : UserControl
 
     private void WhiteboardCanvas_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
+        if (e.OriginalSource is TextBox)
+        {
+            return;
+        }
+
         // Attempt to capture the pointer
         if (WhiteboardCanvas.CapturePointer(e.Pointer))
         {

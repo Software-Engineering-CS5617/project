@@ -53,6 +53,11 @@ internal sealed class WhiteboardRenderer : IDisposable
             Canvas.SetZIndex(visual, (int)item.Zindex);
             _visuals[item.Id] = visual;
             _canvas.Children.Add(visual);
+
+            if (visual is TextBox textBox && item is ITextbox { Content: "" })
+            {
+                textBox.Focus(FocusState.Programmatic);
+            }
         });
     }
 
