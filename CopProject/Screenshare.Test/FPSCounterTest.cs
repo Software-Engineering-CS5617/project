@@ -1,7 +1,7 @@
 ﻿using ScreenShare;
 using ScreenShare.Models;
 
-namespace ScreenShare.Tests;
+namespace Screenshare.Tests;
 
 public class FpsCounterTest
 {
