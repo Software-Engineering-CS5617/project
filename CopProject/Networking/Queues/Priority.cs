@@ -1,4 +1,4 @@
-namespace Networking.Queues;
+﻿namespace Networking.Queues;
 
 public enum Priority
 {
