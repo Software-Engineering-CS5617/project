@@ -131,6 +131,20 @@
                             ToolTipService.ToolTip="Upload to cloud">
                             <FontIcon Glyph="&#xE898;" />
                         </Button>
+                        
+                        <Button
+                            x:Name="ButtonSaveSnapshot"
+                            ToolTipService.ToolTip="Save whiteboard snapshot"
+                            Click="ButtonSaveSnapshot_Click">
+                            <FontIcon Glyph="&#xE74E;" />
+                        </Button>
+
+                        <Button
+                            x:Name="ButtonRestoreSnapshot"
+                            ToolTipService.ToolTip="Restore a saved snapshot"
+                            Click="ButtonRestoreSnapshot_Click">
+                            <FontIcon Glyph="&#xE8E5;" />
+                        </Button>
 
                     </StackPanel>
                 </ScrollViewer>
