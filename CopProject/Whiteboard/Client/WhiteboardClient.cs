@@ -136,16 +136,26 @@ public class WhiteboardClient : IWhiteboardClient
                         .Select(ItemMapper.FromDto)
                         .ToArray();
 
+                    // Apply the new state as a diff rather than delete-all/add-all.
+                    // Re-adding every item would destroy and rebuild every visual,
+                    // e.g. a textbox the user is currently typing into.
+                    HashSet<Guid> incomingIds = items.Select(item => item.Id).ToHashSet();
+
                     // Delete through the model so the renderer removes stale visuals.
-                    // Clearing the dictionary directly would not raise deletion events.
                     foreach (Guid id in Canvas.Items.Keys.ToArray())
                     {
-                        Canvas.DeleteItem(id);
+                        if (!incomingIds.Contains(id))
+                        {
+                            Canvas.DeleteItem(id);
+                        }
                     }
 
                     foreach (IItem item in items)
                     {
-                        Canvas.AddItem(item);
+                        if (!Canvas.EditItem(item))
+                        {
+                            Canvas.AddItem(item);
+                        }
                     }
 
                     break;
