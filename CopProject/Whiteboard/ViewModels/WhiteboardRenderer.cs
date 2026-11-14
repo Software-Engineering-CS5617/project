@@ -22,12 +22,18 @@ internal sealed class WhiteboardRenderer : IDisposable
 {
     private readonly IWhiteboard _board;
     private readonly Canvas _canvas;
+    private readonly TextboxState _textboxState;
     private readonly Dictionary<Guid, Microsoft.UI.Xaml.UIElement> _visuals = [];
 
-    public WhiteboardRenderer(IWhiteboard board, Canvas canvas)
+    public WhiteboardRenderer(IWhiteboard board, Canvas canvas, TextboxState textboxState)
     {
+        ArgumentNullException.ThrowIfNull(board);
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(textboxState);
+
         _board = board;
         _canvas = canvas;
+        _textboxState = textboxState;
         _board.ItemAdded += RenderAdded;
         _board.ItemUpdated += RenderUpdated;
         _board.ItemDeleted += RemoveDeleted;
@@ -47,23 +53,66 @@ internal sealed class WhiteboardRenderer : IDisposable
 
     private void RenderAdded(IItem item)
     {
-        RunOnUIThread(() => {
-            RemoveDeletedInternal(item.Id);
-            Microsoft.UI.Xaml.UIElement visual = CreateVisual(item);
-            Canvas.SetZIndex(visual, (int)item.Zindex);
-            _visuals[item.Id] = visual;
-            _canvas.Children.Add(visual);
+        RunOnUIThread(() => RenderAddedInternal(item));
+    }
 
-            if (visual is TextBox textBox && item is ITextbox { Content: "" })
-            {
-                textBox.Focus(FocusState.Programmatic);
-            }
-        });
+    private void RenderAddedInternal(IItem item)
+    {
+        RemoveDeletedInternal(item.Id);
+        Microsoft.UI.Xaml.UIElement visual = CreateVisual(item);
+        Canvas.SetZIndex(visual, (int)item.Zindex);
+        _visuals[item.Id] = visual;
+        _canvas.Children.Add(visual);
+
+        // A freshly created empty textbox gets focus so the user can start typing
+        if (visual is TextBox textBox && item is ITextbox { Content: "" })
+        {
+            textBox.Focus(FocusState.Programmatic);
+        }
     }
 
     private void RenderUpdated(IItem item)
     {
-        RenderAdded(item);
+        if (item is not ITextbox textbox)
+        {
+            RenderAdded(item);
+            return;
+        }
+
+        RunOnUIThread(() => {
+            // Rebuilding a TextBox would drop focus and whatever the user is typing,
+            // so update the existing control in place instead.
+            if (!_visuals.TryGetValue(textbox.Id, out Microsoft.UI.Xaml.UIElement? visual)
+                || visual is not TextBox textBox)
+            {
+                RenderAddedInternal(textbox);
+                return;
+            }
+
+            UpdateTextbox(textBox, textbox);
+        });
+    }
+
+    /// <summary>
+    /// Applies model changes to an existing TextBox without recreating it.
+    /// The text is left alone while the user is editing it, so remote or
+    /// echoed updates never overwrite unsaved typing.
+    /// </summary>
+    private static void UpdateTextbox(TextBox visual, ITextbox item)
+    {
+        if (visual.FocusState == FocusState.Unfocused && visual.Text != item.Content)
+        {
+            visual.Text = item.Content;
+        }
+
+        visual.Width = item.Width;
+        visual.MinHeight = item.Height;
+        visual.FontFamily = new FontFamily(item.FontFamily);
+        visual.FontSize = item.FontSize;
+        visual.Foreground = new SolidColorBrush(item.FontColor);
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
+        Canvas.SetZIndex(visual, (int)item.Zindex);
     }
 
     private void RemoveDeleted(Guid id)
@@ -112,7 +161,10 @@ internal sealed class WhiteboardRenderer : IDisposable
     {
         TextBox visual = new() {
             Width = item.Width,
-            Height = item.Height,
+
+            // No fixed Height: the box grows with its content so every line is visible
+            // without scrolling. The model height is only the starting (minimum) size.
+            MinHeight = item.Height,
             Text = item.Content,
             FontFamily = new FontFamily(item.FontFamily),
             FontSize = item.FontSize,
@@ -123,19 +175,19 @@ internal sealed class WhiteboardRenderer : IDisposable
             Tag = item.Id
         };
 
+        // Never show scrollbars; the box resizes to fit all lines instead
+        ScrollViewer.SetVerticalScrollBarVisibility(visual, ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollMode(visual, ScrollMode.Disabled);
+
         Canvas.SetLeft(visual, item.BoundingBox.Left);
         Canvas.SetTop(visual, item.BoundingBox.Top);
         ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
 
-        visual.LostFocus += (_, _) => {
-            if (visual.Text == item.Content)
-            {
-                return;
-            }
-
-            item.Content = visual.Text;
-            _board.EditItem(item);
-        };
+        // Track every keystroke locally; the view model decides when to send it
+        // (on focus loss, tool switch or canvas press) through the whiteboard client.
+        Guid itemId = item.Id;
+        visual.TextChanged += (_, _) => _textboxState.UpdateText(itemId, visual.Text);
+        visual.LostFocus += (_, _) => _textboxState.CommitPendingEdits();
 
         return visual;
     }

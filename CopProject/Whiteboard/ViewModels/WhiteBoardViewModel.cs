@@ -29,7 +29,7 @@ public class WhiteBoardViewModel
     private IViewModelState _squareState;
     private IViewModelState _circleState;
     private IViewModelState _eqTriangleState;
-    private IViewModelState _textboxState;
+    private TextboxState _textboxState;
     private IViewModelState _eraserState;
     private readonly IWhiteboardClient _whiteboardClient;
     private WhiteboardRenderer _renderer;
@@ -38,6 +38,19 @@ public class WhiteBoardViewModel
     private bool _isInitialized;
 
     public WhiteboardTool SelectedTool { get; private set; } = WhiteboardTool.Pen;
+
+    /// <summary>
+    /// Whether a pointer press that lands on a rendered textbox should be forwarded
+    /// to the current tool (e.g. eraser) instead of being left to the textbox.
+    /// </summary>
+    public bool HandlesPointerOnTextbox
+    {
+        get
+        {
+            EnsureInitialized();
+            return _currentState.HandlesPointerOnTextbox;
+        }
+    }
 
 
     /// <summary>
@@ -80,7 +93,7 @@ public class WhiteBoardViewModel
         _eraserState = new EraserState(_whiteboardClient);
         _eqTriangleState = new ShapeEqTriangleState(_whiteboardClient, preview, toolbarInfo);
         _textboxState = new TextboxState(_whiteboardClient, preview, toolbarInfo);
-        _renderer = new WhiteboardRenderer(_whiteboardClient.Canvas, canvas);
+        _renderer = new WhiteboardRenderer(_whiteboardClient.Canvas, canvas, _textboxState);
 
         _currentState = _penState;
         _isInitialized = true;
@@ -109,6 +122,9 @@ public class WhiteBoardViewModel
     {
         EnsureInitialized();
 
+        // Save any text typed into a textbox before leaving the current tool
+        _textboxState.CommitPendingEdits();
+
         IViewModelState selectedState = tool switch {
             WhiteboardTool.Pen => _penState,
             WhiteboardTool.Square => _squareState,
@@ -126,6 +142,9 @@ public class WhiteBoardViewModel
     public void PointerPressed(Point2D point)
     {
         EnsureInitialized();
+
+        // Interacting with the canvas ends any in-progress text edit
+        _textboxState.CommitPendingEdits();
         _currentState.PointerPressed(point);
     }
 
