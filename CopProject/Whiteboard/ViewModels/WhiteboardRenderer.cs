@@ -151,6 +151,7 @@ internal sealed class WhiteboardRenderer : IDisposable
             IFreehand freehand => CreateFreehand(freehand),
             ITextbox textbox => CreateTextbox(textbox),
             Whiteboard.Items.Shapes.Square square => CreateSquare(square),
+            Whiteboard.Items.Shapes.Rectangle rectangle => CreateRectangle(rectangle),
             Whiteboard.Items.Shapes.Circle circle => CreateCircle(circle),
             Whiteboard.Items.Shapes.Ellipse ellipse => CreateEllipse(ellipse),
             Whiteboard.Items.Shapes.EqTriangle triangle => CreateEqTriangle(triangle),
@@ -297,6 +298,24 @@ internal sealed class WhiteboardRenderer : IDisposable
 
         Canvas.SetLeft(visual, left);
         Canvas.SetTop(visual, top);
+        ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
+        return visual;
+    }
+
+    private static XamlRectangle CreateRectangle(Whiteboard.Items.Shapes.Rectangle item)
+    {
+        XamlRectangle visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Fill = new SolidColorBrush(ToColor(item.FillColor)),
+            Stroke = new SolidColorBrush(ToColor(item.BorderColor)),
+            StrokeThickness = item.BorderWidth,
+            IsHitTestVisible = true,
+            Tag = item.Id
+        };
+
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
         ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
         return visual;
     }

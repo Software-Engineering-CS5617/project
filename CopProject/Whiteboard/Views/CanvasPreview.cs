@@ -96,6 +96,7 @@ public class CanvasPreview : ICanvasPreview
         return item switch {
             IFreehand freehand => CreateFreehandVisual(freehand),
             ISquare square => CreateSquareVisual(square),
+            IRectangle rectangle => CreateRectangleVisual(rectangle),
             ICircle circle => CreateCircleVisual(circle),
             IEllipse ellipse => CreateEllipseVisual(ellipse),
             IEqTriangle triangle => CreateEqTriangleVisual(triangle),
@@ -126,6 +127,28 @@ public class CanvasPreview : ICanvasPreview
         {
             visual.Points.Add(new Point(point.X, point.Y));
         }
+
+        return visual;
+    }
+
+    /// <summary>
+    /// Helper function to create a rectangle from a rectangle item
+    /// </summary>
+    /// <param name="item">Rectangle item</param>
+    /// <returns>UI rectangle</returns>
+    private static XamlRectangle CreateRectangleVisual(IRectangle item)
+    {
+        XamlRectangle visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Fill = new SolidColorBrush(item.FillColor),
+            Stroke = new SolidColorBrush(item.BorderColor),
+            StrokeThickness = item.BorderWidth,
+            IsHitTestVisible = false
+        };
+
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
 
         return visual;
     }
