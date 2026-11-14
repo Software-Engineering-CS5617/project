@@ -12,7 +12,7 @@ public class UdpSocketListener : IDisposable
 {
     private readonly ReceivingQueue _receivingQueue;
     private readonly UdpClient _udpClient;
-    private readonly PacketSerializer _packetSerializer = new();
+    private readonly BinarySerialization _binarySerializer = new();
     private readonly Thread _listeningThread;
     private readonly object _isRunningLock = new();
     private bool _isRunning;
@@ -49,7 +49,7 @@ public class UdpSocketListener : IDisposable
                     continue;
                 }
 
-                Packet? packet = _packetSerializer.BytesToPacket(data);
+                Packet? packet = _binarySerializer.Deserialize(data);
                 if (packet != null)
                 {
                     _receivingQueue.Enqueue(packet);
@@ -69,7 +69,7 @@ public class UdpSocketListener : IDisposable
                 {
                     break;
                 }
-                Trace.WriteLine($"[Networking] UdpSocketListener exception: {e.Message}");
+                Trace.TraceError($"[Networking] UdpSocketListener exception: {e.Message}");
             }
         }
     }
@@ -91,7 +91,7 @@ public class UdpSocketListener : IDisposable
         }
         catch (Exception e)
         {
-            Trace.WriteLine($"[Networking] UdpSocketListener.Dispose: Exception closing UdpClient: {e.Message}");
+            Trace.TraceError($"[Networking] UdpSocketListener.Dispose: Exception closing UdpClient: {e.Message}");
         }
     }
 }
