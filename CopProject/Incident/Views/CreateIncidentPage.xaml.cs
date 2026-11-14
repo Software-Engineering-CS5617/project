@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Incidents.ViewModels;
 using Incidents.ViewModels.Utils;
@@ -97,6 +98,7 @@ public sealed partial class CreateIncidentPage : Page
             DataContext = dialogViewModel
         };
 
+        Trace.TraceInformation($"[Incidents]: Showing Add Evidence dialog for new incident.");
         ContentDialogResult result = await dialog.ShowAsync();
 
         if (result == ContentDialogResult.Primary && dialogViewModel.IsValid && ViewModel != null)
