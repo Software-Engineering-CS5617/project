@@ -4,14 +4,14 @@
 
 using Microsoft.AspNetCore.SignalR.Client;
 
-namespace Cloud.Networking;
+namespace Cloud.Networking.Mocking;
 
 /// <summary>
-/// Pass-Through Proxy wraps around <see cref ="HubConnection" /> object and 
-/// inherits from <see cref ="IHubConnection" /> interface which exposes a 
+/// Pass-Through Proxy wraps around <see cref ="HubConnection" /> object and
+/// inherits from <see cref ="IHubConnection" /> interface which exposes a
 /// subset of <see cref ="HubConnection" /> features [all of this to mock <see cref ="HubConnection" />]
 /// </summary>
-/// 
+///
 /// <remarks>
 /// Reference:
 /// <see href="https://stackoverflow.com/questions/65009412/how-to-mock-a-wrapped-microsoft-asp-net-core-client-signalr-hubconnection-class">
@@ -95,6 +95,14 @@ internal sealed class HubConnectionProxy : IHubConnection
     public Task InvokeAsync(string methodName, object? arg, CancellationToken cancellationToken = default)
     {
         return _connection.InvokeAsync(methodName, arg, cancellationToken);
+    }
+
+    /// <summary>
+    /// Pass-Through Proxy (for mocking) for the generic <c>HubConnectionExtensions.InvokeAsync&lt;TResult&gt;</c>.
+    /// </summary>
+    public Task<T> InvokeAsync<T>(string methodName, object? arg, CancellationToken cancellationToken = default)
+    {
+        return _connection.InvokeAsync<T>(methodName, arg, cancellationToken);
     }
 
     /// <summary>

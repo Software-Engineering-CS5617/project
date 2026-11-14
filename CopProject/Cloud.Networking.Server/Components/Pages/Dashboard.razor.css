@@ -1,4 +1,5 @@
-﻿.page {
+﻿
+.page {
     max-width: 64rem;
     margin: 0 auto;
     padding: 2rem 1rem 4rem;
@@ -10,6 +11,20 @@
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1.5rem;
+}
+
+h1 {
+    font-size: 1.6rem;
+    line-height: 1.2;
+    margin: 0;
+}
+
+h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.05rem;
+    margin: 0 0 0.75rem;
 }
 
 .subtitle {
@@ -38,14 +53,22 @@
     animation: pulse 2s ease-in-out infinite;
 }
 
-h1 {
-    font-size: 1.5rem;
-    margin: 0 0 1.5rem;
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.4;
+        transform: scale(0.75);
+    }
 }
 
-h2 {
-    font-size: 1.05rem;
-    margin: 2rem 0 0.5rem;
+@media (prefers-reduced-motion: reduce) {
+    .dot {
+        animation: none;
+    }
 }
 
 .stats {
@@ -67,11 +90,14 @@ h2 {
 
 .stat-label {
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .stat-value {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
@@ -81,10 +107,48 @@ h2 {
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 1rem 1.1rem;
+    padding: 1rem 1.1rem 1.1rem;
     margin-bottom: 1rem;
-    overflow-x: auto;
 }
+
+.badge {
+    display: inline-block;
+    padding: 0.05rem 0.55rem;
+    border-radius: 1000px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+    .badge.server {
+        background: color-mix(in srgb, var(--ok) 16%, transparent);
+        color: var(--ok);
+    }
+
+.send {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+    .send input {
+        flex: 1 1 14rem;
+        min-width: 0;
+        padding: 0.5rem 0.7rem;
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+    }
+
+        .send input:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+            border-color: transparent;
+        }
 
 .primary {
     padding: 0.5rem 1rem;
@@ -95,69 +159,184 @@ h2 {
     border: 0;
     border-radius: 8px;
     cursor: pointer;
+    transition: filter 0.15s ease;
 }
+
+    .primary:hover:not(:disabled) {
+        filter: brightness(1.1);
+    }
+
+    .primary:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
 
     .primary:disabled {
         opacity: 0.45;
         cursor: not-allowed;
     }
 
+.hint {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.4rem 0 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.counter {
+    font-variant-numeric: tabular-nums;
+}
+
+.status {
+    margin: 0.6rem 0 0;
+    color: var(--muted);
+}
+
+    .status.ok {
+        color: var(--ok);
+    }
+
+    .status.failed {
+        color: var(--bad);
+    }
+
+.table-wrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+    .table-wrap.scroll {
+        max-height: none;
+        overflow-y: visible;
+    }
+
 table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
 }
 
 th,
 td {
     text-align: left;
-    padding: 0.4rem 0.75rem 0.4rem 0;
+    padding: 0.45rem 0.9rem 0.45rem 0;
     border-bottom: 1px solid var(--line);
     vertical-align: top;
 }
 
 th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
     color: var(--muted);
+    font-size: 0.75rem;
     font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+tbody tr:hover {
+    background: var(--accent-soft);
+}
+
+tr.from-server td:first-child {
+    box-shadow: inset 3px 0 0 var(--ok);
+    padding-left: 0.6rem;
+}
+
+th.time-cell,
+td.time-cell {
+    width: 9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+th.id-cell,
+td.id-cell {
+    width: 8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+th.message-cell,
+td.message-cell {
+    width: auto;
+    max-width: 0;
+    overflow: visible;
+}
+
+.nowrap {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.content {
+    max-width: 44rem;
+    min-width: 0;
+}
+
+.clip {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+}
+
+    .clip:hover,
+    .clip:focus {
+        position: relative;
+        z-index: 2;
+        width: max-content;
+        max-width: min(36rem, 65vw);
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
+        text-overflow: clip;
+        padding: 0.4rem 0.6rem;
+        margin: -0.4rem -0.6rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        box-shadow: var(--shadow);
+    }
 
 code {
     font-family: ui-monospace, Consolas, monospace;
     font-size: 0.9em;
 }
 
+    code.muted {
+        color: var(--muted);
+    }
+
 .empty {
+    margin: 0;
     color: var(--muted);
 }
 
-.ok {
-    color: var(--ok);
-}
-
-.failed {
-    color: var(--bad);
-}
-
-.send {
+.time-id-container {
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 2rem;
 }
 
-    .send input {
-        flex: 1;
-        padding: 0.4rem 0.6rem;
-        font: inherit;
-        color: inherit;
-        background: transparent;
-        border: 1px solid var(--line);
-        border-radius: 4px;
+    .time-id-container .time {
+        min-width: 0;
     }
 
-    .send button {
-        padding: 0.4rem 0.9rem;
-        font: inherit;
+    .time-id-container .id {
+        min-width: 0;
     }
-
-.status {
-    color: var(--muted);
-    margin: 0.5rem 0 0;
-}

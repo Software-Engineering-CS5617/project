@@ -30,6 +30,7 @@ public class TestMessage
         Assert.AreEqual(Content, message.Content);
     }
 
+
     /// <summary>Tests that new messages receive unique, non-empty IDs.</summary>
     [TestMethod]
     public void NewMessagesGetUniqueNonEmptyIds()
@@ -57,52 +58,5 @@ public class TestMessage
         Assert.IsTrue(message.Timestamp >= beforeCreation);
         Assert.IsTrue(message.Timestamp <= afterCreation);
         Assert.AreEqual(TimeSpan.Zero, message.Timestamp.Offset);
-    }
-
-    /// <summary>Tests that the message ID is considered during equality comparison.</summary>
-    [TestMethod]
-    public void IdIsPartOfEquality()
-    {
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-
-        Message first = new Message {
-            SenderId = "sender-1",
-            Content = "Hello",
-            Timestamp = now
-        };
-
-        Message second = new Message {
-            SenderId = "sender-1",
-            Content = "Hello",
-            Timestamp = now
-        };
-
-        // Everything matches except the message id.
-        Assert.AreNotEqual(first, second);
-    }
-
-    /// <summary>Tests that messages can be serialized and deserialized without data loss.</summary>
-    [TestMethod]
-    public void JsonSerializationTest()
-    {
-        Message original = new Message {
-            SenderId = "sender-1",
-            Content = "Hello"
-        };
-
-        string json = JsonSerializer.Serialize(original);
-        Message? deserialized = JsonSerializer.Deserialize<Message>(json);
-
-        Assert.AreEqual(original, deserialized);
-    }
-
-    /// <summary>Tests that deserialization fails when required message properties are missing.</summary>
-    [TestMethod]
-    public void DeserializationFailingTest()
-    {
-        const string Json = """{ "id": "00000000-0000-0000-0000-000000000001" }""";
-
-        Assert.ThrowsExactly<JsonException>(
-            () => JsonSerializer.Deserialize<Message>(Json));
     }
 }

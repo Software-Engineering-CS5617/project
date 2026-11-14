@@ -5,8 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:UX"
     xmlns:controller="using:Controller.Views"
-    xmlns:chat="using:UI.Views"
-    xmlns:screenshare="using:ScreenShare.Views">
+>
 
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
         <Grid.RowDefinitions>
@@ -28,6 +27,8 @@
                         Background="#1F4A78"/>
                 <PersonPicture x:Name="ProfilePic" Width="30" Height="30"/>
                 <TextBlock x:Name="ProfileName" Foreground="White" VerticalAlignment="Center"/>
+                <Button Content="Edit profile" Click="EditProfile_Click" Foreground="White"
+                        Background="#1F4A78"/>
                 <Button Content="Sign out" Click="SignOut_Click" Foreground="White"
                         Background="#1F4A78"/>
             </StackPanel>
@@ -37,21 +38,21 @@
         <Grid x:Name="LoginView" Grid.Row="1">
             <Border Background="White" Width="400" Padding="30" CornerRadius="10"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                <StackPanel Spacing="10">
+                <StackPanel Spacing="16">
                     <TextBlock Text="Welcome" FontSize="28" FontWeight="SemiBold"
                                HorizontalAlignment="Center"/>
-
-                    <PersonPicture Width="80" Height="80"/>
-                    <Button Content="Add profile picture" HorizontalAlignment="Center"/>
-
-                    <TextBox x:Name="UserIdBox" Header="User ID"/>
-                    <TextBox x:Name="EmailBox" Header="Email" PlaceholderText="name@smail.iitpkd.ac.in"/>
+                    <PersonPicture x:Name="LoginPic" Width="90" Height="90"
+                                   HorizontalAlignment="Center"/>
+                    <Button Content="Add profile picture" Click="PickLoginPicture_Click"
+                            HorizontalAlignment="Center"/>
+                    <TextBox x:Name="UserIdBox" Header="User ID"
+                             PlaceholderText="Choose your User ID"/>
 
                     <TextBlock x:Name="LoginError" Foreground="Red" TextWrapping="Wrap"
                                Visibility="Collapsed"/>
-
-                    <Button Content="CONTINUE" Click="Continue_Click" Background="#0F5FC2"
-                            Foreground="White" HorizontalAlignment="Stretch" Height="40"/>
+                    <Button x:Name="SignInBtn" Content="Sign in with Google" Click="SignIn_Click"
+                            Background="#0F5FC2" Foreground="White"
+                            HorizontalAlignment="Stretch" Height="40"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -173,7 +174,7 @@
                 <Border x:Name="SharePanel" Background="White" CornerRadius="10" Visibility="Collapsed">
                     <StackPanel Padding="20">
                         <!-- SCREEN SHARING TEAM: add your UI here -->
-                        <screenshare:ScreenShareGridView x:Name="ScreenShareView"/>
+                        <TextBlock Text="Screen sharing module goes here"/>
                     </StackPanel>
                 </Border>
 
@@ -219,7 +220,9 @@
             <Border x:Name="ChatPanel" Grid.Column="1" Grid.RowSpan="2" Width="320"
                     Background="White" CornerRadius="10" Margin="0,16,16,16"
                     Visibility="Collapsed">
-                <chat:ChatPanel x:Name="MeetingChatPanel"/>
+                <StackPanel Padding="16" Spacing="12">
+                    <TextBlock Text="Meeting Chat" FontSize="20" FontWeight="SemiBold"/>
+                </StackPanel>
             </Border>
             <local:ResizeHandle x:Name="ChatResizer" Grid.Column="1" Grid.RowSpan="2" Width="10"
                                 HorizontalAlignment="Left" Margin="0,16,0,16"

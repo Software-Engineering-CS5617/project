@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Diagnostics.CodeAnalysis;
 using Cloud.Networking.Server.Components;
 using Cloud.Networking.Server.Models;
 using Cloud.Networking.Server.ViewModels;
@@ -11,9 +12,10 @@ namespace Cloud.Networking.Server;
 
 public class Program
 {
-    /* Testing a Main function is quite difficult unless you seperate
+    /* Testing a Main function is quite difficult unless you separate
     * business logic into something that can be tested (like a function or a class)*/
 
+    [ExcludeFromCodeCoverage]
     /// <summary>
     /// Create a web application and runs it
     /// </summary>
@@ -46,6 +48,7 @@ public class Program
     public static void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<IServerMonitor, ServerMonitor>(); /*only one instance of ServerMonitor will exist*/
+        services.AddSingleton<IMessageStore, InMemoryMessageStore>(); /* message history for client sync (TODO: use a persistent store later) */
         services.AddScoped<DashboardViewModel>(); /*one instance per user circuit (per browser tab)*/
         services.AddSignalR().AddHubOptions<MessageHub>(options => options.AddFilter<MonitorHubFilter>()); /* this filter connects ServerMonitor and MessageHub */
         services.AddRazorComponents().AddInteractiveServerComponents(); /* needed for interactivity in server components */
@@ -54,9 +57,19 @@ public class Program
     /// <summary>
     /// Takes an app and applies middlewares on it
     /// </summary>
-    /// <param name="app">a web appplication</param>
+    /// <param name="app">a web application</param>
     public static void ConfigureMiddlewares(WebApplication app)
     {
+        if (!app.Environment.IsDevelopment())
+        {
+            /* a plain 500 response */
+            app.UseExceptionHandler(errorApp => errorApp.Run(async context => {
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                await context.Response.WriteAsync("An unexpected error occurred.");
+            }));
+            app.UseHsts(); /* tells browsers to keep using https */
+        }
+
         app.UseHttpsRedirection(); /* http to https */
         app.UseStaticFiles(); /* serves from wwwroot */
         app.UseRouting(); /* matches request to an endpoint (point of knowledge) */

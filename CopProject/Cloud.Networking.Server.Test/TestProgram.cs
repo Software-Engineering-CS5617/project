@@ -4,6 +4,7 @@
 using Cloud.Networking.Server.Models;
 using Cloud.Networking.Server.ViewModels;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,15 +58,62 @@ public class TestProgram
         Assert.AreNotSame(viewModel, secondScope.ServiceProvider.GetRequiredService<DashboardViewModel>());
     }
 
-    /// <summary>Tests that middleware components are configured successfully.</summary>
-    [TestMethod]
-    public async Task ConfigureMiddlewaresRegistersSuccessfully()
+    /// <summary>
+    /// Starts the app on a free local port with the real middlewares and endpoints, plus a /boom endpoint that always throws.
+    /// </summary>
+    private static async Task<(WebApplication App, HttpClient Client)> StartAppAsync(string environment)
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(["--environment", environment, "--urls", "http://127.0.0.1:0"]);
         Program.ConfigureServices(builder.Services);
-        await using WebApplication app = builder.Build();
+        WebApplication app = builder.Build();
         Program.ConfigureMiddlewares(app);
-        Assert.IsNotNull(app);
+        Program.ConfigureEndpoints(app);
+        app.MapGet("/boom", (Func<string>)(() => throw new InvalidOperationException("boom")));
+        await app.StartAsync();
+
+        return (app, new HttpClient { BaseAddress = new Uri(app.Urls.First()) });
+    }
+
+    /// <summary>Tests that outside Development an unhandled exception becomes a plain 500 without details.</summary>
+    [TestMethod]
+    public async Task UnhandledExceptionsBecomeAPlain500OutsideDevelopment()
+    {
+        (WebApplication app, HttpClient client) = await StartAppAsync("Production");
+        await using WebApplication _ = app;
+        using HttpClient __ = client;
+
+        HttpResponseMessage response = await client.GetAsync("/boom");
+
+        Assert.AreEqual(StatusCodes.Status500InternalServerError, (int)response.StatusCode);
+        Assert.AreEqual("An unexpected error occurred.", await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>Tests that in Development the custom error handler is not installed, so the error details are visible.</summary>
+    [TestMethod]
+    public async Task UnhandledExceptionsShowDetailsInDevelopment()
+    {
+        (WebApplication app, HttpClient client) = await StartAppAsync("Development");
+        await using WebApplication _ = app;
+        using HttpClient __ = client;
+
+        HttpResponseMessage response = await client.GetAsync("/boom");
+
+        Assert.AreEqual(StatusCodes.Status500InternalServerError, (int)response.StatusCode);
+        StringAssert.Contains(await response.Content.ReadAsStringAsync(), "boom");
+    }
+
+    /// <summary>Tests that the /health endpoint answers "ok".</summary>
+    [TestMethod]
+    public async Task HealthEndpointRespondsOk()
+    {
+        (WebApplication app, HttpClient client) = await StartAppAsync("Production");
+        await using WebApplication _ = app;
+        using HttpClient __ = client;
+
+        HttpResponseMessage response = await client.GetAsync("/health");
+
+        Assert.AreEqual(StatusCodes.Status200OK, (int)response.StatusCode);
+        Assert.AreEqual("ok", await response.Content.ReadAsStringAsync());
     }
 
     /// <summary>Tests that ConfigureEndpoints maps the hub at /hub and the health check at /health.</summary>

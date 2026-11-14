@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using Cloud.Networking;
+using Cloud.Networking.Mocking;
 using Microsoft.AspNetCore.SignalR.Client;
 using Moq;
 
@@ -73,7 +74,7 @@ public class TestSignalRMessenger
     public async Task PublicConstructorWithValidUrlIsInDisconnectedState()
     {
         await using SignalRMessenger messenger = new("http://localhost/hub");
-        Assert.AreEqual(HubConnectionState.Disconnected, messenger.State);
+        Assert.AreEqual(ConnectionState.Disconnected, messenger.State);
     }
 
     /// <summary>Tests that the constructor registers the message handler exactly once.</summary>
@@ -85,16 +86,16 @@ public class TestSignalRMessenger
     }
 
     /* state */
-    /// <summary>Tests that the messenger state reflects the underlying connection state.</summary>
+    /// <summary>Tests that the messenger state is the mapped underlying connection state.</summary>
     [TestMethod]
-    [DataRow(HubConnectionState.Disconnected)]
-    [DataRow(HubConnectionState.Connecting)]
-    [DataRow(HubConnectionState.Connected)]
-    [DataRow(HubConnectionState.Reconnecting)]
-    public void StateReflectsTheConnectionState(HubConnectionState state)
+    [DataRow(HubConnectionState.Disconnected, ConnectionState.Disconnected)]
+    [DataRow(HubConnectionState.Connecting, ConnectionState.Connecting)]
+    [DataRow(HubConnectionState.Connected, ConnectionState.Connected)]
+    [DataRow(HubConnectionState.Reconnecting, ConnectionState.Reconnecting)]
+    public void StateReflectsTheConnectionState(HubConnectionState hubState, ConnectionState expected)
     {
-        _hub.SetupGet(h => h.State).Returns(state);
-        Assert.AreEqual(state, CreateMessenger().State);
+        _hub.SetupGet(h => h.State).Returns(hubState);
+        Assert.AreEqual(expected, CreateMessenger().State);
     }
 
     /* message recieved */
@@ -174,6 +175,18 @@ public class TestSignalRMessenger
         Assert.AreSame(error, received);
     }
 
+    /// <summary>Tests that events coming from the connection while nobody is subscribed do not throw.</summary>
+    [TestMethod]
+    public void EventsWithoutSubscribersDoNotThrow()
+    {
+        _ = CreateMessenger();
+
+        _onMessage!(NewMessage());
+        _hub.Raise(h => h.Reconnecting += null, new InvalidOperationException("boom"));
+        _hub.Raise(h => h.Reconnected += null, "new-id");
+        _hub.Raise(h => h.Closed += null, new InvalidOperationException("boom"));
+    }
+
     /* ConnectAsync*/
     /// <summary>Tests that ConnectAsync starts the underlying connection.</summary>
     [TestMethod]
@@ -230,6 +243,19 @@ public class TestSignalRMessenger
         _hub.Verify(h => h.StartAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
     }
 
+    /// <summary>Tests that ConnectAsync does not retry when the failure is not a transient one.</summary>
+    [TestMethod]
+    public async Task ConnectAsyncDoesNotRetryOnNonRetryableFailure()
+    {
+        InvalidOperationException error = new("bad configuration");
+        _hub.Setup(h => h.StartAsync(It.IsAny<CancellationToken>())).ThrowsAsync(error);
+
+        InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateMessenger().ConnectAsync());
+
+        Assert.AreSame(error, thrown);
+        _hub.Verify(h => h.StartAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     /*SendMessageAsync*/
     /// <summary>Tests that SendMessageAsync invokes the correct server method with the supplied content.</summary>
     [TestMethod]
@@ -266,6 +292,51 @@ public class TestSignalRMessenger
         InvalidOperationException error = new("not connected");
         _hub.Setup(h => h.InvokeAsync(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<CancellationToken>())).ThrowsAsync(error);
         InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateMessenger().SendMessageAsync("Hello"));
+        Assert.AreSame(error, thrown);
+    }
+
+    /*SyncAsync*/
+    /// <summary>Tests that SyncAsync asks the server for the messages since the given time and returns them.</summary>
+    [TestMethod]
+    public async Task SyncAsyncReturnsTheMissedMessages()
+    {
+        DateTimeOffset since = DateTimeOffset.UtcNow.AddMinutes(-5);
+        Message[] missed = [NewMessage("a"), NewMessage("b")];
+        _hub.Setup(h => h.InvokeAsync<Message[]>(
+                Contract.GetMessagesSince,
+                since,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(missed);
+
+        IReadOnlyList<Message> result = await CreateMessenger().SyncAsync(since);
+
+        Assert.AreEqual(2, result.Count);
+        Assert.AreSame(missed[0], result[0]);
+        Assert.AreSame(missed[1], result[1]);
+    }
+
+    /// <summary>Tests that SyncAsync returns an empty list when the server returns null.</summary>
+    [TestMethod]
+    public async Task SyncAsyncReturnsEmptyWhenServerReturnsNull()
+    {
+        _hub.Setup(h => h.InvokeAsync<Message[]>(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Message[])null!);
+
+        IReadOnlyList<Message> result = await CreateMessenger().SyncAsync(DateTimeOffset.MinValue);
+
+        Assert.AreEqual(0, result.Count);
+    }
+
+    /// <summary>Tests that SyncAsync propagates failures from the underlying hub connection.</summary>
+    [TestMethod]
+    public async Task SyncAsyncPropagatesHubFailure()
+    {
+        InvalidOperationException error = new("not connected");
+        _hub.Setup(h => h.InvokeAsync<Message[]>(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(error);
+
+        InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateMessenger().SyncAsync(DateTimeOffset.MinValue));
+
         Assert.AreSame(error, thrown);
     }
 

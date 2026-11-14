@@ -162,4 +162,25 @@ public class FileChunkerTest
         Assert.IsTrue(File.Exists(mergedPath));
         CollectionAssert.AreEqual(expected, File.ReadAllBytes(mergedPath));
     }
+
+    /// <summary>
+    /// 7. MergeChunks preserves original last modified time if provided or stored on chunks
+    /// </summary>
+    [TestMethod]
+    public void MergeChunks_PreservesLastModifiedTime()
+    {
+        string originalPath = Path.Combine(_tempDir, "time_source.txt");
+        string mergedPath = Path.Combine(_tempDir, "time_merged.txt");
+
+        File.WriteAllBytes(originalPath, Encoding.UTF8.GetBytes("Timestamp preservation test"));
+        DateTime expectedTime = new DateTime(2025, 5, 20, 10, 30, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(originalPath, expectedTime);
+
+        List<FileChunk> chunks = _chunker.SplitFile(originalPath, "time_source.txt");
+        Assert.AreEqual(expectedTime, chunks[0].LastModifiedUtc);
+
+        _chunker.MergeChunks(chunks, mergedPath);
+        Assert.AreEqual(expectedTime, File.GetLastWriteTimeUtc(mergedPath));
+    }
+
 }

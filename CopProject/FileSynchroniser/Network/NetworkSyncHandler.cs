@@ -20,7 +20,7 @@ public class NetworkSyncHandler : IMessageListener
     private readonly ICommunicator _communicator;
     private readonly FileChunker _chunker;
     private readonly ConcurrentDictionary<string, List<FileChunk>> _incomingChunks = new();
-
+    private readonly ConcurrentDictionary<string, DateTime> _remoteTimestamps = new(StringComparer.OrdinalIgnoreCase);
     public IPEndPoint? DefaultPeerEndpoint { get; set; }
 
     public event Action? OnSyncCompleted;
@@ -91,6 +91,12 @@ public class NetworkSyncHandler : IMessageListener
         {
             HandleChunk(raw.Substring("CHUNK:".Length));
         }
+        else if (raw.StartsWith("SYNC_ACK:"))
+        {
+            string fileId = raw.Substring("SYNC_ACK:".Length);
+            OnLog?.Invoke($"[sync] peer confirmed receipt and assembled file: {fileId}");
+            OnSyncCompleted?.Invoke();
+        }
     }
 
     /// <summary>
@@ -149,6 +155,12 @@ public class NetworkSyncHandler : IMessageListener
 
         foreach ((string? relPath, DateTime remoteTime) in remoteManifest)
         {
+            if (string.IsNullOrEmpty(relPath))
+            {
+                continue;
+            }
+
+            _remoteTimestamps[relPath] = remoteTime;
             string localFullPath = Path.Combine(_rootDir, relPath);
 
             // check if we are missing the file or our local copy is older
@@ -201,18 +213,22 @@ public class NetworkSyncHandler : IMessageListener
             return;
         }
 
+        DateTime lastModifiedUtc = File.GetLastWriteTimeUtc(fullPath);
+
         OnLog?.Invoke($"[sync] splitting and sending chunks for: {relPath}");
 
         // split file into 64kb chunks for network transfer
         List<FileChunk> chunks = _chunker.SplitFile(fullPath, relPath, chunkSize: 64 * 1024);
 
-        foreach (FileChunk chunk in chunks)
+        for (int i = 0; i < chunks.Count; i++)
         {
+            FileChunk chunk = chunks[i];
             var chunkDto = new ChunkDto {
                 FileId = chunk.FileId,
                 ChunkNumber = chunk.ChunkNumber,
                 TotalChunks = chunk.TotalChunks,
-                Base64Data = Convert.ToBase64String(chunk.Data)
+                Base64Data = Convert.ToBase64String(chunk.Data),
+                LastModifiedUtc = lastModifiedUtc
             };
 
             string json = JsonSerializer.Serialize(chunkDto);
@@ -226,7 +242,11 @@ public class NetworkSyncHandler : IMessageListener
             {
                 _communicator.BroadcastMessage(packet, ModuleId, priority: 1);
             }
+
+            OnLog?.Invoke($"[sync] sending chunk {chunk.ChunkNumber + 1}/{chunk.TotalChunks} for {relPath}");
         }
+
+        OnLog?.Invoke($"[sync] sent all {chunks.Count} chunks for {relPath} successfully");
     }
 
     /// <summary>
@@ -258,7 +278,8 @@ public class NetworkSyncHandler : IMessageListener
                 FileId = dto.FileId,
                 ChunkNumber = dto.ChunkNumber,
                 TotalChunks = dto.TotalChunks,
-                Data = Convert.FromBase64String(dto.Base64Data)
+                Data = Convert.FromBase64String(dto.Base64Data),
+                LastModifiedUtc = dto.LastModifiedUtc
             });
 
             OnLog?.Invoke($"[sync] received chunk {dto.ChunkNumber + 1}/{dto.TotalChunks} for {dto.FileId}");
@@ -267,11 +288,40 @@ public class NetworkSyncHandler : IMessageListener
             if (list.Count == dto.TotalChunks)
             {
                 string targetPath = Path.Combine(_rootDir, dto.FileId);
-                _chunker.MergeChunks(list, targetPath);
+
+                DateTime? timestamp = dto.LastModifiedUtc;
+                if (!timestamp.HasValue && _remoteTimestamps.TryGetValue(dto.FileId, out DateTime manifestTime))
+                {
+                    timestamp = manifestTime;
+                }
+
+                _chunker.MergeChunks(list, targetPath, timestamp);
                 _incomingChunks.TryRemove(dto.FileId, out _);
 
+                if (timestamp.HasValue)
+                {
+                    try
+                    {
+                        File.SetLastWriteTimeUtc(targetPath, timestamp.Value);
+                    }
+                    catch
+                    {
+                        // ignore if filesystem denies timestamp update
+                    }
+                }
                 OnLog?.Invoke($"[sync] successfully assembled file: {dto.FileId}");
                 OnSyncCompleted?.Invoke();
+
+                // send acknowledgement so sender knows the file was assembled
+                byte[] ack = Encoding.UTF8.GetBytes("SYNC_ACK:" + dto.FileId);
+                if (DefaultPeerEndpoint != null)
+                {
+                    _communicator.SendMessage(DefaultPeerEndpoint, ack, ModuleId, priority: 1);
+                }
+                else
+                {
+                    _communicator.BroadcastMessage(ack, ModuleId, priority: 1);
+                }
             }
         }
     }
@@ -285,5 +335,6 @@ public class NetworkSyncHandler : IMessageListener
         public int ChunkNumber { get; set; }
         public int TotalChunks { get; set; }
         public string Base64Data { get; set; } = string.Empty;
+        public DateTime? LastModifiedUtc { get; set; }
     }
 }

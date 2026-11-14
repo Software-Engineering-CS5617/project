@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Cloud.Networking.Mocking;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Cloud.Networking;
@@ -18,12 +19,17 @@ namespace Cloud.Networking;
 /// so that consumers can subscribe with simple synchronous handlers, 
 /// without having to return a <see cref="Task"/>.
 /// </remarks>
-public sealed class SignalRMessenger : IMessenger
+internal sealed class SignalRMessenger : IMessenger
 {
     private readonly IHubConnection _connection;
 
     /// <inheritdoc />
-    public HubConnectionState State => _connection.State;
+    public ConnectionState State => _connection.State switch {
+        HubConnectionState.Connected => ConnectionState.Connected,
+        HubConnectionState.Connecting => ConnectionState.Connecting,
+        HubConnectionState.Reconnecting => ConnectionState.Reconnecting,
+        _ => ConnectionState.Disconnected
+    };
 
     /// <inheritdoc/>
     public event Action<Exception?>? Reconnecting;
@@ -143,6 +149,19 @@ public sealed class SignalRMessenger : IMessenger
         ArgumentException.ThrowIfNullOrWhiteSpace(content);
 
         await _connection.InvokeAsync(Contract.SendMessage, content);
+    }
+
+    /// <summary>
+    /// Asks the server for the messages created after <paramref name="since"/>.
+    /// The server hub must implement <see cref="Contract.GetMessagesSince"/>.
+    /// </summary>
+    /// <param name="since">Only messages with a later timestamp are returned</param>
+    /// <returns>The missed messages (empty when there are none)</returns>
+    public async Task<IReadOnlyList<Message>> SyncAsync(DateTimeOffset since)
+    {
+        Message[]? missed = await _connection.InvokeAsync<Message[]>(Contract.GetMessagesSince, since);
+
+        return missed ?? Array.Empty<Message>();
     }
 
     /// <inheritdoc />

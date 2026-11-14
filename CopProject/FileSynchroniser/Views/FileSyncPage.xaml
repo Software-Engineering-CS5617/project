@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FileSynchroniser.Views"
     xmlns:vm="using:FileSynchroniser.ViewModels"
+    xmlns:utils="using:Utils"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -32,6 +33,23 @@
 
         <!-- Peer Connection Controls -->
         <StackPanel Grid.Row="2" Spacing="8">
+            <!-- Automatic Peer Selection from Meeting / Controller -->
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="Available Peers:" VerticalAlignment="Center" FontWeight="SemiBold" />
+                <ComboBox x:Name="PeersComboBox"
+                          ItemsSource="{x:Bind ViewModel.AvailablePeers}"
+                          SelectedItem="{x:Bind ViewModel.SelectedPeer, Mode=TwoWay}"
+                          SelectionChanged="OnPeerSelectionChanged"
+                          MinWidth="260"
+                          PlaceholderText="Select peer to sync...">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="utils:ControllerUser">
+                            <TextBlock Text="{x:Bind ToString()}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Refresh Peers" Click="OnRefreshPeersClick" />
+            </StackPanel>
             <Grid ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="100" />

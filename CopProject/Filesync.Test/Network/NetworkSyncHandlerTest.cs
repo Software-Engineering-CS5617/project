@@ -95,13 +95,14 @@ public class NetworkSyncHandlerTest
         Send("MANIFEST:" + JsonSerializer.Serialize(manifest));
     }
 
-    private void SendChunk(string fileId, int number, int total, string content)
+    private void SendChunk(string fileId, int number, int total, string content, DateTime? lastModified = null)
     {
         var dto = new {
             FileId = fileId,
             ChunkNumber = number,
             TotalChunks = total,
-            Base64Data = Convert.ToBase64String(Encoding.UTF8.GetBytes(content))
+            Base64Data = Convert.ToBase64String(Encoding.UTF8.GetBytes(content)),
+            LastModifiedUtc = lastModified
         };
         Send("CHUNK:" + JsonSerializer.Serialize(dto));
     }
@@ -579,7 +580,58 @@ public class NetworkSyncHandlerTest
         Assert.IsTrue(logs.Any(l => l.Contains("already up-to-date")));
         Assert.IsTrue(logs.Any(l => l.Contains("rejected invalid file request")));
         Assert.IsTrue(logs.Any(l => l.Contains("splitting and sending chunks")));
+        Assert.IsTrue(logs.Any(l => l.Contains("sending chunk 1/1")));
+        Assert.IsTrue(logs.Any(l => l.Contains("sent all 1 chunks")));
         Assert.IsTrue(logs.Any(l => l.Contains("received chunk 1/1")));
         Assert.IsTrue(logs.Any(l => l.Contains("successfully assembled file")));
+    }
+
+    /// <summary>
+    /// 28. HandleChunk preserves the peer's last modified timestamp on reconstructed file
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_PreservesPeerLastModifiedTimestamp()
+    {
+        DateTime peerTime = new DateTime(2025, 8, 15, 14, 0, 0, DateTimeKind.Utc);
+        SendChunk("timestamped.txt", 0, 1, "peer content", peerTime);
+
+        string assembledPath = Path.Combine(_tempDir, "timestamped.txt");
+        Assert.IsTrue(File.Exists(assembledPath));
+        Assert.AreEqual(peerTime, File.GetLastWriteTimeUtc(assembledPath));
+    }
+
+    /// <summary>
+    /// 29. HandleChunk preserves manifest timestamp if chunk DTO has null timestamp
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_FallsBackToManifestTimestamp()
+    {
+        DateTime manifestTime = new DateTime(2025, 9, 1, 12, 0, 0, DateTimeKind.Utc);
+        SendManifest(new Dictionary<string, DateTime> { { "manifest_timed.txt", manifestTime } });
+
+        SendChunk("manifest_timed.txt", 0, 1, "content without chunk timestamp");
+
+        string assembledPath = Path.Combine(_tempDir, "manifest_timed.txt");
+        Assert.IsTrue(File.Exists(assembledPath));
+        Assert.AreEqual(manifestTime, File.GetLastWriteTimeUtc(assembledPath));
+    }
+
+    /// <summary>
+    /// 30. Receiving SYNC_ACK invokes completion and logs peer confirmation
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_SyncAck_LogsAndInvokesCompletion()
+    {
+        string? logged = null;
+        bool completed = false;
+        _handler.OnLog += msg => logged = msg;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        Send("SYNC_ACK:notes.txt");
+
+        Assert.IsTrue(completed);
+        Assert.IsNotNull(logged);
+        Assert.Contains("peer confirmed receipt", logged);
+        Assert.Contains("notes.txt", logged);
     }
 }
