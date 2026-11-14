@@ -95,7 +95,7 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged, IDisposable
         Mode = ViewMode.Grid;
         _isSharingScreen = false;
         RaiseModeChanged();
-        Raise(nameof(IsSharingScreen));
+        Raise(nameof(IsSharingScreen), nameof(ShareButtonText));
     }
 
     private void OnFeedTimerTick(DispatcherQueueTimer sender, object args)
@@ -255,9 +255,12 @@ public sealed class ScreenShareViewModel : INotifyPropertyChanged, IDisposable
             }
 
             _isSharingScreen = _feed.IsSharing;
-            Raise(nameof(IsSharingScreen));
+            Raise(nameof(IsSharingScreen), nameof(ShareButtonText));
         }
     }
+
+    /// <summary>the share button's label, which follows IsSharingScreen</summary>
+    public string ShareButtonText => _isSharingScreen ? "Stop screen sharing" : "Start screen sharing";
 
 
     // ----- Feed requests -----

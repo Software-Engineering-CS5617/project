@@ -64,11 +64,24 @@
         <!-- CONTROL BAR (both modes) -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
                     Spacing="12" Padding="12">
-            <ToggleButton IsChecked="{x:Bind ViewModel.IsSharingScreen, Mode=TwoWay}"
-                          Width="56" Height="56" CornerRadius="28"
-                          ToolTipService.ToolTip="Share screen"
-                          AutomationProperties.Name="Share screen">
-                <FontIcon Glyph="&#xE7F4;"/>
+            <!-- "Start screen sharing" when off; turns red with "Stop screen sharing" while sharing -->
+            <ToggleButton x:Name="ShareButton"
+                          AutomationProperties.AutomationId="ShareButton"
+                          IsChecked="{x:Bind ViewModel.IsSharingScreen, Mode=TwoWay}"
+                          Content="{x:Bind ViewModel.ShareButtonText, Mode=OneWay}"
+                          AutomationProperties.Name="{x:Bind ViewModel.ShareButtonText, Mode=OneWay}"
+                          MinWidth="200" Height="40" Padding="16,0" CornerRadius="4">
+                <ToggleButton.Resources>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#C42B1C"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#B3261A"/>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#9C2116"/>
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="#C42B1C"/>
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="#B3261A"/>
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="#9C2116"/>
+                    <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="White"/>
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="White"/>
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="White"/>
+                </ToggleButton.Resources>
             </ToggleButton>
         </StackPanel>
     </Grid>
