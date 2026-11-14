@@ -165,6 +165,25 @@
             </Border>
         </Grid>
 
+        <!-- Diagnosis page -->
+        <Grid x:Name="DiagnosisView" Grid.Row="1" Padding="40,24" RowSpacing="20" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Button Content="Back" Click="DiagnosisBack_Click" Background="White"/>
+                <TextBlock Text="Diagnosis" FontSize="32" FontWeight="SemiBold"/>
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
+                <Grid>
+                    <!-- Diagnosis: WRITE YOUR XAML CODE INSIDE THIS GRID -->
+                </Grid>
+            </Border>
+        </Grid>
+
         <!-- Meeting screen -->
         <Grid x:Name="MeetingView" Grid.Row="1" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
