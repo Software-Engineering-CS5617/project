@@ -15,6 +15,7 @@ public enum WhiteboardTool
 {
     Pen,
     Square,
+    Rectangle,
     Circle,
     Ellipse,
     EqTriangle,
@@ -28,6 +29,7 @@ public class WhiteBoardViewModel
 {
     private IViewModelState _penState;
     private IViewModelState _squareState;
+    private IViewModelState _rectangleState;
     private IViewModelState _circleState;
     private IViewModelState _ellipseState;
     private IViewModelState _eqTriangleState;
@@ -91,6 +93,7 @@ public class WhiteBoardViewModel
         CanvasPreview preview = new(canvas);
         _penState = new PenState(_whiteboardClient, preview, toolbarInfo);
         _squareState = new ShapeSquareState(_whiteboardClient, preview, toolbarInfo);
+        _rectangleState = new ShapeRectangleState(_whiteboardClient, preview, toolbarInfo);
         _circleState = new ShapeCircleState(_whiteboardClient, preview, toolbarInfo);
         _ellipseState = new ShapeEllipseState(_whiteboardClient, preview, toolbarInfo);
         _eraserState = new EraserState(_whiteboardClient);
@@ -131,6 +134,7 @@ public class WhiteBoardViewModel
         IViewModelState selectedState = tool switch {
             WhiteboardTool.Pen => _penState,
             WhiteboardTool.Square => _squareState,
+            WhiteboardTool.Rectangle => _rectangleState,
             WhiteboardTool.Circle => _circleState,
             WhiteboardTool.Ellipse => _ellipseState,
             WhiteboardTool.EqTriangle => _eqTriangleState,
