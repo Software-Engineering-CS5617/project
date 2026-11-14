@@ -11,7 +11,7 @@ namespace Networking.Packets;
 
 public class PacketSerializer
 {
-    private Serializer<Packet> _packetSerializer = new Packets.Serializer<Packet>();
+    private readonly BinarySerialization _packetSerializer = new BinarySerialization();
     public byte[] PacketToBytes(Packet packet)
     {
         byte[] serializedData = _packetSerializer.Serialize(packet);
