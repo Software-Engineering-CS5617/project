@@ -85,4 +85,28 @@ public class MockCommunicator : ICommunicator
     {
         throw new NotImplementedException();
     }
+
+    public void AddLossySubscriber(int module, IMessageListenerLossy subscriber)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveLossySubscriber(int module)
+    {
+        throw new NotImplementedException();
+    }
+    public void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message, int module, int priority)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void BroadcastMessageLossy(byte[] message, int module, int priority)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority)
+    {
+        throw new NotImplementedException();
+    }
 }

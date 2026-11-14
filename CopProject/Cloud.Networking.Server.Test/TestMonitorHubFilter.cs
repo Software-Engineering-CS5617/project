@@ -14,9 +14,9 @@ namespace Cloud.Networking.Server.Test;
 /// <remarks>
 /// Rationales on Mocking choices:
 /// it is obvious on why we should mock server monitor
-///     <see cref="HubInvocationContext" /> & <see cref="HubLifetimeContext"/> 
+///     <see cref="HubLifetimeContext"/> 
 ///     contains <see cref="HubCallerContext"/>, <see cref="IServiceProvider"/>, <see cref="Hub"/>
-/// as we have hub lets fix it and use the real one and lets fix the hub method and the params
+/// as we have hub lets fix it and use the real one (its store is irrelevant here)
 /// Rest two we can mock as one is abstract and other is an interface
 /// so we will do that itself.
 /// </remarks>
@@ -37,19 +37,9 @@ public class TestMonitorHubFilter
         _caller = new Mock<HubCallerContext>();
         _caller.SetupGet(c => c.ConnectionId).Returns("conn-1");
         _services = new Mock<IServiceProvider>();
-        _hub = new MessageHub();
+        _hub = new MessageHub(new Mock<IMessageStore>().Object);
 
         _filter = new MonitorHubFilter(_monitor.Object);
-    }
-
-    private HubInvocationContext CreateInvocation()
-    {
-        return new(
-            _caller.Object,
-            _services.Object,
-            _hub,
-            typeof(MessageHub).GetMethod(nameof(MessageHub.SendMessage))!,
-            ["hello"]);
     }
 
     private HubLifetimeContext CreateLifetime()
@@ -59,44 +49,6 @@ public class TestMonitorHubFilter
             _services.Object,
             _hub
         );
-    }
-
-    /// <summary>Tests that a returned message is recorded and passed back unchanged.</summary>
-    [TestMethod]
-    public async Task InvokeMethodRecordsReturnedMessage()
-    {
-        Message message = new() { SenderId = "conn-1", Content = "hello" };
-
-        object? result = await _filter.InvokeMethodAsync(
-            CreateInvocation(),
-            _ => new ValueTask<object?>(message));
-
-        Assert.AreSame(message, result);
-        _monitor.Verify(m => m.RecordMessage(message), Times.Once);
-    }
-
-    /// <summary>Tests that results other than messages are not recorded.</summary>
-    [TestMethod]
-    public async Task InvokeMethodIgnoresNonMessageResults()
-    {
-        object? result = await _filter.InvokeMethodAsync(
-            CreateInvocation(),
-            _ => new ValueTask<object?>("not a message"));
-
-        Assert.AreEqual("not a message", result);
-        _monitor.Verify(m => m.RecordMessage(It.IsAny<Message>()), Times.Never);
-    }
-
-    /// <summary>Tests that a message is not recorded when the hub method throws.</summary>
-    [TestMethod]
-    public async Task InvokeMethodDoesNotRecordWhenNextThrows()
-    {
-        await Assert.ThrowsAsync<HubException>(
-            () => _filter.InvokeMethodAsync(
-                CreateInvocation(),
-                _ => throw new HubException("fail")).AsTask());
-
-        _monitor.Verify(m => m.RecordMessage(It.IsAny<Message>()), Times.Never);
     }
 
     /// <summary>Tests that a connection is registered after the connection pipeline succeeds.</summary>

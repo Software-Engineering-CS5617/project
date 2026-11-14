@@ -5,10 +5,10 @@
 namespace Cloud.Networking.Server.Models;
 
 /// <summary>
-/// Refers to a Connection in Model
+/// A persistent connection to a server
 /// </summary>
-/// <param name="ConnectionId">connection id</param>
-/// <param name="ConnectedAt">connection creation time</param>
+/// <param name="ConnectionId">the id of a <see cref="LiveConnection"/></param>
+/// <param name="ConnectedAt">the creation timestamp of the <see cref="LiveConnection"/></param>
 public sealed record LiveConnection(
     string ConnectionId,
     DateTimeOffset ConnectedAt

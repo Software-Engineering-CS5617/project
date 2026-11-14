@@ -15,7 +15,12 @@
     <Project Path="Cloud.Networking.ClientConsole/Cloud.Networking.ClientConsole.csproj" />
     <Project Path="Cloud.Networking.Server.Test/Cloud.Networking.Server.Test.csproj" />
     <Project Path="Cloud.Networking.Server/Cloud.Networking.Server.csproj" />
+    <Project Path="Cloud.Networking.UIharness/Cloud.Networking.UIharness.csproj">
+        <Platform Project="x64" />
+    </Project>
     <Project Path="Cloud.Test/Cloud.Test.csproj" />
+    <Project Path="Cloud.UI/Cloud.UI.csproj" />
+    <Project Path="Cloud.UI.Test/Cloud.UI.Test.csproj" />
     <Project Path="Cloud/Cloud.csproj" />
     <Project Path="Controller/Controller.csproj" />
     <Project Path="Filesync.Test/Filesync.Test.csproj" />
@@ -24,7 +29,6 @@
         <Deploy />
     </Project>
     <Project Path="FileSynchroniser/FileSynchroniser.csproj" Id="0cec58f5-7206-4b15-be62-94efcd01d056" />
-    <Project Path="Insights.Test/Insights.Test.csproj" />
     <Project Path="Incident/Incident.csproj" Id="2479e96f-2c95-431e-929e-e64ce231676f" />
     <Project Path="Incidents.Test/Incidents.Test.csproj" Id="176acacb-300f-4882-9eee-7f461dda4eb6" />
     <Project Path="Incidents.UIharness/Incidents.UIharness.csproj" Id="b244a205-7064-4e7c-b19f-806c75f84533">
@@ -32,9 +36,10 @@
         <Platform Solution="Debug|Any CPU" Project="x64" />
         <Deploy Solution="*|x64" />
     </Project>
+    <Project Path="Insights.Test/Insights.Test.csproj" />
     <Project Path="Insights/Insights.csproj" />
-    <Project Path="Location/Location.csproj" />
     <Project Path="Location.Test/Location.Test.csproj" />
+    <Project Path="Location/Location.csproj" />
     <Project Path="Networking.Test/Networking.Test.csproj" />
     <Project Path="Networking/Networking.csproj" />
     <Project Path="Screenshare.Test/Screenshare.Test.csproj" />

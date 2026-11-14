@@ -68,7 +68,7 @@ public class WhiteboardCanvas : IWhiteboard
     }
 
     // Selection helper: topmost item at a point (highest Zindex wins)
-    public IItem HitTestTopmost(Point2D point)
+    public IItem? HitTestTopmost(Point2D point)
     {
         return Items.Values
             .Where(i => i.HitTest(point))

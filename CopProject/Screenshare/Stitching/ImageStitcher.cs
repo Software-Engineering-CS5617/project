@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -33,6 +34,9 @@ public class ImageStitcher : IImageStitcher, IDisposable
 
         LastFrameNumber = frameNumber;
         NeedsFullFrame = false;
+        Trace.TraceInformation(
+    "[Screenshare] Full frame applied successfully. Frame: {0}, Dimensions: {1}x{2}.", frameNumber, _currentFrame.Width, _currentFrame.Height);
+
         return true;
     }
 
@@ -86,6 +90,15 @@ public class ImageStitcher : IImageStitcher, IDisposable
                     );
             }
         }
+        catch (Exception exception)
+        {
+            Trace.TraceError(
+                "[Screenshare] Failed to apply changed tiles for frame {0}: {1}",
+                frameNumber,
+                exception);
+
+            throw;
+        }
         finally
         {
             foreach ((_, Bitmap tileBitmap) in decoded)
@@ -95,6 +108,10 @@ public class ImageStitcher : IImageStitcher, IDisposable
         }
 
         LastFrameNumber = frameNumber;
+        Trace.TraceInformation(
+        "[Screenshare] Delta frame applied successfully. Frame: {0}, Tiles applied: {1}.",
+        frameNumber,
+        tiles.Count);
         return true;
     }
 

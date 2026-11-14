@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -98,8 +98,6 @@ public static class ItemSnapshot
         copy.CreatedBy = source.CreatedBy;
         copy.CreatedDateTime = source.CreatedDateTime;
         copy.LastModifiedDateTime = source.LastModifiedDateTime;
-        copy.Left = source.Left;
-        copy.Top = source.Top;
         copy.Orientation = source.Orientation;
 
         if (source is Shape sourceShape && copy is Shape copiedShape)
@@ -120,20 +118,6 @@ public static class ItemSnapshot
         return point is null
             ? null
             : new Point2D(point.X, point.Y);
-    }
-
-    /// <summary>
-    /// Copies a bounding rectangle, or returns null if it is missing.
-    /// </summary>
-    private static Rect2D CopyRect(Rect2D rectangle)
-    {
-        return rectangle is null
-            ? null
-            : new Rect2D(
-                rectangle.Left,
-                rectangle.Top,
-                rectangle.Width,
-                rectangle.Height);
     }
 
     /// <summary>

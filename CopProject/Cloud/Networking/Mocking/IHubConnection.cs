@@ -4,12 +4,12 @@
 
 using Microsoft.AspNetCore.SignalR.Client;
 
-namespace Cloud.Networking;
+namespace Cloud.Networking.Mocking;
 
 /// <summary>
 /// Interface reflecting a subset of features in <see cref="HubConnection"/> class (for mocking it).
 /// </summary>
-/// 
+///
 /// <remarks>
 /// <list type="bullet">
 /// <item>
@@ -25,7 +25,7 @@ namespace Cloud.Networking;
 /// Mocking a wrapped Microsoft ASP.NET Core SignalR HubConnection
 /// </see>
 /// </remarks>
-public interface IHubConnection : IAsyncDisposable
+internal interface IHubConnection : IAsyncDisposable
 {
     /// <summary>
     /// Uses the same connection state as in <see cref="HubConnectionState"/>.
@@ -66,4 +66,9 @@ public interface IHubConnection : IAsyncDisposable
     /// Uses the same signature as <see cref="HubConnectionExtensions.InvokeAsync"/>.
     /// </summary>
     Task InvokeAsync(string methodName, object? arg, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Same as <see cref="InvokeAsync(string, object?, CancellationToken)"/> but returns the server's result.
+    /// </summary>
+    Task<T> InvokeAsync<T>(string methodName, object? arg, CancellationToken cancellationToken = default);
 }

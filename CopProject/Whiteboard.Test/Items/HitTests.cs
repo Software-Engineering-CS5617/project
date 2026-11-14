@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -225,8 +225,7 @@ public class HitTests : BaseGenerator
     public void Textbox()
     {
         var textbox = new Textbox() {
-            Left = 50,
-            Top = 50,
+            Center = new Point2D(100, 70),
             Width = 100,
             Height = 40
         };

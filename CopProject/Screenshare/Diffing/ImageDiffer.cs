@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -13,22 +14,24 @@ public class ImageDiffer : IImageDiffer
     /*if more than this percentage of the screen has changed, sending individual tiles becomes less useful, so we send the complete frame.*/
     private const double FULL_FRAME_THRESHOLD = 0.50;
 
+    /*if this fraction of the screen or less has changed (1-2 tiles at 720p, like a blinking caret or a
+    hover highlight), the change is held back instead of sent. ScreenSharingService applies it.*/
+    public const double MIN_CHANGE_THRESHOLD = 0.01;
+
     private const ulong FNV_OFFSET_BASIS = 14695981039346656037UL;
     private const ulong FNV_PRIME = 1099511628211UL;
-
-    //private readonly Dictionary<(int X, int Y), ulong> previousTileHashes;
-
-    //public ImageDiffer()
-    //{
-    //    previousTileHashes =
-    //        new Dictionary<(int X, int Y), ulong>();
-    //}
 
     public ImageDiffResult Compare(Bitmap previousFrame, Bitmap currentFrame)
     {
         if (previousFrame.Width != currentFrame.Width ||
             previousFrame.Height != currentFrame.Height)
         {
+            Trace.TraceWarning(
+            "[Screenshare] Frame dimensions changed. Previous: {0}x{1}, Current: {2}x{3}. Sending full frame.",
+            previousFrame.Width,
+            previousFrame.Height,
+            currentFrame.Width,
+            currentFrame.Height);
             return ImageDiffResult.CreateFullFrame(new Bitmap(currentFrame));
         }
 
@@ -105,6 +108,10 @@ public class ImageDiffer : IImageDiffer
 
         if (changedTiles.Count == 0)
         {
+            Trace.TraceInformation(
+            "[Screenshare] No changes detected in frame ({0}x{1}).",
+            currentFrame.Width,
+            currentFrame.Height);
             return ImageDiffResult.Unchanged();
         }
 
@@ -116,13 +123,22 @@ public class ImageDiffer : IImageDiffer
 
         if (changeRatio >= FULL_FRAME_THRESHOLD)
         {
+            Trace.TraceInformation(
+            "[Screenshare] Change ratio: {0:P2}. Threshold: {1:P0}. Sending full frame.",
+            changeRatio,
+            FULL_FRAME_THRESHOLD);
             return ImageDiffResult.CreateFullFrame(
                 new Bitmap(currentFrame)
             );
         }
 
         // only a small part changed. send the changed tiles.
-
+        long totalPayloadSize = changedTiles.Sum(tile => (long)tile.Data.Length);
+        Trace.TraceInformation(
+            "[Screenshare] Delta frame created. Changed tiles: {0}, Encoded payload size: {1} bytes, Changed pixel ratio: {2:P2}.",
+            changedTiles.Count,
+            totalPayloadSize,
+            changeRatio);
         return ImageDiffResult.Delta(changedTiles);
     }
 
@@ -182,75 +198,6 @@ public class ImageDiffer : IImageDiffer
             bitmap.UnlockBits(data);
         }
     }
-
-    //private List<Tile> FindChangedTiles(Bitmap currentFrame)
-    //{
-    //    List<Tile> changedTiles = new List<Tile>();
-
-    //    int screenWidth = currentFrame.Width;
-    //    int screenHeight = currentFrame.Height;
-
-    //    for (int y = 0; y < screenHeight; y += TILE_SIZE)
-    //    {
-    //        for (int x = 0; x < screenWidth; x += TILE_SIZE)
-    //        {
-    //            int tileWidth = Math.Min(
-    //                TILE_SIZE,
-    //                screenWidth - x
-    //            );
-
-    //            int tileHeight = Math.Min(
-    //                TILE_SIZE,
-    //                screenHeight - y
-    //            );
-
-    //            ulong currentHash = CalculateTileHash(
-    //                currentFrame,
-    //                x,
-    //                y,
-    //                tileWidth,
-    //                tileHeight
-    //            );
-
-    //            var tilePosition = (x, y);
-
-    //            bool changed = true;
-
-    //            if (_previousTileHashes.TryGetValue(
-    //                    tilePosition,
-    //                    out ulong previousHash))
-    //            {
-    //                if (previousHash != currentHash)
-    //                {
-    //                    Console.WriteLine(
-    //                        $"Changed tile ({x}, {y}) | " +
-    //                        $"Old: {previousHash:X16} | " +
-    //                        $"New: {currentHash:X16}"
-    //                    );
-    //                }
-    //                changed = previousHash != currentHash;
-    //            }
-
-    //            if (changed)
-    //            {
-    //                Tile tile = new Tile {
-    //                    X = x,
-    //                    Y = y,
-    //                    Width = tileWidth,
-    //                    Height = tileHeight,
-    //                    Hash = currentHash,
-    //                    Data = ExtractTileData(currentFrame, x, y, tileWidth, tileHeight)
-    //                };
-
-    //                changedTiles.Add(tile);
-    //            }
-
-    //            _previousTileHashes[tilePosition] = currentHash;
-    //        }
-    //    }
-
-    //    return changedTiles;
-    //}
 
     private byte[] ExtractTileData(
         Bitmap bitmap,

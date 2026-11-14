@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -17,6 +18,8 @@ public class StreamFrameCache : IDisposable
 
         // make a copy so that caller retains ownership of its bitmap.
         Bitmap copy = new Bitmap(frame);
+        int width = copy.Width;
+        int height = copy.Height;
 
         lock (_cacheLock)
         {
@@ -36,6 +39,11 @@ public class StreamFrameCache : IDisposable
                 _frames.Add(streamId, copy);
             }
         }
+        Trace.TraceInformation(
+        "[Screenshare] Frame cache updated. Stream: {0}, Dimensions: {1}x{2}.",
+        streamId,
+        width,
+        height);
     }
 
     public Bitmap? Get(string streamId)
@@ -67,6 +75,9 @@ public class StreamFrameCache : IDisposable
             if (_frames.Remove(streamId, out Bitmap? frame))
             {
                 frame.Dispose();
+                Trace.TraceInformation(
+                "[Screenshare] Frame removed from cache. Stream: {0}.",
+                streamId);
             }
         }
     }
@@ -88,6 +99,8 @@ public class StreamFrameCache : IDisposable
             }
 
             _frames.Clear();
+            Trace.TraceInformation(
+                "[Screenshare] Frame cache disposed. All cached frames released.");
         }
     }
 }

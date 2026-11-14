@@ -6,6 +6,7 @@
     xmlns:local="using:UX"
     xmlns:controller="using:Controller.Views"
     xmlns:chat="using:UI.Views"
+    xmlns:whiteboard="using:Whiteboard.Views"
     xmlns:screenshare="using:ScreenShare.Views">
 
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
@@ -22,12 +23,16 @@
 
                 <TextBlock x:Name="MeetingInfoText" Foreground="White" FontSize="12"
                            VerticalAlignment="Center" Visibility="Collapsed"/>
-                <Button Content="Incidents" Click="Incidents_Click" Foreground="White"
-                        Background="#1F4A78"/>
-                <Button Content="Location" Click="Location_Click" Foreground="White"
-                        Background="#1F4A78"/>
+               <Button x:Name="IncidentsTopBtn" Content="Incidents" Click="Incidents_Click"
+       Foreground="White" Background="#1F4A78"/>
+               <Button x:Name="LocationTopBtn" Content="Location" Click="Location_Click"
+       Foreground="White" Background="#1F4A78"/>
+               <Button x:Name="CloudTopBtn" Content="Cloud" Click="Cloud_Click"
+       Foreground="White" Background="#1F4A78"/>
                 <PersonPicture x:Name="ProfilePic" Width="30" Height="30"/>
                 <TextBlock x:Name="ProfileName" Foreground="White" VerticalAlignment="Center"/>
+                <Button Content="Edit profile" Click="EditProfile_Click" Foreground="White"
+                        Background="#1F4A78"/>
                 <Button Content="Sign out" Click="SignOut_Click" Foreground="White"
                         Background="#1F4A78"/>
             </StackPanel>
@@ -37,21 +42,14 @@
         <Grid x:Name="LoginView" Grid.Row="1">
             <Border Background="White" Width="400" Padding="30" CornerRadius="10"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                <StackPanel Spacing="10">
+                <StackPanel Spacing="16">
                     <TextBlock Text="Welcome" FontSize="28" FontWeight="SemiBold"
                                HorizontalAlignment="Center"/>
-
-                    <PersonPicture Width="80" Height="80"/>
-                    <Button Content="Add profile picture" HorizontalAlignment="Center"/>
-
-                    <TextBox x:Name="UserIdBox" Header="User ID"/>
-                    <TextBox x:Name="EmailBox" Header="Email" PlaceholderText="name@smail.iitpkd.ac.in"/>
-
                     <TextBlock x:Name="LoginError" Foreground="Red" TextWrapping="Wrap"
                                Visibility="Collapsed"/>
-
-                    <Button Content="CONTINUE" Click="Continue_Click" Background="#0F5FC2"
-                            Foreground="White" HorizontalAlignment="Stretch" Height="40"/>
+                    <Button x:Name="SignInBtn" Content="Sign in with Google" Click="SignIn_Click"
+                            Background="#0F5FC2" Foreground="White"
+                            HorizontalAlignment="Stretch" Height="40"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -70,24 +68,12 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
 
                 <Button Content="Start Meeting" Click="Start_Click" Height="100"
                         Background="#0F5FC2" Foreground="White"
                         FontSize="20" HorizontalAlignment="Stretch"/>
                 <Button Grid.Column="1" Content="Join with ID" Click="Join_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="2" Content="Incidents" Click="Incidents_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="3" Content="Location" Click="Location_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="4" Content="Cloud" Click="Cloud_Click"
                         Height="100" FontSize="20" Background="White"
                         HorizontalAlignment="Stretch"/>
             </Grid>
@@ -178,10 +164,7 @@
                 </Border>
 
                 <Border x:Name="BoardPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
-                    <StackPanel Padding="20">
-                        <!-- WHITEBOARD TEAM: add your UI here -->
-                        <TextBlock Text="Whiteboard module goes here"/>
-                    </StackPanel>
+                    <whiteboard:WhiteBoardView x:Name="WhiteboardViewControl"/>
                 </Border>
 
                 <!-- FILE SYNC TEAM: Hosting FileSync inside meeting workspace -->

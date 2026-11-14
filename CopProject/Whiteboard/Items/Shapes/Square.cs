@@ -1,6 +1,5 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+/// Owner   : Raagam Hitesh Parmar
+/// LICENSE : MIT
 
 using System;
 using Whiteboard.Interfaces;
@@ -11,7 +10,7 @@ namespace Whiteboard.Items.Shapes;
 /// <inheritdoc/>
 public class Square : Shape, ISquare
 {
-    public Point2D Center { get; init; } = new(0, 0);
+    public Point2D Center { get; set; } = new(0, 0);
 
     public override Rect2D BoundingBox => new(
         Center.X - (SideLegth / 2.0),
@@ -19,6 +18,11 @@ public class Square : Shape, ISquare
         SideLegth,
         SideLegth
     );
+
+    public override void MoveBy(double dX, double dY)
+    {
+        Center = Center with { X = Center.X + dX, Y = Center.Y + dY };
+    }
 
     public override bool HitTest(Point2D point)
     {

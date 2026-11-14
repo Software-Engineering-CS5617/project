@@ -17,6 +17,7 @@
                 <ModulePath>.*\\location\.dll$</ModulePath>
                 <ModulePath>.*\\whiteboard\.dll$</ModulePath>
                 <ModulePath>.*\\cloud.networking.server\.dll$</ModulePath>
+                <ModulePath>.*\\cloud.ui\.dll$</ModulePath>
               </Include>
             </ModulePaths>
             <Sources>

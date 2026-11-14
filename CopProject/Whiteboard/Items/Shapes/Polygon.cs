@@ -1,6 +1,5 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+/// Owner   : Raagam Hitesh Parmar
+/// LICENSE : MIT
 
 using System;
 using System.Collections.Generic;
@@ -18,7 +17,7 @@ public class Polygon : Shape, IPolygon
         get {
             if (Vertices == null || Vertices.Count == 0)
             {
-                return new Rect2D(Left, Top, 0, 0);
+                return new Rect2D(0, 0, 0, 0);
             }
 
             double minX = Vertices.Min(v => v.X);
@@ -32,6 +31,14 @@ public class Polygon : Shape, IPolygon
                 maxX - minX,
                 maxY - minY
             );
+        }
+    }
+
+    public override void MoveBy(double dX, double dY)
+    {
+        for (int i = 0; i < Vertices.Count; i++)
+        {
+            Vertices[i] = Vertices[i] with { X = Vertices[i].X + dX, Y = Vertices[i].Y + dY };
         }
     }
 

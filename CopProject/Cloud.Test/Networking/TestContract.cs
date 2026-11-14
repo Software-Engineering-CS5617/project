@@ -19,5 +19,6 @@ public class TestContract
         // Ensures the contract method names remain unchanged.
         Assert.AreEqual("SendMessage", Contract.SendMessage);
         Assert.AreEqual("ReceiveMessage", Contract.ReceiveMessage);
+        Assert.AreEqual("GetMessagesSince", Contract.GetMessagesSince);
     }
 }

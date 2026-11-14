@@ -2,8 +2,11 @@
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
+using System.Xml.Linq;
 using FileSynchroniser.Models;
+using Utils;
 
 namespace FileSynchroniser.ViewModels;
 
@@ -21,7 +24,7 @@ public class SyncFileItem
 /// <summary>
 /// ViewModel for the synchroniser view.
 /// </summary>
-public class FileSyncViewModel : INotifyPropertyChanged, IDisposable
+public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotificationHandler
 {
     private readonly ISync _sync;
     private readonly IFileOperations _files;
@@ -30,6 +33,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable
     private readonly RelayCommand _deleteSelectedCommand;
 
     private SyncFileItem? _selectedFile;
+    private ControllerUser? _selectedPeer;
     private string _statusMessage = "Ready";
     private bool _hasError;
 
@@ -95,6 +99,93 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(SelectedFile));
             _deleteSelectedCommand.RaiseCanExecuteChanged();
         }
+    }
+
+    /// <summary>
+    /// List of available meeting participants for synchronization.
+    /// </summary>
+    public ObservableCollection<ControllerUser> AvailablePeers { get; } = new();
+
+    /// <summary>
+    /// The currently selected peer to synchronize with.
+    /// </summary>
+    public ControllerUser? SelectedPeer
+    {
+        get => _selectedPeer;
+        set {
+            if (_selectedPeer == value)
+            {
+                return;
+            }
+            _selectedPeer = value;
+            OnPropertyChanged(nameof(SelectedPeer));
+        }
+    }
+
+    /// <summary>
+    /// Sets the list of active peers from the controller.
+    /// </summary>
+    public void SetAvailableUsers(IEnumerable<ControllerUser> users)
+    {
+        ArgumentNullException.ThrowIfNull(users);
+
+        RunOnUi(() => {
+            AvailablePeers.Clear();
+            foreach (ControllerUser user in users)
+            {
+                AvailablePeers.Add(user);
+            }
+
+            if (SelectedPeer == null || !AvailablePeers.Contains(SelectedPeer))
+            {
+                SelectedPeer = AvailablePeers.FirstOrDefault();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Called when a new participant joins the meeting.
+    /// </summary>
+    public void OnUserJoined(ControllerUser user)
+    {
+        if (user == null)
+        {
+            return;
+        }
+
+        RunOnUi(() => {
+            if (!AvailablePeers.Any(p => p.UserKey == user.UserKey || (p.Ip == user.Ip && p.Port == user.Port)))
+            {
+                AvailablePeers.Add(user);
+                if (SelectedPeer == null)
+                {
+                    SelectedPeer = user;
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Called when a participant leaves the meeting.
+    /// </summary>
+    public void OnUserLeft(ControllerUser user)
+    {
+        if (user == null)
+        {
+            return;
+        }
+
+        RunOnUi(() => {
+            ControllerUser? match = AvailablePeers.FirstOrDefault(p => p.UserKey == user.UserKey || (p.Ip == user.Ip && p.Port == user.Port));
+            if (match != null)
+            {
+                AvailablePeers.Remove(match);
+                if (SelectedPeer == match)
+                {
+                    SelectedPeer = AvailablePeers.FirstOrDefault();
+                }
+            }
+        });
     }
 
     /// <summary>

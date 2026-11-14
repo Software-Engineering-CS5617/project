@@ -3,31 +3,27 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.SignalR;
-using Cloud.Networking.Server.Models;
 
-namespace Cloud.Networking.Server;
+namespace Cloud.Networking.Server.Models;
 
 /// <summary>
-/// This is between Monitor (Models) and Hub (synchronizes Hub calls with UI)
+/// Keeps the Monitor's connection list in step with the Hub's connection lifecycle.
 /// Client -> MessageHub -> MonitorHubFilter -> Monitor (as it raises changed event)
 /// Monitor -> ViewModel -> View
+/// Messages do not go through here: the Monitor hears about them from the message store.
 /// </summary>
 /// 
 /// <remarks>
 /// Reference: https://learn.microsoft.com/en-us/aspnet/core/signalr/hub-filters?view=aspnetcore-10.0
 /// 
 /// </remarks>
-public sealed class MonitorHubFilter(IServerMonitor monitor) : IHubFilter
+public sealed class MonitorHubFilter : IHubFilter
 {
-    public async ValueTask<object?> InvokeMethodAsync(HubInvocationContext invocationContext, Func<HubInvocationContext, ValueTask<object?>> next)
-    {
-        object? result = await next(invocationContext);
-        if (result is Message message)
-        {
-            monitor.RecordMessage(message);
-        }
+    private readonly IServerMonitor _monitor;
 
-        return result;
+    public MonitorHubFilter(IServerMonitor monitor)
+    {
+        _monitor = monitor;
     }
 
     /// <summary>
@@ -40,7 +36,7 @@ public sealed class MonitorHubFilter(IServerMonitor monitor) : IHubFilter
     {
         await next(context);
         // if failure then no connection
-        monitor.Connected(context.Context.ConnectionId);
+        _monitor.Connected(context.Context.ConnectionId);
     }
 
     /// <summary>
@@ -59,7 +55,7 @@ public sealed class MonitorHubFilter(IServerMonitor monitor) : IHubFilter
         finally
         {
             // no matter success or failure disconnect
-            monitor.Disconnected(context.Context.ConnectionId);
+            _monitor.Disconnected(context.Context.ConnectionId);
         }
     }
 }

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 
 namespace Networking;
 
@@ -31,6 +31,19 @@ public interface ICommunicator
     void RemoveSubscriber(int module);
 
     /// <summary>
+    /// Adds a subscriber for lossy messages.
+    /// </summary>
+    /// <param name="module">Module id for the lossy subscriber</param>
+    /// <param name="subscriber">The lossy message listener instance</param>
+    void AddLossySubscriber(int module, IMessageListenerLossy subscriber);
+
+    /// <summary>
+    /// Removes a subscriber for lossy messages.
+    /// </summary>
+    /// <param name="module">Module id of the subscriber to be removed</param>
+    void RemoveLossySubscriber(int module);
+
+    /// <summary>
     /// Sends the given message to the given ip and port.
     /// </summary>
     /// <param name="ipEndPoint">IP EndPoint(Address:Port) of the destination</param>
@@ -38,6 +51,15 @@ public interface ICommunicator
     /// <param name="module">Module id of the module to which the message should be sent</param>
     /// <param name="priority">Priority of the message to be sent</param>
     void SendMessage(IPEndPoint iPEndPoint, byte[] message, int module, int priority);
+
+    /// <summary>
+    /// Sends the given message using lossy transport (UDP) to the given ip and port.
+    /// </summary>
+    /// <param name="iPEndPoint">IP EndPoint(Address:Port) of the destination</param>
+    /// <param name="message">Message to be sent</param>
+    /// <param name="module">Module id of the module to which the message should be sent</param>
+    /// <param name="priority">Priority of the message to be sent</param>
+    void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message, int module, int priority);
 
 
     /// <summary>
@@ -47,6 +69,14 @@ public interface ICommunicator
     /// <param name="module">Module ID of the module to which the message should be broadcasted</param>
     /// <param name="priority">Priority of the message</param>
     void BroadcastMessage(byte[] message, int module, int priority);
+
+    /// <summary>
+    /// Broadcasts the message using lossy transport (UDP) to all listeners.
+    /// </summary>
+    /// <param name="message">Message to be broadcasted</param>
+    /// <param name="module">Module ID of the module to which the message should be broadcasted</param>
+    /// <param name="priority">Priority of the message</param>
+    void BroadcastMessageLossy(byte[] message, int module, int priority);
 
     ///Multicast Methods
 
@@ -73,6 +103,15 @@ public interface ICommunicator
     /// <param name="module">Module ID of the module to which the message is multicasted</param>
     /// <param name="priority">Priority of the message</param>
     void MulticastMessage(int multicastGroup, byte[] message, int module, int priority);
+
+    /// <summary>
+    /// Sends a message using lossy transport (UDP) to all users in a multicast group.
+    /// </summary>
+    /// <param name="multicastGroup">Multicast group id</param>
+    /// <param name="message">Message to be sent</param>
+    /// <param name="module">Module ID of the module to which the message is multicasted</param>
+    /// <param name="priority">Priority of the message</param>
+    void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority);
 
 
 }

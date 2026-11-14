@@ -10,6 +10,14 @@ internal class CosmosStorage : IStorage
     private readonly CosmosClient _client;
     private readonly string _databaseName;
     private readonly string _containerName;
+
+    /* 
+       the below functions create Cosmos query iterators instead of using LINQ queries
+       this is done to allow mocking of the iterators for unit testing without a Cosmos account 
+    */
+    private readonly Func<FeedIterator<string>> _getAllKeysIterator; /* for GetAllKeys method */
+    private readonly Func<FeedIterator<PersistenceItem>> _readAllEtagsIterator; /* for ReadAllEtags method */
+    private readonly Func<int, FeedIterator<PersistenceItem>> _readLatestIterator; /* for ReadLatest method */
     private Container _container = null!;
 
     /// <summary>
@@ -26,6 +34,32 @@ internal class CosmosStorage : IStorage
         _client = client;
         _databaseName = databaseName;
         _containerName = containerName;
+        /* create iterators using actual Cosmos DB LINQ queries */
+        _getAllKeysIterator = () => _container.GetItemLinqQueryable<PersistenceItem>()
+            .Select(item => item.Id)
+            .ToFeedIterator();
+        _readAllEtagsIterator = () => _container.GetItemLinqQueryable<PersistenceItem>()
+            .ToFeedIterator();
+        _readLatestIterator = count => _container.GetItemLinqQueryable<PersistenceItem>()
+            .OrderByDescending(item => item.TimeStamp)
+            .Take(count)
+            .ToFeedIterator();
+    }
+
+    // Allows storage behavior to be tested with a mocked container and no Cosmos account.
+    internal CosmosStorage(
+        Container container,
+        Func<FeedIterator<string>> getAllKeysIterator,
+        Func<FeedIterator<PersistenceItem>> readAllEtagsIterator,
+        Func<int, FeedIterator<PersistenceItem>> readLatestIterator)
+    {
+        _client = null!;
+        _databaseName = string.Empty;
+        _containerName = string.Empty;
+        _container = container ?? throw new ArgumentNullException(nameof(container));
+        _getAllKeysIterator = getAllKeysIterator ?? throw new ArgumentNullException(nameof(getAllKeysIterator));
+        _readAllEtagsIterator = readAllEtagsIterator ?? throw new ArgumentNullException(nameof(readAllEtagsIterator));
+        _readLatestIterator = readLatestIterator ?? throw new ArgumentNullException(nameof(readLatestIterator));
     }
 
     /// <summary>
@@ -206,10 +240,7 @@ internal class CosmosStorage : IStorage
 
         try
         {
-            using FeedIterator<string> iterator =
-                _container.GetItemLinqQueryable<PersistenceItem>() //LINQ helps us to query using C# avoiding SQL
-                          .Select(item => item.Id)
-                          .ToFeedIterator();
+            using FeedIterator<string> iterator = _getAllKeysIterator();
 
             while (iterator.HasMoreResults)
             {
@@ -226,16 +257,14 @@ internal class CosmosStorage : IStorage
     }
 
     /// <inheritdoc/>
-    // this method may be deleted later if no use is found
+    /* this will be helpful when all the items are to be updated */
     public async Task<(bool Success, Dictionary<string, string>)> ReadAllEtags()
     {
         Dictionary<string, string> etags = [];
 
         try
         {
-            using FeedIterator<PersistenceItem> iterator =
-                _container.GetItemLinqQueryable<PersistenceItem>()
-                    .ToFeedIterator();
+            using FeedIterator<PersistenceItem> iterator = _readAllEtagsIterator();
 
             while (iterator.HasMoreResults)
             {
@@ -302,28 +331,20 @@ internal class CosmosStorage : IStorage
             }
         }
 
-        try
+        foreach (KeyValuePair<string, byte[]> item in items)
         {
-            foreach (KeyValuePair<string, byte[]> item in items)
+            bool success = await Update(
+                item.Key,
+                item.Value,
+                etags[item.Key]);
+
+            if (!success)
             {
-                bool success = await Update(
-                    item.Key,
-                    item.Value,
-                    etags[item.Key]);
-
-                if (!success)
-                {
-                    return false;
-                }
+                return false;
             }
-
-            return true;
-
         }
-        catch (CosmosException)
-        {
-            return false;
-        }
+
+        return true;
     }
 
     /// <inheritdoc/>
@@ -356,12 +377,7 @@ internal class CosmosStorage : IStorage
         try
         {
             /* retrieve the latest 'count' items ordered by their last modification time (_ts) */
-            IQueryable<PersistenceItem> query = _container
-                .GetItemLinqQueryable<PersistenceItem>()
-                .OrderByDescending(item => item.TimeStamp)
-                .Take(count);
-
-            using FeedIterator<PersistenceItem> iterator = query.ToFeedIterator();
+            using FeedIterator<PersistenceItem> iterator = _readLatestIterator(count);
 
             while (iterator.HasMoreResults)
             {

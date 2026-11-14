@@ -1,9 +1,7 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+/// Owner   : Raagam Hitesh Parmar
+/// LICENSE : MIT
 
 namespace Whiteboard.Interfaces.Shapes;
-
 
 /// <summary>
 /// Represents a square shape
@@ -13,7 +11,7 @@ public interface ISquare : IShape
     /// <summary>
     /// Center of the square
     /// </summary>
-    public Point2D Center { get; init; }
+    public Point2D Center { get; }
 
     /// <summary>
     /// Side length of the square

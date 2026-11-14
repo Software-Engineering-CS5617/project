@@ -36,7 +36,8 @@ internal static class IncidentSerializer
                 Description = evidence.Description,
                 FilePath = evidence.FilePath,
                 UploadTime = evidence.UploadTime,
-                UploadedBy = evidence.UploadedBy
+                UploadedBy = evidence.UploadedBy,
+                StoragePath = evidence.StoragePath
             });
         }
 
@@ -80,7 +81,8 @@ internal static class IncidentSerializer
                 item.Description,
                 item.FilePath,
                 item.UploadTime,
-                item.UploadedBy));
+                item.UploadedBy,
+                item.StoragePath));
         }
 
         List<IChange> changes = [];
@@ -163,6 +165,7 @@ public class IncidentEvidenceXml
     public string? FilePath { get; set; }
     public DateTime UploadTime { get; set; }
     public string UploadedBy { get; set; } = "";
+    public string? StoragePath { get; set; }
 
     public IncidentEvidenceXml() { }
 }

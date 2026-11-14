@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -25,9 +26,16 @@ public static class PngEncoder
     {
         ArgumentNullException.ThrowIfNull(bitmap);
 
+        Trace.TraceInformation(
+        "[Screenshare] Starting PNG encoding for bitmap ({0}x{1}).", bitmap.Width, bitmap.Height);
+
         using var stream = new MemoryStream();
         bitmap.Save(stream, s_codec, null);
-        return stream.ToArray();
+
+        byte[] encodedData = stream.ToArray();
+
+        Trace.TraceInformation("[Screenshare] PNG encoding completed. Output size: {0} bytes.", encodedData.Length);
+        return encodedData;
     }
 
     /// <summary>
@@ -53,6 +61,7 @@ public static class PngEncoder
             // another thread may still be initializing GDI+ codec list
             sleep(10 * attempt);
         }
+        Trace.TraceError("[Screenshare] PNG encoder lookup failed after {0} attempts.", LookupAttempts);
 
         throw new InvalidOperationException("GDI+ has no PNG encoder");
     }

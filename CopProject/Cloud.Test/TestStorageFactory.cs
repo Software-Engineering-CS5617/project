@@ -24,7 +24,9 @@ public class TestStorageFactory
             (ModuleType.Insights, "Insights"),
             (ModuleType.LocationTracker, "LocationTracker"),
             (ModuleType.UX, "UX"),
-            (ModuleType.ScreenShare, "ScreenShare")
+            (ModuleType.ScreenShare, "ScreenShare"),
+            (ModuleType.CrashGroups, "CrashGroups"),
+            (ModuleType.CrashReports, "CrashReports")
         ];
 
         foreach ((ModuleType module, string expectedContainer) in mappings)

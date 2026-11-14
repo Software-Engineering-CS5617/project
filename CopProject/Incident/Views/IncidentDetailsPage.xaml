@@ -31,34 +31,38 @@
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock
-                    Text="{Binding Incident.Title}"
+                    Text="{Binding Incident.Title, Mode=OneWay}"
                     FontSize="24"
                     FontWeight="Bold"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock
-                    Text="{Binding Incident.Id}"
+                    Text="{Binding Incident.Id, Mode=OneWay}"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     FontSize="12" />
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                <!-- Toggle Edit Button -->
                 <Button
-                    Content="{Binding EditButtonText}"
+                    Content="{Binding EditButtonText, Mode=OneWay}"
                     Command="{Binding ToggleEditModeCommand}"
-                    Visibility="{Binding ReadOnlyVisibility}" />
+                    Visibility="{Binding EditButtonVisibility, Mode=OneWay}" />
+
+                <Button
+                    Content="Unresolve"
+                    Command="{Binding UnresolveIncidentCommand}"
+                    Visibility="{Binding UnresolveButtonVisibility, Mode=OneWay}" />
 
                 <!-- Save / Cancel Buttons when editing -->
                 <Button
                     Content="Cancel"
                     Command="{Binding CancelEditCommand}"
-                    Visibility="{Binding EditVisibility}" />
+                    Visibility="{Binding EditVisibility, Mode=OneWay}" />
 
                 <Button
                     Content="Save Changes"
                     Style="{StaticResource AccentButtonStyle}"
                     Command="{Binding SaveChangesCommand}"
-                    Visibility="{Binding EditVisibility}" />
+                    Visibility="{Binding EditVisibility, Mode=OneWay}" />
             </StackPanel>
         </Grid>
 
@@ -66,10 +70,10 @@
         <InfoBar
             Grid.Row="1"
             Title="Error"
-            Message="{Binding ErrorMessage}"
+            Message="{Binding ErrorMessage, Mode=OneWay}"
             IsOpen="True"
             Severity="Error"
-            Visibility="{Binding ErrorVisibility}" />
+            Visibility="{Binding ErrorVisibility, Mode=OneWay}" />
 
         <!-- Main Content Area -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
@@ -95,7 +99,7 @@
 
                             <TextBox
                                 Header="Description"
-                                Text="{Binding Incident.Description}"
+                                Text="{Binding Incident.Description, Mode=OneWay}"
                                 IsReadOnly="True"
                                 TextWrapping="Wrap"
                                 AcceptsReturn="True" />
@@ -113,16 +117,16 @@
                                     <TextBlock Text="Status" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                                     <TextBlock
-                                        Text="{Binding Incident.Status}"
+                                        Text="{Binding Incident.Status, Mode=OneWay}"
                                         FontSize="16"
                                         FontWeight="SemiBold"
-                                        Visibility="{Binding ReadOnlyVisibility}" />
+                                        Visibility="{Binding ReadOnlyVisibility, Mode=OneWay}" />
 
                                     <ComboBox
                                         HorizontalAlignment="Stretch"
                                         ItemsSource="{Binding StatusOptions}"
                                         SelectedItem="{Binding EditableStatus, Mode=TwoWay}"
-                                        Visibility="{Binding EditVisibility}" />
+                                        Visibility="{Binding EditVisibility, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <!-- Category -->
@@ -130,16 +134,16 @@
                                     <TextBlock Text="Category" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                                     <TextBlock
-                                        Text="{Binding Incident.Category}"
+                                        Text="{Binding Incident.Category, Mode=OneWay}"
                                         FontSize="16"
                                         FontWeight="SemiBold"
-                                        Visibility="{Binding ReadOnlyVisibility}" />
+                                        Visibility="{Binding ReadOnlyVisibility, Mode=OneWay}" />
 
                                     <ComboBox
                                         HorizontalAlignment="Stretch"
                                         ItemsSource="{Binding CategoryOptions}"
                                         SelectedItem="{Binding EditableCategory, Mode=TwoWay}"
-                                        Visibility="{Binding EditVisibility}" />
+                                        Visibility="{Binding EditVisibility, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <!-- Severity -->
@@ -147,16 +151,16 @@
                                     <TextBlock Text="Severity" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                                     <TextBlock
-                                        Text="{Binding Incident.Severity}"
+                                        Text="{Binding Incident.Severity, Mode=OneWay}"
                                         FontSize="16"
                                         FontWeight="SemiBold"
-                                        Visibility="{Binding ReadOnlyVisibility}" />
+                                        Visibility="{Binding ReadOnlyVisibility, Mode=OneWay}" />
 
                                     <ComboBox
                                         HorizontalAlignment="Stretch"
                                         ItemsSource="{Binding SeverityOptions}"
                                         SelectedItem="{Binding EditableSeverity, Mode=TwoWay}"
-                                        Visibility="{Binding EditVisibility}" />
+                                        Visibility="{Binding EditVisibility, Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
 
@@ -170,17 +174,17 @@
 
                                 <StackPanel Grid.Column="0" Spacing="2">
                                     <TextBlock Text="Created By" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding Incident.CreatedBy}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Incident.CreatedBy, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Spacing="2">
                                     <TextBlock Text="Creation Time" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding Incident.CreationTime}" />
+                                    <TextBlock Text="{Binding Incident.CreationTime, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2" Spacing="2">
                                     <TextBlock Text="Last Updated" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding Incident.UpdateTime}" />
+                                    <TextBlock Text="{Binding Incident.UpdateTime, Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -198,20 +202,20 @@
                             <TextBlock Text="Location Details" FontSize="18" FontWeight="SemiBold" />
 
                             <!-- Read-Only View -->
-                            <StackPanel Spacing="8" Visibility="{Binding ReadOnlyVisibility}">
-                                <TextBlock Text="{Binding Incident.Location.Address, TargetNullValue='No address specified'}" FontWeight="Medium" />
+                            <StackPanel Spacing="8" Visibility="{Binding ReadOnlyVisibility, Mode=OneWay}">
+                                <TextBlock Text="{Binding Incident.Location.Address, Mode=OneWay, TargetNullValue='No address specified'}" FontWeight="Medium" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     FontSize="12">
                                     <Run Text="Lat: " />
-                                    <Run Text="{Binding Incident.Location.Latitude}" />
+                                    <Run Text="{Binding Incident.Location.Latitude, Mode=OneWay}" />
                                     <Run Text=" | Long: " />
-                                    <Run Text="{Binding Incident.Location.Longitude}" />
+                                    <Run Text="{Binding Incident.Location.Longitude, Mode=OneWay}" />
                                 </TextBlock>
                             </StackPanel>
 
                             <!-- Editable View -->
-                            <StackPanel Spacing="12" Visibility="{Binding EditVisibility}">
+                            <StackPanel Spacing="12" Visibility="{Binding EditVisibility, Mode=OneWay}">
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -252,10 +256,12 @@
                             <Grid>
                                 <TextBlock Text="Evidence Attachments" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
 
+                                <!-- Hidden when the incident is resolved -->
                                 <Button
                                     HorizontalAlignment="Right"
                                     Content="Add Evidence"
-                                    Click="AddEvidence_Click" />
+                                    Click="AddEvidence_Click"
+                                    Visibility="{Binding EditActionsVisibility, Mode=OneWay}" />
                             </Grid>
 
                             <ListView ItemsSource="{Binding Evidences}" SelectionMode="None" MaxHeight="200">
@@ -263,7 +269,11 @@
                                     <DataTemplate>
                                         <Grid Padding="4" ColumnSpacing="12">
                                             <StackPanel Spacing="2">
-                                                <TextBlock Text="{Binding FilePath}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding StoragePath}" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="Uploaded by:" FontWeight="SemiBold"  />
+                                                    <TextBlock Text="{Binding UploadedBy}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Grid>
@@ -289,10 +299,12 @@
                                     FontWeight="SemiBold"
                                     VerticalAlignment="Center" />
 
+                                <!-- Hidden when the incident is resolved -->
                                 <Button
                                     HorizontalAlignment="Right"
                                     Content="Add Incidents"
-                                    Click="CorrelateIncidents_Click" />
+                                    Click="CorrelateIncidents_Click"
+                                    Visibility="{Binding EditActionsVisibility, Mode=OneWay}" />
                             </Grid>
 
                             <ListView

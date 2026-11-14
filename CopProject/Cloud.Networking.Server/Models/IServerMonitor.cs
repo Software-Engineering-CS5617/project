@@ -7,16 +7,16 @@ namespace Cloud.Networking.Server.Models;
 /// <summary>
 /// Abstraction over the server monitor so that consumers can be tested with mocks.
 /// </summary>
-public interface IServerMonitor
+public interface IServerMonitor : IDisposable
 {
     /// <summary>Raised whenever the monitored connections or messages change.</summary>
     event Action? Changed;
 
-    /// <summary>Gets the currently active server connections.</summary>
+    /// <summary>Gets the currently active server connections, oldest first.</summary>
     IReadOnlyList<LiveConnection> Connections { get; }
 
-    /// <summary>Gets the messages recorded by the server.</summary>
-    IReadOnlyList<Message> Messages { get; }
+    /// <summary>Gets the number of currently active connections (cheaper than <see cref="Connections"/>).</summary>
+    int ConnectionCount { get; }
 
     /// <summary>Creates a new client connection.</summary>
     /// <param name="connectionId">The unique identifier of the connection.</param>
@@ -26,7 +26,8 @@ public interface IServerMonitor
     /// <param name="connectionId">The connection id to remove.</param>
     void Disconnected(string connectionId);
 
-    /// <summary>Records a message received by the server.</summary>
-    /// <param name="message">The message to record.</param>
-    void RecordMessage(Message message);
+    /// <summary>Gets the most recent messages (read from the message store), newest first.</summary>
+    /// <param name="count">The maximum number of messages to return.</param>
+    /// <returns>A read-only list of messages.</returns>
+    Task<IReadOnlyList<Message>> GetRecentMessagesAsync(int count);
 }

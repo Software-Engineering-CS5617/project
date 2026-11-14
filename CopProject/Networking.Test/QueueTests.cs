@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -88,8 +88,7 @@ public class QueueTests
         ManualResetEventSlim waitingStarted = new(false);
         bool waitResult = false;
 
-        Thread waitingThread = new(() =>
-        {
+        Thread waitingThread = new(() => {
             waitingStarted.Set();
             waitResult = queue.WaitForItem(2000);
         });

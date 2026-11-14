@@ -19,12 +19,21 @@ public static class StorageFactory
     /// </summary>
     /// <param name="module"></param>
     /// <returns>IStorage instance ready to use</returns>
-    public static async Task<IStorage> CreateAsync(ModuleType module)
+    public static Task<IStorage> CreateAsync(ModuleType module)
+    {
+        return CreateAsync(module, s_cosmosClient);
+    }
+
+    // The overload lets tests provide a mocked CosmosClient without creating
+    // a real client or connecting to a Cosmos account.
+    internal static async Task<IStorage> CreateAsync(
+        ModuleType module,
+        Lazy<CosmosClient> cosmosClient)
     {
         string containerName = GetContainerName(module);
 
         CosmosStorage storage = new CosmosStorage(
-            s_cosmosClient.Value,
+            cosmosClient.Value,
             CosmosSettings.DatabaseName,
             containerName);
 

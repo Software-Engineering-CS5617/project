@@ -9,6 +9,11 @@ public interface IIncidentController
 
     Task<Incident> GetIncidentById(Guid id);
 
+    /// <summary>
+    /// Refreshes Incidents from the backend and updates the local cache.
+    /// </summary>
+    Task Refresh();
+
     Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null);
 
     Task<List<Incident>> GetCorrelatedIncidents(Guid id);

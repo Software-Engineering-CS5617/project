@@ -1,6 +1,7 @@
 ﻿// to capture whether we need to transfer full frame or partial or nothing
 
 using System.Drawing;
+using System.Diagnostics;
 
 namespace ScreenShare;
 
@@ -40,6 +41,7 @@ public sealed class ImageDiffResult : IDisposable
 
     public static ImageDiffResult Delta(List<Tile> changedTiles)
     {
+        Trace.TraceInformation("[Screenshare] Delta result created. Changed tiles: {0}.", changedTiles.Count);
         return new ImageDiffResult(
             isUnchanged: false,
             isFullFrame: false,
@@ -49,6 +51,7 @@ public sealed class ImageDiffResult : IDisposable
 
     public static ImageDiffResult CreateFullFrame(Bitmap frame)
     {
+        Trace.TraceInformation("[Screenshare] Full-frame result created. Dimensions: {0}x{1}.", frame.Width, frame.Height);
         return new ImageDiffResult(
             isUnchanged: false,
             isFullFrame: true,

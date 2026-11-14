@@ -5,20 +5,35 @@
 namespace Cloud.Networking.Server.Models;
 
 /// <summary>
-/// Maintains an in-memory snapshot of server connections and messages.
+/// Monitors live server connections and message changed signals.
 /// </summary>
 public sealed class ServerMonitor : IServerMonitor
 {
-    /// <summary>Identifier used for messages originating from the server.</summary>
-    public const string ServerSenderId = "server";
-    private const int MaxMessages = 200;
-
     private readonly object _gate = new();
     private readonly Dictionary<string, DateTimeOffset> _connections = [];
-    private readonly Queue<Message> _messages = new();
+    private readonly IMessageStore _store;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// invoked on addition of messages or addition or removal of connections
+    /// </summary>
     public event Action? Changed;
+
+    /// <summary>Any message added to the store notifies listeners.</summary>
+    private void OnMessageAdded(Message _)
+    {
+        Changed?.Invoke();
+    }
+
+    /// <summary>Initializes the monitor and starts listening to the store for new messages.</summary>
+    /// <param name="store">The store that owns the messages.</param>
+    public ServerMonitor(IMessageStore store)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+
+        _store = store;
+        _store.MessageAdded += OnMessageAdded;
+    }
+
 
     /// <inheritdoc />
     public IReadOnlyList<LiveConnection> Connections
@@ -35,15 +50,20 @@ public sealed class ServerMonitor : IServerMonitor
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<Message> Messages
+    public int ConnectionCount
     {
         get {
             lock (_gate)
             {
-                // Newest first
-                return _messages.Reverse().ToArray();
+                return _connections.Count;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<Message>> GetRecentMessagesAsync(int count)
+    {
+        return _store.GetRecentAsync(count);
     }
 
     /// <inheritdoc />
@@ -72,21 +92,9 @@ public sealed class ServerMonitor : IServerMonitor
         Changed?.Invoke();
     }
 
-    /// <inheritdoc />
-    public void RecordMessage(Message message)
+    /// <summary>Stops listening to the store.</summary>
+    public void Dispose()
     {
-        ArgumentNullException.ThrowIfNull(message);
-
-        lock (_gate)
-        {
-            _messages.Enqueue(message);
-
-            if (_messages.Count > MaxMessages)
-            {
-                _messages.Dequeue();
-            }
-        }
-
-        Changed?.Invoke();
+        _store.MessageAdded -= OnMessageAdded;
     }
 }

@@ -1,15 +1,11 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+﻿/// Owner   : Raagam Hitesh Parmar
+/// LICENSE : MIT
 
 using System;
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Shapes;
+using System.Threading.Tasks;
 using Whiteboard.Client;
-using Windows.Foundation;
+using Whiteboard.Interfaces;
+using Whiteboard.Items;
 
 namespace Whiteboard.ViewModels;
 
@@ -17,110 +13,59 @@ namespace Whiteboard.ViewModels;
 /// Represents the state when the Pen tool is selected
 /// </summary>
 /// <inheritdoc/>
-[ExcludeFromCodeCoverage]
-// Temporary exclusion from code coverage
-public class PenState : IViewModelState
+public class PenState : ViewModelStateBase
 {
-    /// <summary>
-    /// The whiteboard client
-    /// </summary>
-    private readonly IWhiteboardClient _whiteboardClient;
-
-    /// <summary>
-    /// The canvas UI
-    /// </summary>
-    private readonly Canvas _canvas;
-
-    /// <summary>
-    /// Current toolbar information
-    /// </summary>
-    private readonly ToolbarInfo _toolbarInfo;
-
-    /// <summary>
-    /// Flag to check whether the user is currently drawing on screen
-    /// </summary>
-    private bool _isDrawing = false;
-
-    /// <summary>
-    /// Start point of the polyline
-    /// </summary>
-    private Point _startPoint;
-
     /// <summary>
     /// Active polyline
     /// </summary>
-    private Polyline _polyline;
+    private IFreehand? _freehand;
 
-    public PenState(IWhiteboardClient whiteboardClient, Canvas canvas, ToolbarInfo toolbarInfo)
+    public PenState(IWhiteboardClient whiteboardClient, ICanvasPreview preview, ToolbarInfo toolbarInfo) : base(whiteboardClient, preview, toolbarInfo)
     {
-        ArgumentNullException.ThrowIfNull(whiteboardClient);
-        ArgumentNullException.ThrowIfNull(canvas);
-        ArgumentNullException.ThrowIfNull(toolbarInfo);
-
-        _whiteboardClient = whiteboardClient;
-        _canvas = canvas;
-        _toolbarInfo = toolbarInfo;
     }
 
-    public void PointerPressed(object sender, PointerRoutedEventArgs e)
+    public override void PointerPressed(Point2D point)
     {
-        // Try capturing the pointer
-        if (!_canvas.CapturePointer(e.Pointer))
-        {
-            return;
-        }
-
         // Set flag to begin drawing
         _isDrawing = true;
 
-        // Record the location where the pointer was pressed
-        _startPoint = e.GetCurrentPoint(_canvas).Position;
-
         // Create a new polyline with brush and fill properties taken from the toolbar
-        _polyline = new Polyline {
-            Stroke = _toolbarInfo.BorderBrush,
-            StrokeThickness = _toolbarInfo.StrokeThickness,
-            StrokeLineJoin = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            IsHitTestVisible = false // disable hit testing as long as the drawing is in progress
+        _freehand = new FreehandItem() {
+            CreatedBy = WhiteboardClient.UserId,
+
+            StrokeColor = ToolbarInfo.BorderColor,
+            StrokeWidth = ToolbarInfo.BorderWidth,
+
+            // Begin the polyline with the first point
+            Points = [point],
+
+            // Add the Z index information
+            Zindex = GetNextZIndex()
         };
 
-        // Begin the polyline with the first point
-        _polyline.Points.Add(_startPoint);
-
-        // Add the polyline to the canvas for rendering
-        _canvas.Children.Add(_polyline);
-
-        // Mark the event as handled
-        e.Handled = true;
+        // Preview the drawing
+        Preview.ShowPreview(_freehand);
     }
 
-    public void PointerMoved(object sender, PointerRoutedEventArgs e)
+    public override void PointerMoved(Point2D point)
     {
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _freehand is null)
         {
             return;
         }
 
-        if (_polyline is not null)
-        {
-            // Get the current pointer position
-            Point currentPoint = e.GetCurrentPoint(_canvas).Position;
+        // Add the current cursor point to the polyline
+        _freehand.Points.Add(point);
 
-            // Add the current cursor point to the polyline
-            _polyline.Points.Add(currentPoint);
-        }
-
-        // Mark the event as handled
-        e.Handled = true;
+        // Preview the drawing
+        Preview.ShowPreview(_freehand);
     }
 
-    public void PointerReleased(object sender, PointerRoutedEventArgs e)
+    public override void PointerReleased(Point2D point)
     {
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _freehand is null)
         {
             return;
         }
@@ -128,30 +73,24 @@ public class PenState : IViewModelState
         // Unset flag to stop drawing
         _isDrawing = false;
 
-        // Release the captured pointer
-        _canvas.ReleasePointerCapture(e.Pointer);
+        // Stop preview
+        Preview.ClearPreview();
 
-        if (_polyline is not null)
+        // Send to whiteboard client state manager off the UI thread
+        if (_freehand.Points.Count >= 2)
         {
-            // Add tooltip
-            ToolTip toolTip = new(_whiteboardClient.UserId, DateTime.Now);
-            ToolTipService.SetToolTip(_polyline, toolTip);
-
-            // Enable hit testing on the polyline
-            _polyline.IsHitTestVisible = true;
+            IFreehand item = _freehand;
+            Task.Run(() => WhiteboardClient.AddItem(item));
         }
 
         // Reset polyline state back to null
-        _polyline = null;
-
-        // Mark the event as handled
-        e.Handled = true;
+        _freehand = null;
     }
 
-    public void PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    public override void PointerCaptureLost(Point2D point)
     {
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _freehand is null)
         {
             return;
         }
@@ -159,13 +98,10 @@ public class PenState : IViewModelState
         // Unset flag to stop drawing
         _isDrawing = false;
 
-        if (_polyline is not null)
-        {
-            // Remove partially formed polyline from the canvas
-            _canvas.Children.Remove(_polyline);
-        }
+        // Stop preview
+        Preview.ClearPreview();
 
         // Reset polyline state back to null
-        _polyline = null;
+        _freehand = null;
     }
 }

@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Utils\Utils.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Filesync.Test" />
   </ItemGroup>
 </Project>
