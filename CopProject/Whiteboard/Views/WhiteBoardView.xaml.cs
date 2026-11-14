@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Whiteboard.Interfaces;
 using Whiteboard.ViewModels;
@@ -31,6 +32,11 @@ public sealed partial class WhiteBoardView : UserControl
 
         _toolbarInfo = new(Colors.Black, 3, Colors.Black);
         _viewModel.InitializeViewModel(WhiteboardCanvas, _toolbarInfo);
+
+        // TextBox controls mark pointer press/release as handled, so the canvas must
+        // opt in to handled events; otherwise tools like the eraser never see them.
+        WhiteboardCanvas.AddHandler(PointerPressedEvent, new PointerEventHandler(WhiteboardCanvas_PointerPressed), handledEventsToo: true);
+        WhiteboardCanvas.AddHandler(PointerReleasedEvent, new PointerEventHandler(WhiteboardCanvas_PointerReleased), handledEventsToo: true);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -129,15 +135,19 @@ public sealed partial class WhiteBoardView : UserControl
 
     private void WhiteboardCanvas_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (e.OriginalSource is TextBox)
+        bool isOnTextbox = IsInsideTextbox(e.OriginalSource as DependencyObject);
+
+        // Let the textbox keep the press when the current tool wants to type into it
+        if (isOnTextbox && !_viewModel.HandlesPointerOnTextbox)
         {
             return;
         }
 
-        // Attempt to capture the pointer
-        if (WhiteboardCanvas.CapturePointer(e.Pointer))
+        // Attempt to capture the pointer. A textbox may already hold the capture,
+        // in which case the press is still forwarded (e.g. so the eraser works).
+        if (WhiteboardCanvas.CapturePointer(e.Pointer) || isOnTextbox)
         {
-            // If successful, get the current pointer position
+            // Get the current pointer position
             Point p = e.GetCurrentPoint(WhiteboardCanvas).Position;
 
             // Pass the pointer position to the view model for computation
@@ -146,6 +156,24 @@ public sealed partial class WhiteBoardView : UserControl
             // Mark the event as handled
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// Walks up the visual tree to check whether an element belongs to a TextBox on the canvas.
+    /// </summary>
+    private bool IsInsideTextbox(DependencyObject? element)
+    {
+        while (element is not null && element != WhiteboardCanvas)
+        {
+            if (element is TextBox)
+            {
+                return true;
+            }
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
     }
 
     private void WhiteboardCanvas_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)

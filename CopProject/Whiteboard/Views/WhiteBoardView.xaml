@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <UserControl
     x:Name="foo"
     x:Class="Whiteboard.Views.WhiteBoardView"
@@ -313,9 +313,7 @@
                     Background="Transparent"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
-                    PointerPressed="WhiteboardCanvas_PointerPressed"
                     PointerMoved="WhiteboardCanvas_PointerMoved"
-                    PointerReleased="WhiteboardCanvas_PointerReleased"
                     PointerCaptureLost="WhiteboardCanvas_PointerCaptureLost"/>
             </Border>
         </Grid>
