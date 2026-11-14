@@ -234,6 +234,7 @@ public class Synchroniser : ISync, IFileOperations
             }
             catch (Exception ex) when (IsExpectedFileError(ex))
             {
+                Trace.WriteLine($"[Synchroniser] File operation failed for '{path}': {ex}");
                 results[path] = default!;
                 errors.Add($"{path}: {ex.Message}");
             }
@@ -334,6 +335,7 @@ public class Synchroniser : ISync, IFileOperations
         }
         catch (Exception ex)
         {
+            Trace.WriteLine($"[Synchroniser] Synchronise failed: {ex}");
             OnSyncError?.Invoke(ex.Message);
         }
     }
