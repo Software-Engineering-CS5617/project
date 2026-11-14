@@ -10,7 +10,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- GRID MODE (scrollable) -->
+        <!-- GRID MODE: fills the space above the control bar and scrolls when the tiles don't fit -->
         <Grid Grid.Row="0" Visibility="{x:Bind ViewModel.IsGridMode, Mode=OneWay}">
             <GridView x:Name="TileGrid"
                       ItemsSource="{x:Bind ViewModel.Tiles}"
@@ -18,13 +18,15 @@
                       IsItemClickEnabled="True"
                       ItemClick="Tile_Click"
                       ContainerContentChanging="TileGrid_ContainerContentChanging"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center">
-
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollMode="Enabled"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
 
                 <GridView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <ItemsWrapGrid Orientation="Horizontal" CacheLength="2"/>
+                        <!-- tiles wrap into rows, centred across the width -->
+                        <ItemsWrapGrid Orientation="Horizontal" HorizontalAlignment="Center" CacheLength="2"/>
                     </ItemsPanelTemplate>
                 </GridView.ItemsPanel>
 
@@ -61,9 +63,9 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12"/>
         </Grid>
 
-        <!-- CONTROL BAR (both modes) -->
+        <!-- CONTROL BAR (both modes): its own row, so it stays at the bottom of the control -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                    Spacing="12" Padding="12">
+                    VerticalAlignment="Bottom" Spacing="12" Padding="12">
             <!-- "Start screen sharing" when off; turns red with "Stop screen sharing" while sharing -->
             <ToggleButton x:Name="ShareButton"
                           AutomationProperties.AutomationId="ShareButton"

@@ -157,10 +157,10 @@
                 </Border>
 
                 <Border x:Name="SharePanel" Background="White" CornerRadius="10" Visibility="Collapsed">
-                    <StackPanel Padding="20">
+                    <Grid Padding="20">
                         <!-- SCREEN SHARING TEAM: add your UI here -->
                         <screenshare:ScreenShareGridView x:Name="ScreenShareView"/>
-                    </StackPanel>
+                    </Grid>
                 </Border>
 
                 <Border x:Name="BoardPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
