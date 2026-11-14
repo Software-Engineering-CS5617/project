@@ -30,7 +30,7 @@ public class ControllerUserTests
         Assert.Null(user.ProfilePicture);
         Assert.True(user.IsHost);
         Assert.Equal("Host",user.RoleDisplay);
-        Assert.Equal("bala@xyz.com#10.10.10.10#9999", user.UserKey);
+        Assert.Equal("bala@xyz.com", user.UserKey);
     }
 
     [Fact]
