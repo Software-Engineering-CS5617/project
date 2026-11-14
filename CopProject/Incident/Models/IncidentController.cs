@@ -110,7 +110,7 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = request.Evidences.ToDictionary(
-                e => $"{_relativePath}/{e.Item1.Id}",
+                e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
                 e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} evidence files to file synchronizer service for incident with title {request.Title} created by {request.CreatedBy}");
@@ -125,7 +125,7 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = request.Evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
                 : e.Item1).ToList();
 
             Incident incident = new Incident(
@@ -288,7 +288,7 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = evidences.ToDictionary(
-                    e => $"{_relativePath}/{e.Item1.Id}",
+                    e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
                     e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} new evidence files to file synchronizer service.");
@@ -303,7 +303,7 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
                 : e.Item1).ToList();
 
             clone.AddEvidence(evidenceMeta);
