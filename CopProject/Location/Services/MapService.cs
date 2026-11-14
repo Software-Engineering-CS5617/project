@@ -1,6 +1,7 @@
 ﻿using Incidents;
 using LocationTracker.Interfaces;
 using LocationTracker.Models;
+using System.Diagnostics;
 
 namespace LocationTracker.Services;
 
@@ -34,12 +35,14 @@ public class MapService : IMapService
     public Task<List<Incident>> GetNearbyIncidentsAsync(double latitude, double longitude, double radius)
     {
         if (!Coordinates.IsValid(latitude, longitude))
-        {
+        {   
+            Trace.TraceWarning($"[Location] MapService.GetNearbyIncidentsAsync: Invalid coordinates ({latitude}, {longitude}).");
             throw new ArgumentOutOfRangeException(nameof(latitude), "The coordinates are outside the valid range.");
         }
 
         if (double.IsNaN(radius) || double.IsInfinity(radius) || radius < 0)
         {
+            Trace.TraceWarning($"[Location] MapService.GetNearbyIncidentsAsync: Invalid radius {radius}.");
             throw new ArgumentOutOfRangeException(nameof(radius), "The radius must be a non-negative finite value.");
         }
 
@@ -52,6 +55,7 @@ public class MapService : IMapService
     {
         if (!Coordinates.IsValid(latitude, longitude))
         {
+            Trace.TraceWarning($"[Location] MapService.GetLocationForClickAsync: Invalid coordinates ({latitude}, {longitude}).");
             return null;
         }
 
@@ -64,6 +68,7 @@ public class MapService : IMapService
         (double Latitude, double Longitude)? coordinates = await _geocoding.FindCoordinatesAsync(address);
         if (coordinates == null)
         {
+            Trace.TraceInformation($"[Location] MapService.SearchAddressAsync: Could not find coordinates for address {address}.");
             return null;
         }
 

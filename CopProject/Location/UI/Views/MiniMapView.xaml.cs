@@ -5,6 +5,7 @@ using LocationTracker.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using System.Diagnostics;
 
 namespace LocationTracker.Views;
 
@@ -75,7 +76,14 @@ public sealed partial class MiniMapView : UserControl
 
     private async void MiniMapView_Loaded(object sender, RoutedEventArgs e)
     {
-        await InitializeMapAsync();
+        try
+        {
+            await InitializeMapAsync();
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"[Location] MiniMapView.MiniMapView_Loaded: Error occurred while initializing the map: {ex.Message}");
+        }
     }
 
     /// <summary>Initializes WebView2 before loading the map.</summary>
@@ -108,6 +116,7 @@ public sealed partial class MiniMapView : UserControl
             !double.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double longitude) ||
             !Coordinates.IsValid(latitude, longitude))
         {
+            Trace.TraceWarning($"[Location] MiniMapView.WebMessageReceived: Invalid message '{args.TryGetWebMessageAsString()}'.");
             return;
         }
 
@@ -119,6 +128,10 @@ public sealed partial class MiniMapView : UserControl
         CoreWebView2NavigationCompletedEventArgs args)
     {
         _isMapReady = args.IsSuccess;
+        if (!args.IsSuccess)
+        {
+            Trace.TraceError($"[Location] MiniMapView.MapView_NavigationCompleted: Map navigation failed: {args.WebErrorStatus}");
+        }
         await UpdatePinAsync();
     }
 
@@ -131,7 +144,14 @@ public sealed partial class MiniMapView : UserControl
 
         string lat = _latitude.ToString(CultureInfo.InvariantCulture);
         string lng = _longitude.ToString(CultureInfo.InvariantCulture);
-        await MapView.ExecuteScriptAsync($"showLocation({lat}, {lng});");
+        try
+        {
+            await MapView.ExecuteScriptAsync($"showLocation({lat}, {lng});");
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"[Location] MiniMapView.UpdatePinAsync: Failed to move pin: {ex.Message}");
+        }
     }
 
     private const string MapPage = """

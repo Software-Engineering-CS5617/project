@@ -4,6 +4,7 @@ using Incidents;
 using LocationTracker.Interfaces;
 using LocationTracker.Models;
 using LocationTracker.ViewModels.Utils;
+using System.Diagnostics;
 
 namespace LocationTracker.ViewModels;
 
@@ -119,8 +120,15 @@ public sealed class LocationMapViewModel : ViewModelBase
         }
 
         ErrorMessage = string.Empty;
-        List<Incident> incidents =
-            await _mapService.GetIncidentsForMapAsync(BuildFilter());
+        List<Incident> incidents;
+        try{
+            incidents = await _mapService.GetIncidentsForMapAsync(BuildFilter());
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"[Location] LocationMapViewModel.LoadAsync: Error occurred while loading incidents: {ex.Message}");
+            return;
+        }
 
         Incidents.Clear();
         foreach (Incident incident in incidents)
@@ -136,7 +144,7 @@ public sealed class LocationMapViewModel : ViewModelBase
                 incident.Location.Longitude,
                 incident.Location.Address));
         }
-
+        Trace.TraceInformation($"[Location] LocationMapViewModel.LoadAsync: Loaded {Incidents.Count} incidents.");
         IncidentsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -173,6 +181,7 @@ public sealed class LocationMapViewModel : ViewModelBase
     {
         if (!IsDateRangeValid())
         {
+            Trace.TraceWarning($"[Location] LocationMapViewModel.ApplyFilter: Invalid date range FromDate={FromDate} ToDate={ToDate}.");
             ErrorMessage = "The start date must be before the end date.";
             return;
         }

@@ -5,6 +5,7 @@ using LocationTracker.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using System.Diagnostics;
 
 namespace LocationTracker.Views;
 
@@ -29,7 +30,14 @@ public sealed partial class LocationMapView : UserControl
 
     private async void LocationMapView_Loaded(object sender, RoutedEventArgs e)
     {
-        await InitializeMapAsync();
+        try
+        {
+            await InitializeMapAsync();
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"[Location] LocationMapView.LocationMapView_Loaded: Error occurred while initializing the map: {ex.Message}");
+        }
     }
 
     /// <summary>Initializes WebView2 before loading the map.</summary>
@@ -65,7 +73,16 @@ public sealed partial class LocationMapView : UserControl
     {
         string messageJson = args.TryGetWebMessageAsString()
             ?? args.WebMessageAsJson;
-        using JsonDocument message = JsonDocument.Parse(messageJson);
+        JsonDocument message;
+        try
+        {
+            message = JsonDocument.Parse(messageJson);
+        }
+        catch (JsonException ex)
+        {
+            Trace.TraceError($"[Location] LocationMapView.WebView_WebMessageReceived: Failed to parse message JSON: {ex.Message}");
+            return;
+        }
         if (!message.RootElement.TryGetProperty("type", out JsonElement type))
         {
             return;
@@ -95,9 +112,14 @@ public sealed partial class LocationMapView : UserControl
         {
             return;
         }
-
-        string incidents = JsonSerializer.Serialize(_viewModel.Incidents);
-        await MapView.ExecuteScriptAsync($"setIncidents({incidents});");
+        try{
+            string incidents = JsonSerializer.Serialize(_viewModel.Incidents);
+            await MapView.ExecuteScriptAsync($"setIncidents({incidents});");
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"[Location] LocationMapView.ViewModel_IncidentsChanged: Error occurred while updating incidents on the map: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -110,8 +132,9 @@ public sealed partial class LocationMapView : UserControl
         {
             location = await _map.GetLocationForClickAsync(latitude, longitude);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            Trace.TraceWarning($"[Location] LocationMapView.OnMapClickedAsync: Address lookup failed, using raw coordinates: {ex.Message}");
             location = new IncidentLocation(latitude, longitude);
         }
 
@@ -127,6 +150,7 @@ public sealed partial class LocationMapView : UserControl
     {
         if (!args.IsSuccess)
         {
+            Trace.TraceError($"[Location] LocationMapView.MapView_NavigationCompleted: Map navigation failed: {args.WebErrorStatus}");
             return;
         }
 
