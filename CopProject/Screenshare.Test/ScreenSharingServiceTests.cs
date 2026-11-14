@@ -94,6 +94,83 @@ public class ScreenSharingServiceTests
         //resultAfterReset.FullFrame?.Dispose();
     }
 
+    // 1280x720 is 20x12 = 240 tiles, so one tile is about 0.44% of the frame
+    private const int WIDE = 1280;
+    private const int TALL = 720;
+
+    [Fact]
+    public void ProcessFrame_TinyChange_IsHeldBackAsUnchanged()
+    {
+        using var frame1 = new Bitmap(WIDE, TALL);
+        using var frame2 = new Bitmap(WIDE, TALL);
+        frame2.SetPixel(10, 10, Color.Red);
+
+        using var source = new FakeImageSource(frame1, frame2);
+        using var service = new ScreenSharingService(source, new ImageDiffer());
+
+        using ImageDiffResult first = service.ProcessFrame();
+        using ImageDiffResult second = service.ProcessFrame();
+
+        Assert.True(second.IsUnchanged);
+    }
+
+    [Fact]
+    public void ProcessFrame_HeldChanges_PileUpAndAreSentTogether()
+    {
+        using var frame1 = new Bitmap(WIDE, TALL);
+
+        // one tile changed: held back
+        using var frame2 = new Bitmap(WIDE, TALL);
+        frame2.SetPixel(10, 10, Color.Red);
+
+        // two more tiles changed. against frame2 that is still small
+        // the last sent frame (frame1) it is three tiles, which is over the threshold
+        using var frame3 = new Bitmap(frame2);
+        frame3.SetPixel(200, 10, Color.Red);
+        frame3.SetPixel(400, 10, Color.Red);
+
+        using var source = new FakeImageSource(frame1, frame2, frame3);
+        using var service = new ScreenSharingService(source, new ImageDiffer());
+
+        using ImageDiffResult first = service.ProcessFrame();
+        using ImageDiffResult second = service.ProcessFrame();
+        using ImageDiffResult third = service.ProcessFrame();
+
+        Assert.True(second.IsUnchanged);
+        Assert.False(third.IsUnchanged);
+        Assert.False(third.IsFullFrame);
+        Assert.Equal(3, third.ChangedTiles.Count);
+        Assert.Contains(third.ChangedTiles, tile => tile.X == 0 && tile.Y == 0);
+    }
+
+    [Fact]
+    public void ProcessFrame_HeldChange_IsSentAfterMaxHeldFrames()
+    {
+        using var blank = new Bitmap(WIDE, TALL);
+        using var changed = new Bitmap(WIDE, TALL);
+        changed.SetPixel(10, 10, Color.Red);
+
+        var frames = new List<Bitmap> { blank };
+        frames.AddRange(Enumerable.Repeat(changed, ScreenSharingService.MAX_HELD_FRAMES + 1));
+
+        using var source = new FakeImageSource(frames.ToArray());
+        using var service = new ScreenSharingService(source, new ImageDiffer());
+
+        using ImageDiffResult first = service.ProcessFrame();
+
+        for (int i = 0; i < ScreenSharingService.MAX_HELD_FRAMES; i++)
+        {
+            using ImageDiffResult held = service.ProcessFrame();
+            Assert.True(held.IsUnchanged);
+        }
+
+        using ImageDiffResult sent = service.ProcessFrame();
+
+        Assert.False(sent.IsUnchanged);
+        Assert.False(sent.IsFullFrame);
+        Assert.Single(sent.ChangedTiles);
+    }
+
     [Fact]
     public void ProcessFrame_AfterDispose_ThrowsObjectDisposedException()
     {

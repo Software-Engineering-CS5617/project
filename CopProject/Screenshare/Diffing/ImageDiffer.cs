@@ -14,16 +14,12 @@ public class ImageDiffer : IImageDiffer
     /*if more than this percentage of the screen has changed, sending individual tiles becomes less useful, so we send the complete frame.*/
     private const double FULL_FRAME_THRESHOLD = 0.50;
 
+    /*if this fraction of the screen or less has changed (1-2 tiles at 720p, like a blinking caret or a
+    hover highlight), the change is held back instead of sent. ScreenSharingService applies it.*/
+    public const double MIN_CHANGE_THRESHOLD = 0.01;
+
     private const ulong FNV_OFFSET_BASIS = 14695981039346656037UL;
     private const ulong FNV_PRIME = 1099511628211UL;
-
-    //private readonly Dictionary<(int X, int Y), ulong> previousTileHashes;
-
-    //public ImageDiffer()
-    //{
-    //    previousTileHashes =
-    //        new Dictionary<(int X, int Y), ulong>();
-    //}
 
     public ImageDiffResult Compare(Bitmap previousFrame, Bitmap currentFrame)
     {
