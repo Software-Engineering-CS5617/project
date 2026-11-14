@@ -102,6 +102,18 @@
                                 StrokeThickness="2" />
                         </Button>
 
+                         <Button
+                             x:Name="ButtonEllipse"
+                             ToolTipService.ToolTip="Ellipse"
+                             Click="ButtonEllipse_Click">
+                             <Ellipse
+                                 Width="22"
+                                 Height="14"
+                                 Fill="Transparent"
+                                 Stroke="Black"
+                                 StrokeThickness="2" />
+                         </Button>
+
                         <Button
                             x:Name="ButtonEqTriangle"
                             ToolTipService.ToolTip="Equilateral triangle"

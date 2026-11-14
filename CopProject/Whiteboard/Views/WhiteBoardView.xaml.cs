@@ -112,6 +112,11 @@ public sealed partial class WhiteBoardView : UserControl
         _viewModel.SelectTool(WhiteboardTool.Circle);
     }
 
+    private void ButtonEllipse_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        _viewModel.SelectTool(WhiteboardTool.Ellipse);
+    }
+
     private void ButtonEqTriangle_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         _viewModel.SelectTool(WhiteboardTool.EqTriangle);
