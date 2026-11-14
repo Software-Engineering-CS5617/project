@@ -113,7 +113,8 @@ public sealed partial class LocationMapView : UserControl
         {
             return;
         }
-        try{
+        try
+        {
             string incidents = JsonSerializer.Serialize(_viewModel.Incidents);
             await MapView.ExecuteScriptAsync($"setIncidents({incidents});");
         }

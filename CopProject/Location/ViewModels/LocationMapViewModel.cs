@@ -121,7 +121,8 @@ public sealed class LocationMapViewModel : ViewModelBase
 
         ErrorMessage = string.Empty;
         List<Incident> incidents;
-        try {
+        try 
+        {
             incidents = await _mapService.GetIncidentsForMapAsync(BuildFilter());
         }
         catch (Exception ex)
