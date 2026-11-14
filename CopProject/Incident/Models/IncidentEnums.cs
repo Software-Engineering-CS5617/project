@@ -7,7 +7,7 @@ public enum IncidentStatus
 
 public enum IncidentCategory
 {
-    DrunkDriving, Theft, Accident,
+    DrunkDriving, Theft, Accident, Assault, Vandalism, Murder, Other,
 }
 
 public enum IncidentSeverity

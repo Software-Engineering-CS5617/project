@@ -27,8 +27,8 @@ public sealed partial class MainWindow : Window
         IStorage storageService = await StorageFactory.CreateAsync(ModuleType.IncidentManagement);
         IFileOperations fileSynchroniser = new Synchroniser();
 
-        IIncidentController controller = await IncidentController.CreateAsync(storageService, fileSynchroniser);
         string currentUserId = "TestUser";
+        IIncidentController controller = await IncidentController.CreateAsync(currentUserId, storageService, fileSynchroniser);
         IntPtr windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
         IncidentPageContext context = new(controller, currentUserId, windowHandle);

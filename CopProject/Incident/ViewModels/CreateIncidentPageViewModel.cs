@@ -67,8 +67,6 @@ public sealed class CreateIncidentPageViewModel : ViewModelBase
     /// </summary>
     public IReadOnlyList<IncidentSeverity> Severities { get; }
 
-    // todo(@sreenath): Change signature to Tuple<IncidentEvidence, byte[]> to include the bytes of the file uploaded
-
     /// <summary>
     /// Evidence metadata displayed in the UI.
     /// </summary>

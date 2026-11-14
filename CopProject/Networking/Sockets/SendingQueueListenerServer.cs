@@ -55,12 +55,7 @@ public class SendingQueueListenerServer : IDisposable
                 continue;
             }
 
-            Packet? packet = _sendingQueue.Dequeue();
-            if (packet == null)
-            {
-                continue;
-            }
-
+            Packet packet = _sendingQueue.Dequeue()!;
             byte[] data = _packetSerializer.PacketToBytes(packet);
 
             SendDataToClient(data, packet.Destination);

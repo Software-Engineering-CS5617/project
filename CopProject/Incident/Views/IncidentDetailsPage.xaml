@@ -367,6 +367,7 @@
 
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="13" />
+                                            <TextBlock Text="{Binding ChangedBy}" FontWeight="SemiBold" TextWrapping="Wrap" FontSize="11" />
                                             <TextBlock
                                                 Text="{Binding ChangedTime}"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

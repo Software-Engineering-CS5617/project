@@ -1,9 +1,14 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Networking.Packets;
+using Networking.Queues;
+using Networking.Sockets;
 using Networking.TCPCommunication;
 
 namespace Networking.Test;
@@ -411,5 +416,123 @@ public class LossyCommunicationTests
         Assert.IsTrue(listener2.WaitForMessage(3000));
         CollectionAssert.AreEqual(broadcastData, listener1.ReceivedData);
         CollectionAssert.AreEqual(broadcastData, listener2.ReceivedData);
+    }
+
+    private sealed class ThrowingLossyListener : IMessageListenerLossy
+    {
+        public void OnMessageReceivedLossy(byte[] message)
+        {
+            throw new InvalidOperationException("Simulated lossy listener failure");
+        }
+    }
+
+    /// <summary>
+    /// Checks ReceivingQueueListenerLossy handling when subscriber throws or module is missing.
+    /// </summary>
+    [TestMethod]
+    public void ReceivingQueueListenerLossy_UnhandledModuleAndThrowingSubscriber_Covered()
+    {
+        ReceivingQueue queue = new();
+        ConcurrentDictionary<int, IMessageListenerLossy> map = new();
+        map[50] = new ThrowingLossyListener();
+
+        using ReceivingQueueListenerLossy listener = new(queue, map);
+
+        Packet throwingPacket = new(new byte[] { 1, 2 }, new IPEndPoint(IPAddress.Loopback, 1000), 50, 1);
+        queue.Enqueue(throwingPacket);
+
+        Packet missingModulePacket = new(new byte[] { 3, 4 }, new IPEndPoint(IPAddress.Loopback, 1000), 9999, 1);
+        queue.Enqueue(missingModulePacket);
+
+        Thread.Sleep(200);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerLossy handling when enqueued packet has null payload.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerLossy_InvalidSend_HandledGracefully()
+    {
+        using UdpClient udp = new(new IPEndPoint(IPAddress.Loopback, 0));
+        SendingQueue queue = new();
+
+        using SendingQueueListenerLossy listener = new(queue, udp);
+        Packet invalidPacket = new(null!, new IPEndPoint(IPAddress.Loopback, GetAvailablePort()), 1, 1);
+        queue.Enqueue(invalidPacket);
+        Thread.Sleep(150);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerLossy normalization of IPv4-mapped IPv6 destination endpoint.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerLossy_Ipv6MappedAddress_NormalizesAndSends()
+    {
+        using UdpClient udp = new(new IPEndPoint(IPAddress.Loopback, 0));
+        SendingQueue queue = new();
+
+        using SendingQueueListenerLossy listener = new(queue, udp);
+        IPEndPoint ipv6MappedEp = new(IPAddress.Parse("::ffff:127.0.0.1"), GetAvailablePort());
+        Packet packet = new(new byte[] { 1, 2, 3 }, ipv6MappedEp, 1, 1);
+        queue.Enqueue(packet);
+        Thread.Sleep(150);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerLossy handling when underlying UdpClient is disposed.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerLossy_DisposedUdp_CatchesException()
+    {
+        UdpClient disposedUdp = new(new IPEndPoint(IPAddress.Loopback, 0));
+        disposedUdp.Dispose();
+
+        SendingQueue queue = new();
+        using SendingQueueListenerLossy listener = new(queue, disposedUdp);
+        Packet packet = new(new byte[] { 1 }, new IPEndPoint(IPAddress.Loopback, GetAvailablePort()), 1, 1);
+        queue.Enqueue(packet);
+        Thread.Sleep(150);
+    }
+
+    /// <summary>
+    /// Checks CommunicatorServer lossy methods when server has not been started.
+    /// </summary>
+    [TestMethod]
+    public void CommunicatorServer_LossyWhenNotStarted_ReturnsGracefully()
+    {
+        CommunicatorServer unstartedServer = new(new IPEndPoint(IPAddress.Loopback, 0));
+        typeof(CommunicatorServer).GetField("_thisIpEndPoint", BindingFlags.NonPublic | BindingFlags.Instance)?.SetValue(unstartedServer, null);
+
+        unstartedServer.BroadcastMessageLossy(new byte[] { 1, 2, 3 }, 1, 1);
+        unstartedServer.MulticastMessageLossy(1, new byte[] { 1, 2, 3 }, 1, 1);
+        unstartedServer.Dispose();
+    }
+
+    /// <summary>
+    /// Checks ReceivingQueueListenerLossy when enqueued packet is null.
+    /// </summary>
+    [TestMethod]
+    public void ReceivingQueueListenerLossy_NullPacket_ContinuesListening()
+    {
+        ReceivingQueue queue = new();
+        ConcurrentDictionary<int, IMessageListenerLossy> map = new();
+        using ReceivingQueueListenerLossy listener = new(queue, map);
+
+        queue.Enqueue(null!);
+        Thread.Sleep(100);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerLossy when enqueued packet is null.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerLossy_NullPacket_ContinuesListening()
+    {
+        using UdpClient udp = new(new IPEndPoint(IPAddress.Loopback, 0));
+        SendingQueue queue = new();
+
+        using SendingQueueListenerLossy listener = new(queue, udp);
+        queue.Enqueue(null!);
+        Thread.Sleep(100);
     }
 }

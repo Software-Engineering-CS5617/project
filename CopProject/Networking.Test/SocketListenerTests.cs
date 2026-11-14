@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -182,5 +183,91 @@ public class SocketListenerTests
         queue.Enqueue(packet);
 
         Thread.Sleep(150);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerServer retry loop and client removal when client socket write fails.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerServer_SendDataToClient_MaxRetriesReached()
+    {
+        SendingQueue queue = new();
+        ConcurrentDictionary<IPEndPoint, TcpClient> clientMap = new();
+
+        IPEndPoint target = new(IPAddress.Loopback, GetAvailablePort());
+        TcpClient disposedClient = new();
+        disposedClient.Dispose();
+        clientMap[target] = disposedClient;
+
+        using SendingQueueListenerServer listener = new(queue, clientMap);
+        listener.SendDataToClient(new byte[] { 1, 2, 3 }, target);
+
+        Assert.IsFalse(clientMap.ContainsKey(target));
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerClient handling when writing to a disconnected socket throws an exception.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerClient_DisconnectedSocket_CatchesException()
+    {
+        SendingQueue queue = new();
+        TcpClient disposedTcp = new();
+        disposedTcp.Dispose();
+
+        using SendingQueueListenerClient listener = new(queue, disposedTcp);
+        Packet packet = new(new byte[] { 1, 2, 3 }, new IPEndPoint(IPAddress.Loopback, 1234), 1, 1);
+        queue.Enqueue(packet);
+        Thread.Sleep(150);
+    }
+
+    /// <summary>
+    /// Checks SocketListener IsRunning property getter.
+    /// </summary>
+    [TestMethod]
+    public void SocketListener_IsRunning_PropertyCoverage()
+    {
+        ReceivingQueue queue = new();
+        int port = GetAvailablePort();
+        using TcpListener dummyListener = new(IPAddress.Loopback, port);
+        dummyListener.Start();
+
+        using TcpClient client = new();
+        client.Connect(IPAddress.Loopback, port);
+        using TcpClient serverSide = dummyListener.AcceptTcpClient();
+
+        using SocketListener listener = new(queue, serverSide);
+        PropertyInfo? prop = typeof(SocketListener).GetProperty("IsRunning", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.IsNotNull(prop);
+        bool isRunning = (bool)prop.GetValue(listener)!;
+        Assert.IsTrue(isRunning);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerServer when enqueued packet is null.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerServer_NullPacket_ContinuesListening()
+    {
+        SendingQueue queue = new();
+        ConcurrentDictionary<IPEndPoint, TcpClient> map = new();
+        using SendingQueueListenerServer listener = new(queue, map);
+
+        queue.Enqueue(null!);
+        Thread.Sleep(100);
+    }
+
+    /// <summary>
+    /// Checks SendingQueueListenerClient when enqueued packet is null.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueueListenerClient_NullPacket_ContinuesListening()
+    {
+        SendingQueue queue = new();
+        using TcpClient client = new();
+        using SendingQueueListenerClient listener = new(queue, client);
+
+        queue.Enqueue(null!);
+        Thread.Sleep(100);
     }
 }

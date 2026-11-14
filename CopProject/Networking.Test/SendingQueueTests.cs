@@ -16,12 +16,12 @@ namespace Networking.Test;
 [TestClass]
 public class SendingQueueTests
 {
-    private static readonly IPEndPoint DummyEndpoint = new(IPAddress.Loopback, 8080);
+    private static readonly IPEndPoint s_dummyEndpoint = new(IPAddress.Loopback, 8080);
 
     private static Packet CreatePacket(string content, int priority, int module = 1)
     {
         byte[] payload = Encoding.UTF8.GetBytes(content);
-        return new Packet(payload, DummyEndpoint, module, priority);
+        return new Packet(payload, s_dummyEndpoint, module, priority);
     }
 
     private static string GetPacketContent(Packet packet)
@@ -378,5 +378,16 @@ public class SendingQueueTests
         queue.Clear();
 
         Assert.IsFalse(queue.WaitForItem(50));
+    }
+
+    /// <summary>
+    /// Checks that Enqueue handles a null packet safely without throwing.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueue_Enqueue_NullPacket_Handled()
+    {
+        using SendingQueue queue = new();
+        queue.Enqueue(null!);
+        Assert.AreEqual(0, queue.Size());
     }
 }

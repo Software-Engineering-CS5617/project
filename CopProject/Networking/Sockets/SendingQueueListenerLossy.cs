@@ -56,12 +56,7 @@ public class SendingQueueListenerLossy : IDisposable
                 continue;
             }
 
-            Packet? packet = _sendingQueue.Dequeue();
-            if (packet == null)
-            {
-                continue;
-            }
-
+            Packet packet = _sendingQueue.Dequeue()!;
             byte[] data = _packetSerializer.PacketToBytes(packet);
 
             try

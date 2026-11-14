@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Incidents.ViewModels;
 using Incidents.ViewModels.Utils;
@@ -97,11 +98,11 @@ public sealed partial class CreateIncidentPage : Page
             DataContext = dialogViewModel
         };
 
+        Trace.TraceInformation($"[Incidents]: Showing Add Evidence dialog for new incident.");
         ContentDialogResult result = await dialog.ShowAsync();
 
         if (result == ContentDialogResult.Primary && dialogViewModel.IsValid && ViewModel != null)
         {
-            //todo(@sreenath): Add evidence as well as bytes of the file uploaded
             (IncidentEvidence Evidence, byte[] Content) evidence = await dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
             ViewModel.Evidences.Add(evidence.Evidence);
             ViewModel._evidenceContents.Add(evidence);

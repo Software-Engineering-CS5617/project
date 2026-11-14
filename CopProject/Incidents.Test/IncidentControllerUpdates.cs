@@ -11,6 +11,7 @@ namespace Incidents.Test;
 [TestClass]
 public sealed class IncidentControllerUpdatesTest
 {
+    private readonly string _currentUserId = "test_user_id";
     private IncidentController _incidentController = null!;
     private readonly List<Incident> _mockIncidents = [];
 
@@ -49,7 +50,7 @@ public sealed class IncidentControllerUpdatesTest
     {
         IStorage cloudStorageService = new IncidentCloudStorageService();
         IFileOperations fileOperationsService = new IncidentFileSynchroniser();
-        _incidentController = await IncidentController.CreateAsync(cloudStorageService, fileOperationsService);
+        _incidentController = await IncidentController.CreateAsync(_currentUserId, cloudStorageService, fileOperationsService);
     }
 
     private readonly List<CreateIncidentRequest> _createIncidentRequests = [

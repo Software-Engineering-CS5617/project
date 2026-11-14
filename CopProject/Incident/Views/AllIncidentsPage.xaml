@@ -134,7 +134,7 @@
                         Grid.Column="2"
                         Header="Created By (User ID)"
                         HorizontalAlignment="Stretch"
-                        PlaceholderText="Enter Guid..."
+                        PlaceholderText="Enter User ID"
                         Text="{Binding CreatedByInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
             </StackPanel>

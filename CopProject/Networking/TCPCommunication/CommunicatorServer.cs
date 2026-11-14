@@ -65,6 +65,10 @@ public class CommunicatorServer : ICommunicator, IUserNotificationHandler, IDisp
             }
             _thisIpEndPoint = ipEndPoint;
             _tcpClientRequestListener = new TcpListener(ipEndPoint.Address, ipEndPoint.Port);
+            if (ipEndPoint.Address.Equals(IPAddress.IPv6Any))
+            {
+                _tcpClientRequestListener.Server.DualMode = true;
+            }
             _tcpClientRequestListener.Start();
 
             _sendingQueueListenerServer = new SendingQueueListenerServer(_sendingQueue, _clientToTcpListenerMap);
@@ -131,30 +135,14 @@ public class CommunicatorServer : ICommunicator, IUserNotificationHandler, IDisp
                 Trace.WriteLine($"[Networking] CommunicatorServer: TCP Listener Socket stopped or closed: {e.Message}");
                 break;
             }
-            catch (Exception e)
-            {
-                Trace.WriteLine($"[Networking] CommunicatorServer.AcceptClientConnections unexpected exception: {e.Message}");
-                if (!IsRunning)
-                {
-                    break;
-                }
-            }
         }
 
     }
 
     public IPEndPoint GetFreeIPEndPoint()
     {
-        IPAddress ipAddress = IPAddress.Loopback;
-        try
-        {
-            IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());
-            ipAddress = hostEntry.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
-        }
-        catch
-        {
-            ipAddress = IPAddress.Loopback;
-        }
+        IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());
+        IPAddress ipAddress = hostEntry.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Loopback;
         using TcpListener dummyListener = new TcpListener(IPAddress.Loopback, 0);
         dummyListener.Start();
         int port = ((IPEndPoint)dummyListener.LocalEndpoint).Port;

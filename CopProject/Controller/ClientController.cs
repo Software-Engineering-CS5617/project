@@ -22,11 +22,18 @@ public sealed class ClientController : IControllerService
     private readonly Dictionary<string,ControllerUser> _knownUsers = new();
     private readonly List<IUserNotificationHandler> _notificationHandlers=new();
     internal bool _initialSync=false;
+    internal readonly ManualResetEventSlim _joinResponseEvent = new(false);
+    public string? LastErrorMessage { get; internal set; }
+    internal bool _isJoined = false;
 
     // Events
     public event EventHandler<MeetingEndedEventArgs>? MeetingEnded;
     public event EventHandler<UserJoinedEventArgs>? UserJoined;
     public event EventHandler<UserLeftEventArgs>? UserLeft;
+    public event EventHandler<string>? SecurityAlertRaised;
+    internal void RaiseSecurityAlert(string alert) => SecurityAlertRaised?.Invoke(this, alert);
+    public event EventHandler<string>? JoinRejected;
+    internal void RaiseJoinRejected(string reason) => JoinRejected?.Invoke(this, reason);
 
     public int ListenPort => _communicator?.ListenPort ?? 0;
     public ICommunicator? Communicator => _communicator;
@@ -119,9 +126,22 @@ public sealed class ClientController : IControllerService
         {   
             _knownUsers[user.UserKey] = user;
         }
-         string message = Protocol.FormatJoinRequest(user);
+        _joinResponseEvent.Reset();
+        _isJoined = false;
+        LastErrorMessage = null;
+        string message = Protocol.FormatJoinRequest(user);
         SendToHost(hostIp, hostPort, message);
         Trace.TraceInformation($"Sent JOIN for user '{user.Username}' to {hostIp}:{hostPort}.");
+        // Wait up to 1 second for host response
+        _joinResponseEvent.Wait(TimeSpan.FromMilliseconds(1000));
+        if (!_isJoined)
+        {
+            if (string.IsNullOrEmpty(LastErrorMessage))
+            {
+                LastErrorMessage = $"Could not connect to meeting at {hostIp}:{hostPort}.";
+            }
+            return false;
+        }
         return true;
     }
     //Sends a LEAVE message to the host the client previously joined.
@@ -242,7 +262,7 @@ public sealed class ClientController : IControllerService
         _disposed = true;
 
         // Auto-send LEAVE to host if still connected, so host cleans up this user
-        if (_hostIp != null&& _currentUser != null)
+        if (_isJoined && _hostIp != null&& _currentUser != null)
         {
             try
             {
@@ -311,6 +331,8 @@ internal class ClientNotificationListener : IMessageListener
                         ControllerUser? joinedUser = JsonSerializer.Deserialize<ControllerUser>(parsed.Payload);
                         if (joinedUser != null)
                         {
+                            _client._isJoined = true;
+                            _client._joinResponseEvent.Set();
                             if (parsed.Extra.Length > 0 && !string.IsNullOrWhiteSpace(parsed.Extra[0]))
                             {
                                 var allUsers = JsonSerializer.Deserialize<List<ControllerUser>>(parsed.Extra[0]);
@@ -391,6 +413,29 @@ internal class ClientNotificationListener : IMessageListener
                     break;
                 }
 
+            case Protocol.NotifySecurityAlert:
+                {
+                    string[] parts = parsed.Payload.Split('|');
+                    string username = parts.Length > 0 ? parts[0] : "User";
+                    string gmail = parts.Length > 1 ? parts[1] : "";
+                    string ip = parts.Length > 2 ? parts[2] : "";
+                    _client.RaiseSecurityAlert($"Duplicate join blocked: '{gmail}' attempted to join from {ip} on another device.");
+                    break;
+                }
+            
+            case Protocol.NotifyJoinRejected:
+                {
+                    if (!_client._isJoined)
+                    {
+                        string reason = !string.IsNullOrWhiteSpace(parsed.Payload) 
+                            ? parsed.Payload 
+                            : "User with this email is already in the meeting.";
+                        _client.LastErrorMessage = reason;
+                        _client._joinResponseEvent.Set();
+                    }
+                    break;
+                }
+            
             default:
                 Trace.TraceWarning($"Client received unknown notification type: {parsed.Type}");
                 break;

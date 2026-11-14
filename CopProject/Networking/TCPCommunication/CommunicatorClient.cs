@@ -49,22 +49,15 @@ public class CommunicatorClient : ICommunicator, IDisposable
             _socketListener = new SocketListener(_receivingQueue, _tcpClient);
             _sendingQueueListenerClient = new SendingQueueListenerClient(_sendingQueue, _tcpClient);
 
-            try
-            {
-                int localPort = ListenPort;
-                _udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, localPort)) {
-                    EnableBroadcast = true,
-                    MulticastLoopback = true
-                };
-            }
-            catch (Exception ex)
-            {
-                Trace.WriteLine($"[Networking] CommunicatorClient: Binding to local TCP port failed, using dynamic UDP port. Exception: {ex.Message}");
-                _udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) {
-                    EnableBroadcast = true,
-                    MulticastLoopback = true
-                };
-            }
+            int localPort = ListenPort;
+            Socket clientUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            clientUdpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            clientUdpSocket.Bind(new IPEndPoint(IPAddress.Any, localPort));
+            _udpClient = new UdpClient {
+                Client = clientUdpSocket,
+                EnableBroadcast = true,
+                MulticastLoopback = true
+            };
 
             try
             {
