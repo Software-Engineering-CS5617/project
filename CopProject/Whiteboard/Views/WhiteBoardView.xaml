@@ -91,6 +91,18 @@
                         </Button>
 
                         <Button
+                            x:Name="ButtonRectangle"
+                            ToolTipService.ToolTip="Rectangle"
+                            Click="ButtonRectangle_Click">
+                            <Rectangle
+                                Width="22"
+                                Height="14"
+                                Fill="Transparent"
+                                Stroke="Black"
+                                StrokeThickness="2" />
+                        </Button>
+
+                        <Button
                             x:Name="ButtonCircle"
                             ToolTipService.ToolTip="Circle"
                             Click="ButtonCircle_Click">

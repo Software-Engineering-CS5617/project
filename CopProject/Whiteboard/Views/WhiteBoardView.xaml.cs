@@ -107,6 +107,11 @@ public sealed partial class WhiteBoardView : UserControl
 
     }
 
+    private void ButtonRectangle_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        _viewModel.SelectTool(WhiteboardTool.Rectangle);
+    }
+
     private void ButtonCircle_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         _viewModel.SelectTool(WhiteboardTool.Circle);
