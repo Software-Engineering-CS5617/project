@@ -97,6 +97,7 @@ public class CanvasPreview : ICanvasPreview
             IFreehand freehand => CreateFreehandVisual(freehand),
             ISquare square => CreateSquareVisual(square),
             ICircle circle => CreateCircleVisual(circle),
+            IEllipse ellipse => CreateEllipseVisual(ellipse),
             IEqTriangle triangle => CreateEqTriangleVisual(triangle),
             _ => null
         };
@@ -125,6 +126,28 @@ public class CanvasPreview : ICanvasPreview
         {
             visual.Points.Add(new Point(point.X, point.Y));
         }
+
+        return visual;
+    }
+
+    /// <summary>
+    /// Helper function to create an ellipse from an ellipse item
+    /// </summary>
+    /// <param name="item">Ellipse item</param>
+    /// <returns>UI ellipse</returns>
+    private static XamlEllipse CreateEllipseVisual(IEllipse item)
+    {
+        XamlEllipse visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Fill = new SolidColorBrush(item.FillColor),
+            Stroke = new SolidColorBrush(item.BorderColor),
+            StrokeThickness = item.BorderWidth,
+            IsHitTestVisible = false
+        };
+
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
 
         return visual;
     }

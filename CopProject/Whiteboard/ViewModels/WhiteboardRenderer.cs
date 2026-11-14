@@ -152,6 +152,7 @@ internal sealed class WhiteboardRenderer : IDisposable
             ITextbox textbox => CreateTextbox(textbox),
             Whiteboard.Items.Shapes.Square square => CreateSquare(square),
             Whiteboard.Items.Shapes.Circle circle => CreateCircle(circle),
+            Whiteboard.Items.Shapes.Ellipse ellipse => CreateEllipse(ellipse),
             Whiteboard.Items.Shapes.EqTriangle triangle => CreateEqTriangle(triangle),
             _ => new Border()
         };
@@ -252,6 +253,24 @@ internal sealed class WhiteboardRenderer : IDisposable
 
         Canvas.SetLeft(visual, item.Center.X - item.Radius); 
         Canvas.SetTop(visual, item.Center.Y - item.Radius);
+        ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
+        return visual;
+    }
+
+    private static XamlEllipse CreateEllipse(Whiteboard.Items.Shapes.Ellipse item)
+    {
+        XamlEllipse visual = new() {
+            Width = item.Width,
+            Height = item.Height,
+            Fill = new SolidColorBrush(ToColor(item.FillColor)),
+            Stroke = new SolidColorBrush(ToColor(item.BorderColor)),
+            StrokeThickness = item.BorderWidth,
+            IsHitTestVisible = true,
+            Tag = item.Id
+        };
+
+        Canvas.SetLeft(visual, item.BoundingBox.Left);
+        Canvas.SetTop(visual, item.BoundingBox.Top);
         ToolTipService.SetToolTip(visual, new ToolTip(item.CreatedBy, item.CreatedDateTime));
         return visual;
     }
