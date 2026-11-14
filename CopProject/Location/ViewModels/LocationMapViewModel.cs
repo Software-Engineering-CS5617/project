@@ -121,12 +121,13 @@ public sealed class LocationMapViewModel : ViewModelBase
 
         ErrorMessage = string.Empty;
         List<Incident> incidents;
-        try{
+        try {
             incidents = await _mapService.GetIncidentsForMapAsync(BuildFilter());
         }
         catch (Exception ex)
         {
             Trace.TraceError($"[Location] LocationMapViewModel.LoadAsync: Error occurred while loading incidents: {ex.Message}");
+            ErrorMessage = "Could not load incidents.";
             return;
         }
 

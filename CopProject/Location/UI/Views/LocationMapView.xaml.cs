@@ -83,6 +83,7 @@ public sealed partial class LocationMapView : UserControl
             Trace.TraceError($"[Location] LocationMapView.WebView_WebMessageReceived: Failed to parse message JSON: {ex.Message}");
             return;
         }
+        using var _ = message;
         if (!message.RootElement.TryGetProperty("type", out JsonElement type))
         {
             return;
@@ -132,7 +133,7 @@ public sealed partial class LocationMapView : UserControl
         {
             location = await _map.GetLocationForClickAsync(latitude, longitude);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
             Trace.TraceWarning($"[Location] LocationMapView.OnMapClickedAsync: Address lookup failed, using raw coordinates: {ex.Message}");
             location = new IncidentLocation(latitude, longitude);

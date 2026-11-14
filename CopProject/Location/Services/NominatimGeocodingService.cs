@@ -33,7 +33,7 @@ public class NominatimGeocodingService : IGeocodingService
         catch (HttpRequestException ex)
         {
             Trace.TraceError($"[Location] NominatimGeocodingService.GetAddressAsync: Error occurred while fetching address for coordinates ({latitude}, {longitude}): {ex.Message}");
-            return null;
+            throw;
         }
 
         using JsonDocument doc = JsonDocument.Parse(json);
@@ -61,7 +61,7 @@ public class NominatimGeocodingService : IGeocodingService
         catch (HttpRequestException ex)
         {
             Trace.TraceError($"[Location] NominatimGeocodingService.FindCoordinatesAsync: Error occurred while searching for address '{address}': {ex.Message}");
-            return null;
+            throw;
         }
 
         using JsonDocument doc = JsonDocument.Parse(json);

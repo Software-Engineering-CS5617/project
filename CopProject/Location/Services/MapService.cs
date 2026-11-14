@@ -35,7 +35,7 @@ public class MapService : IMapService
     public Task<List<Incident>> GetNearbyIncidentsAsync(double latitude, double longitude, double radius)
     {
         if (!Coordinates.IsValid(latitude, longitude))
-        {   
+        {
             Trace.TraceWarning($"[Location] MapService.GetNearbyIncidentsAsync: Invalid coordinates ({latitude}, {longitude}).");
             throw new ArgumentOutOfRangeException(nameof(latitude), "The coordinates are outside the valid range.");
         }
