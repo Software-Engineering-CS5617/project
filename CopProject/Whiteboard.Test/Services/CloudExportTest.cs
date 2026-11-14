@@ -31,22 +31,29 @@ public class CloudExportIntegrationTests
 
         IStorage storage = await StorageFactory.CreateAsync(ModuleType.WhiteBoard);
 
-        bool saved = await cloudExport.SaveExportDataToCloudAsync(exportData, whiteboardId, userId);
+        try
+        {
+            bool saved = await cloudExport.SaveExportDataToCloudAsync(exportData, whiteboardId, userId);
 
-        Assert.True(saved);
+            Assert.True(saved);
 
-        (bool Success, byte[] Data) result = await storage.Read(key);
-        Assert.True(result.Success);
+            (bool Success, byte[] Data) result = await storage.Read(key);
+            Assert.True(result.Success);
 
-        using JsonDocument document = JsonDocument.Parse(result.Data);
-        JsonElement root = document.RootElement;
+            using JsonDocument document = JsonDocument.Parse(result.Data);
+            JsonElement root = document.RootElement;
 
-        Assert.Equal(whiteboardId, root.GetProperty("BoardId").GetString());
-        Assert.Equal(userId, root.GetProperty("OwnerId").GetString());
-        Assert.Equal(exportData.FileName, root.GetProperty("FileName").GetString());
-        Assert.Equal("image/png", root.GetProperty("ContentType").GetString());
-        Assert.Equal("10x20", root.GetProperty("Dimensions").GetString());
-        Assert.Equal(exportData.ImageData, root.GetProperty("ImageData").GetBytesFromBase64());
+            Assert.Equal(whiteboardId, root.GetProperty("BoardId").GetString());
+            Assert.Equal(userId, root.GetProperty("OwnerId").GetString());
+            Assert.Equal(exportData.FileName, root.GetProperty("FileName").GetString());
+            Assert.Equal("image/png", root.GetProperty("ContentType").GetString());
+            Assert.Equal("10x20", root.GetProperty("Dimensions").GetString());
+            Assert.Equal(exportData.ImageData, root.GetProperty("ImageData").GetBytesFromBase64());
+        }
+        finally
+        {
+            await storage.Delete(key);
+        }
     }
 
     private sealed class TempCanvasRender(CanvasExportData exportData) : ICanvasRender

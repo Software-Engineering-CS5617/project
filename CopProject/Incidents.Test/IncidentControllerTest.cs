@@ -29,7 +29,7 @@ public sealed class IncidentControllerTest
         new IncidentFilter(Severity: IncidentSeverity.High),
         new IncidentFilter(FromDateTime: new DateTime(2026, 1, 1)),
         new IncidentFilter(ToDateTime: new DateTime(2026, 12, 31)),
-        new IncidentFilter(CreatedBy: Guid.NewGuid()),
+        new IncidentFilter(CreatedBy: "person1"),
 
         // Multiple filters
         new IncidentFilter(
@@ -52,7 +52,7 @@ public sealed class IncidentControllerTest
             Severity: IncidentSeverity.High,
             FromDateTime: new DateTime(2026, 1, 1, 0, 0, 0),
             ToDateTime: new DateTime(2026, 12, 31, 23, 59, 59),
-            CreatedBy: Guid.NewGuid(),
+            CreatedBy: "person1",
             Location: new IncidentLocationFilter(
                 Latitude: 10.80,
                 Longitude: 76.72,
@@ -98,11 +98,11 @@ public sealed class IncidentControllerTest
         var incident = new CreateIncidentRequest(
             title: "Test Incident",
             description: "This is a test incident.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
-            evidences: new List<IncidentEvidence>()
+            evidences: new List<(IncidentEvidence Evidence, byte[] Content)>()
         );
 
         Incident createdIncident = await _incidentController.CreateIncident(incident);
@@ -120,11 +120,11 @@ public sealed class IncidentControllerTest
         var incident = new CreateIncidentRequest(
             title: "Test Incident",
             description: "This is a test incident.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
-            evidences: new List<IncidentEvidence>()
+            evidences: new List<(IncidentEvidence Evidence, byte[] Content)>()
         );
 
         Incident createdIncident = await _incidentController.CreateIncident(incident);
@@ -158,7 +158,7 @@ public sealed class IncidentControllerTest
             id: Guid.NewGuid(),
             title: "Test Incident 1",
             description: "This is a test incident 1.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             status: IncidentStatus.Reported,
@@ -173,7 +173,7 @@ public sealed class IncidentControllerTest
             id: Guid.NewGuid(),
             title: "Test Incident 2",
             description: "This is a test incident 2.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person2",
             category: IncidentCategory.DrunkDriving,
             severity: IncidentSeverity.High,
             status: IncidentStatus.InProgress,
@@ -188,7 +188,7 @@ public sealed class IncidentControllerTest
             id: Guid.NewGuid(),
             title: "Test Incident 3",
             description: "This is a test incident 3.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             category: IncidentCategory.Theft,
             severity: IncidentSeverity.Low,
             status: IncidentStatus.InProgress,
@@ -200,6 +200,12 @@ public sealed class IncidentControllerTest
             edges: []
          )
         ]);
+    }
+
+    [TestMethod]
+    public async Task RefreshIncidents_ReturnsTask()
+    {
+        await _incidentController.Refresh();
     }
 
     /// <summary>
@@ -241,7 +247,7 @@ public sealed class IncidentControllerTest
             id: Guid.NewGuid(),
             title: "Resolved Incident",
             description: "This incident is resolved.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             status: IncidentStatus.Resolved,
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
@@ -268,14 +274,16 @@ public sealed class IncidentControllerTest
         }
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => _incidentController.AddEvidence(incident, new List<IncidentEvidence> {
-                new IncidentEvidence(
+            () => _incidentController.AddEvidence(incident, new List<(IncidentEvidence, byte[])> {
+                (new IncidentEvidence(
                     Id: Guid.NewGuid(),
                     Description: "Test Evidence",
                     FilePath: "/path/to/test_image.jpg",
                     UploadTime: DateTime.UtcNow,
-            UploadedBy: Guid.NewGuid()
-        )}));
+                    UploadedBy: "person1"
+                    ), []
+                )
+            }));
     }
 
     [TestMethod]
@@ -284,11 +292,11 @@ public sealed class IncidentControllerTest
         Incident? incident = await _incidentController.CreateIncident(new CreateIncidentRequest(
             title: "Test Incident",
             description: "This is a test incident.",
-            createdBy: Guid.NewGuid(),
+            createdBy: "person1",
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
-            evidences: new List<IncidentEvidence>()
+            evidences: new List<(IncidentEvidence Evidence, byte[] Content)>()
         ));
 
         if (incident == null)
@@ -296,14 +304,14 @@ public sealed class IncidentControllerTest
             Assert.Fail("No incidents created for testing.");
         }
 
-        Assert.IsTrue(await _incidentController.AddEvidence(incident, new List<IncidentEvidence> {
-            new IncidentEvidence(
+        Assert.IsTrue(await _incidentController.AddEvidence(incident, new List<(IncidentEvidence, byte[])> {
+            (new IncidentEvidence(
                 Id: Guid.NewGuid(),
                 Description: "Test Evidence",
                 FilePath: "/path/to/test_image.jpg",
                 UploadTime: DateTime.UtcNow,
-                UploadedBy: Guid.NewGuid()
-            )
+                UploadedBy: "person1"
+            ), [])
         }));
     }
 }

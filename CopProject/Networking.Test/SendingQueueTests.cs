@@ -16,12 +16,12 @@ namespace Networking.Test;
 [TestClass]
 public class SendingQueueTests
 {
-    private static readonly IPEndPoint DummyEndpoint = new(IPAddress.Loopback, 8080);
+    private static readonly IPEndPoint s_dummyEndpoint = new(IPAddress.Loopback, 8080);
 
     private static Packet CreatePacket(string content, int priority, int module = 1)
     {
         byte[] payload = Encoding.UTF8.GetBytes(content);
-        return new Packet(payload, DummyEndpoint, module, priority);
+        return new Packet(payload, s_dummyEndpoint, module, priority);
     }
 
     private static string GetPacketContent(Packet packet)
@@ -334,5 +334,60 @@ public class SendingQueueTests
 
         Assert.AreEqual(producerCount * itemsPerProducer, dequeuedCount);
         Assert.IsTrue(queue.IsEmpty());
+    }
+
+    /// <summary>
+    /// Checks that WaitForItem signals when packets are enqueued at various priorities.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueue_WaitForItem_SignalsWhenPacketEnqueued()
+    {
+        using SendingQueue queue = new();
+
+        // Enqueue High priority
+        queue.Enqueue(CreatePacket("HighItem", 3));
+        Assert.IsTrue(queue.WaitForItem(100));
+
+        // Dequeue it
+        Assert.IsNotNull(queue.Dequeue());
+
+        // Queue is now empty, WaitForItem should time out
+        Assert.IsFalse(queue.WaitForItem(50));
+
+        // Enqueue Medium priority
+        queue.Enqueue(CreatePacket("MedItem", 1));
+        Assert.IsTrue(queue.WaitForItem(100));
+        Assert.IsNotNull(queue.Dequeue());
+        Assert.IsFalse(queue.WaitForItem(50));
+
+        // Enqueue Low priority
+        queue.Enqueue(CreatePacket("LowItem", 0));
+        Assert.IsTrue(queue.WaitForItem(100));
+        Assert.IsNotNull(queue.Dequeue());
+        Assert.IsFalse(queue.WaitForItem(50));
+    }
+
+    /// <summary>
+    /// Checks that SendingQueue.Clear resets the AutoResetEvent signal.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueue_Clear_ResetsSignal()
+    {
+        using SendingQueue queue = new();
+        queue.Enqueue(CreatePacket("item", 2));
+        queue.Clear();
+
+        Assert.IsFalse(queue.WaitForItem(50));
+    }
+
+    /// <summary>
+    /// Checks that Enqueue handles a null packet safely without throwing.
+    /// </summary>
+    [TestMethod]
+    public void SendingQueue_Enqueue_NullPacket_Handled()
+    {
+        using SendingQueue queue = new();
+        queue.Enqueue(null!);
+        Assert.AreEqual(0, queue.Size());
     }
 }

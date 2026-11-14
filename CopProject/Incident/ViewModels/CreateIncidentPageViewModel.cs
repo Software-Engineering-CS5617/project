@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Incidents;
 using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
 
@@ -14,7 +15,7 @@ namespace Incidents.ViewModels;
 public sealed class CreateIncidentPageViewModel : ViewModelBase
 {
     private readonly IIncidentController _incidentController;
-    private readonly Guid _currentUserId;
+    private readonly string _currentUserId;
 
     /// <summary>
     /// Raised after an incident is created successfully.
@@ -35,7 +36,7 @@ public sealed class CreateIncidentPageViewModel : ViewModelBase
     /// </summary>
     public CreateIncidentPageViewModel(
         IIncidentController incidentController,
-        Guid currentUserId)
+        string currentUserId)
     {
         _incidentController = incidentController ?? throw new ArgumentNullException(nameof(incidentController));
         _currentUserId = currentUserId;
@@ -69,9 +70,14 @@ public sealed class CreateIncidentPageViewModel : ViewModelBase
     // todo(@sreenath): Change signature to Tuple<IncidentEvidence, byte[]> to include the bytes of the file uploaded
 
     /// <summary>
-    /// Evidence items attached to the incident.
+    /// Evidence metadata displayed in the UI.
     /// </summary>
     public ObservableCollection<IncidentEvidence> Evidences { get; } = [];
+
+    /// <summary>
+    /// Evidence metadata and corresponding file contents submitted with the incident.
+    /// </summary>
+    public List<(IncidentEvidence Evidence, byte[] Content)> _evidenceContents = [];
 
     /// <summary>
     /// Validates the form and creates the incident when Submit is clicked.
@@ -251,7 +257,7 @@ public sealed class CreateIncidentPageViewModel : ViewModelBase
                 SelectedCategory,
                 SelectedSeverity,
                 location,
-                Evidences.ToList() // @todo(@sreenath): need to verify
+                _evidenceContents.ToList()
             );
 
             await _incidentController.CreateIncident(request);

@@ -2,11 +2,10 @@
 
 using Cloud.Persistence;
 using FileSynchroniser.Models;
-using Incidents.Models;
+using Incidents;
 
 public class IncidentController : IIncidentController
 {
-    // TODO(@shreesh): IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly string _relativePath = "Incidents";
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
@@ -52,8 +51,7 @@ public class IncidentController : IIncidentController
                 }
                 catch (Exception)
                 {
-                    // todo(@shreesh): Improve error handling here. For now, we just skip the incident if deserialization fails.
-                    // throw new InvalidOperationException($"Failed to deserialize incident with ID {id}: ", ex);
+
                 }
             }
 
@@ -69,49 +67,6 @@ public class IncidentController : IIncidentController
         }
     }
 
-    /// <summary>
-    /// Creates a new Incident.
-    /// </summary>
-    /// <param name="request"> Information to create the Incident.</param>
-    /// <returns>The created Incident.</returns>
-    /// <exception cref="InvalidOperationException">Throws InvalidOperationException if Incident can't be created.</exception>
-    [Obsolete("Use CreateIncidentV2() instead.")]
-    public async Task<Incident> CreateIncident(CreateIncidentRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        Incident incident = new Incident(
-            request.Title,
-            request.Description,
-            request.CreatedBy,
-            request.Category,
-            request.Severity,
-            request.Location,
-            request.Evidences.ToList()
-        );
-
-        bool success;
-        try
-        {
-            success = await _cloudStorageService.Create(
-                incident.Id.ToString(),
-                Incidents.IncidentSerializer.Serialize(incident)
-            );
-
-            if (!success)
-            {
-                throw new InvalidOperationException("Failed to persist incident to cloud storage.");
-            }
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("Failed to persist incident to cloud storage.", ex);
-        }
-
-        _incidentMap.Add(incident.Id, incident);
-
-        return incident;
-    }
 
     /// <summary>
     /// Redacts/Delete files that were saved by FileSynchronizer.
@@ -129,7 +84,6 @@ public class IncidentController : IIncidentController
         }
         catch (Exception)
         {
-            // Redaction is best-effort; report the directory as inconsistent.
             return false;
         }
     }
@@ -140,7 +94,7 @@ public class IncidentController : IIncidentController
     /// <param name="request"> Information to create the Incident.</param>
     /// <returns>The created Incident.</returns>
     /// <exception cref="InvalidOperationException">Throws InvalidOperationException if Incident can't be created.</exception>
-    public async Task<Incident> CreateIncidentV2(CreateIncidentRequestV2 request)
+    public async Task<Incident> CreateIncident(CreateIncidentRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -157,7 +111,11 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to save evidence files to file synchronizer service.");
             }
 
-            List<IncidentEvidence> evidenceMeta = request.Evidences.Select(e => e.Item1).ToList();
+            // set storage path in which files will be stored by file synchronizer service.
+            List<IncidentEvidence> evidenceMeta = request.Evidences.Select(e =>
+                e.Item1.FilePath is not null
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                : e.Item1).ToList();
 
             Incident incident = new Incident(
                 request.Title,
@@ -211,6 +169,48 @@ public class IncidentController : IIncidentController
             ToList();
     }
 
+    /// <summary>
+    /// Refetches Incidents from Cloud Storage and updates the local cache.
+    /// </summary>
+    public async Task Refresh()
+    {
+        try
+        {
+            (bool success, List<string> keys) = await _cloudStorageService.GetAllKeys();
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to refresh from cloud storage.");
+            }
+
+            (success, Dictionary<string, byte[]> data) = await _cloudStorageService.ReadAll(keys.ToArray());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to refresh from cloud storage.");
+            }
+
+            _incidentMap.Clear();
+
+            foreach ((string id, byte[] incidentBytes) in data)
+            {
+                try
+                {
+                    Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
+                    _incidentMap[incident.Id] = incident;
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to refresh from cloud storage: ", ex);
+        }
+    }
+
     private Incident? FindIncident(Guid id)
     {
         return _incidentMap.GetValueOrDefault(id);
@@ -253,10 +253,10 @@ public class IncidentController : IIncidentController
         return correlated;
     }
 
-    public async Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
+    public async Task<bool> AddEvidence(Incident incident, List<(IncidentEvidence, byte[])> evidences)
     {
         ArgumentNullException.ThrowIfNull(incident);
-        ArgumentNullException.ThrowIfNull(evidence);
+        ArgumentNullException.ThrowIfNull(evidences);
 
         if (IncidentResolved(incident))
         {
@@ -265,10 +265,27 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.AddEvidence(evidence);
-
         try
         {
+            Dictionary<string, byte[]> files = evidences.ToDictionary(
+                    e => $"{_relativePath}/{e.Item1.Id}",
+                    e => e.Item2);
+
+            IReadOnlyDictionary<string, bool> saveResults = _fileSynchronizerService.SaveFile(files);
+
+            if (saveResults.Count != files.Count || saveResults.Values.Any(saved => !saved))
+            {
+                throw new InvalidOperationException("Failed to save evidence files to file synchronizer service.");
+            }
+
+            // set storage path in which files will be stored by file synchronizer service.
+            List<IncidentEvidence> evidenceMeta = evidences.Select(e =>
+                e.Item1.FilePath is not null
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                : e.Item1).ToList();
+
+            clone.AddEvidence(evidenceMeta);
+
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
@@ -287,7 +304,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            incident.AddEvidence(evidence);
+            incident.AddEvidence(evidenceMeta);
 
             return true;
         }
@@ -308,7 +325,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateStatus(newStatus, Guid.Empty);
+        clone.UpdateStatus(newStatus, "");
 
         try
         {
@@ -330,7 +347,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            incident.UpdateStatus(newStatus, Guid.Empty);
+            incident.UpdateStatus(newStatus, "");
 
             return true;
         }
@@ -356,7 +373,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateCategory(newCategory, Guid.Empty);
+        clone.UpdateCategory(newCategory, "");
 
         try
         {
@@ -378,7 +395,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            incident.UpdateCategory(newCategory, Guid.Empty);
+            incident.UpdateCategory(newCategory, "");
 
             return true;
         }
@@ -404,7 +421,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateSeverity(newSeverity, Guid.Empty);
+        clone.UpdateSeverity(newSeverity, "");
 
         try
         {
@@ -426,7 +443,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            incident.UpdateSeverity(newSeverity, Guid.Empty);
+            incident.UpdateSeverity(newSeverity, "");
 
             return true;
         }
@@ -448,7 +465,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateLocation(location, Guid.Empty);
+        clone.UpdateLocation(location, "");
 
         try
         {
@@ -470,7 +487,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            incident.UpdateLocation(location, Guid.Empty);
+            incident.UpdateLocation(location, "");
 
             return true;
         }
@@ -507,9 +524,8 @@ public class IncidentController : IIncidentController
         Incident incident1Clone = incident1.Clone();
         Incident incident2Clone = incident2.Clone();
 
-        bool success = Incident.AddAdjacentIncident(incident1Clone, incident2Clone, Guid.Empty);
+        bool success = Incident.AddAdjacentIncident(incident1Clone, incident2Clone, "");
 
-        // TODO(@shreesh): Change the signature to void and throw error
         if (!success)
         {
             return false;
@@ -545,7 +561,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            Incident.AddAdjacentIncident(incident1, incident2, Guid.Empty);
+            Incident.AddAdjacentIncident(incident1, incident2, "");
 
             return true;
         }

@@ -1,36 +1,30 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Incidents;
 using LocationTracker.Interfaces;
 using LocationTracker.ViewModels;
-using Microsoft.Web.WebView2.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
 
 namespace LocationTracker.Views;
 
 public sealed partial class LocationMapView : UserControl
 {
     public event Action<Guid>? IncidentSelected;
+    public event Action<IncidentLocation>? LocationSelected;
 
-    private IMapService? _map;
-    private LocationMapViewModel? _viewModel;
-    private bool _filterOptionsInitialized;
+    private readonly IMapService _map;
+    private readonly LocationMapViewModel _viewModel;
     private bool _mapInitializationStarted;
 
-    public LocationMapView()
+    public LocationMapView(IMapService map)
     {
         InitializeComponent();
-        Loaded += LocationMapView_Loaded;
-    }
-
-    public void Initialize(IMapService map)
-    {
         _map = map;
         _viewModel = new LocationMapViewModel(map);
-        if (IsLoaded)
-        {
-            _ = InitializeMapAsync();
-        }
+        _viewModel.IncidentsChanged += ViewModel_IncidentsChanged;
+        DataContext = _viewModel;
+        Loaded += LocationMapView_Loaded;
     }
 
     private async void LocationMapView_Loaded(object sender, RoutedEventArgs e)
@@ -42,7 +36,7 @@ public sealed partial class LocationMapView : UserControl
     /// <remarks>OpenStreetMap requires a descriptive User-Agent for tile requests.</remarks>
     private async Task InitializeMapAsync()
     {
-        if (_map is null || _mapInitializationStarted || MapView.CoreWebView2 is not null)
+        if (_mapInitializationStarted || MapView.CoreWebView2 is not null)
         {
             return;
         }
@@ -60,15 +54,32 @@ public sealed partial class LocationMapView : UserControl
         MapView.NavigateToString(MapPage);
     }
 
-    private void WebView_WebMessageReceived(
+    /// <summary>
+    /// Handles messages received from the WebView2 control, such as map clicks and incident selections.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="args"></param>
+    private async void WebView_WebMessageReceived(
         CoreWebView2 sender,
         CoreWebView2WebMessageReceivedEventArgs args)
     {
         string messageJson = args.TryGetWebMessageAsString()
             ?? args.WebMessageAsJson;
         using JsonDocument message = JsonDocument.Parse(messageJson);
-        if (!message.RootElement.TryGetProperty("type", out JsonElement type) ||
-            type.GetString() != "incident-click" ||
+        if (!message.RootElement.TryGetProperty("type", out JsonElement type))
+        {
+            return;
+        }
+
+        if (type.GetString() == "map-click")
+        {
+            double latitude = message.RootElement.GetProperty("lat").GetDouble();
+            double longitude = message.RootElement.GetProperty("lng").GetDouble();
+            await OnMapClickedAsync(latitude, longitude);
+            return;
+        }
+
+        if (type.GetString() != "incident-click" ||
             !message.RootElement.TryGetProperty("id", out JsonElement id) ||
             !Guid.TryParse(id.GetString(), out Guid incidentId))
         {
@@ -78,109 +89,48 @@ public sealed partial class LocationMapView : UserControl
         IncidentSelected?.Invoke(incidentId);
     }
 
-    private async void MapView_NavigationCompleted(
-        WebView2 sender,
-        CoreWebView2NavigationCompletedEventArgs args)
+    private async void ViewModel_IncidentsChanged(object? sender, EventArgs e)
     {
-        if (!args.IsSuccess || _map is null)
+        if (MapView.CoreWebView2 is null)
         {
             return;
-        }
-
-        await RefreshIncidentsAsync();
-    }
-
-    private IncidentFilter BuildFilter()
-    {
-        string? title = string.IsNullOrWhiteSpace(TitleFilterBox.Text)
-            ? null : TitleFilterBox.Text;
-
-        IncidentCategory? category = GetCategory();
-        IncidentSeverity? severity = GetSeverity();
-        IncidentStatus? status = GetStatus();
-
-        DateTime? from = FromDatePicker.Date?.DateTime;
-        DateTime? to = ToDatePicker.Date?.DateTime;
-
-        return new IncidentFilter(title, status, category, severity, from, to, null, null);
-    }
-
-    private IncidentCategory? GetCategory()
-    {
-        string value = CategoryFilterBox.SelectedItem?.ToString() ?? "All";
-
-        if (value != "All" && Enum.TryParse<IncidentCategory>(value, out var result))
-        {
-            return result;
-        }
-
-        return null;
-    }
-
-    private IncidentSeverity? GetSeverity()
-    {
-        string value = SeverityFilterBox.SelectedItem?.ToString() ?? "All";
-
-        if (value != "All" && Enum.TryParse<IncidentSeverity>(value, out var result))
-        {
-            return result;
-        }
-
-        return null;
-    }
-
-    private IncidentStatus? GetStatus()
-    {
-        string value = StatusFilterBox.SelectedItem?.ToString() ?? "All";
-
-        if (value != "All" && Enum.TryParse<IncidentStatus>(value, out var result))
-        {
-            return result;
-        }
-
-        return null;
-    }
-
-    private async void FilterChanged(object sender, object e)
-    {
-        if (_map is null || MapView.CoreWebView2 is null)
-        {
-            return;
-        }
-
-        await RefreshIncidentsAsync();
-    }
-
-    private async Task RefreshIncidentsAsync()
-    {
-        if (_viewModel is null)
-        {
-            return;
-        }
-
-        await _viewModel.LoadAsync(BuildFilter());
-        if (!_filterOptionsInitialized)
-        {
-            _filterOptionsInitialized = true;
-            SetFilterOptions(_viewModel.Incidents);
         }
 
         string incidents = JsonSerializer.Serialize(_viewModel.Incidents);
         await MapView.ExecuteScriptAsync($"setIncidents({incidents});");
     }
 
-    private void SetFilterOptions(IEnumerable<MapIncident> incidents)
+    /// <summary>
+    /// Handles a click on the map by retrieving the location and invoking the LocationSelected event.
+    /// </summary>
+    private async Task OnMapClickedAsync(double latitude, double longitude)
     {
-        CategoryFilterBox.ItemsSource = new[] { "All" }
-            .Concat(incidents.Select(incident => incident.Category).Distinct());
-        SeverityFilterBox.ItemsSource = new[] { "All" }
-            .Concat(incidents.Select(incident => incident.Severity).Distinct());
-        StatusFilterBox.ItemsSource = new[] { "All" }
-            .Concat(incidents.Select(incident => incident.Status).Distinct());
+        IncidentLocation? location;
+        try
+        {
+            location = await _map.GetLocationForClickAsync(latitude, longitude);
+        }
+        catch (HttpRequestException)
+        {
+            location = new IncidentLocation(latitude, longitude);
+        }
 
-        CategoryFilterBox.SelectedIndex = 0;
-        SeverityFilterBox.SelectedIndex = 0;
-        StatusFilterBox.SelectedIndex = 0;
+        if (location is not null)
+        {
+            LocationSelected?.Invoke(location);
+        }
+    }
+
+    private async void MapView_NavigationCompleted(
+        WebView2 sender,
+        CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (!args.IsSuccess)
+        {
+            return;
+        }
+
+        await _viewModel.LoadAsync();
     }
 
     private const string MapPage = """
@@ -218,6 +168,14 @@ public sealed partial class LocationMapView : UserControl
                   .bindPopup(popup);
               });
             }
+
+            map.on('click', e => {
+              window.chrome.webview.postMessage(JSON.stringify({
+                type: 'map-click',
+                lat: e.latlng.lat,
+                lng: e.latlng.lng
+              }));
+            });
 
             function selectIncident(id) {
               window.chrome.webview.postMessage(JSON.stringify({

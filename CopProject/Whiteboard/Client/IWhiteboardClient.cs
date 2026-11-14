@@ -5,6 +5,7 @@
 using System;
 using Networking;
 using Whiteboard.Interfaces;
+using Whiteboard.Network.Dtos;
 
 namespace Whiteboard.Client;
 
@@ -22,6 +23,22 @@ public interface IWhiteboardClient : IMessageListener
     /// Username of the current client
     /// </summary>
     public string UserId { get; }
+
+    /// <summary>
+    /// Gets whether the server reports an available undo action for this user.
+    /// </summary>
+    public bool CanUndo { get; }
+
+    /// <summary>
+    /// Gets whether the server reports an available redo action for this user.
+    /// </summary>
+    public bool CanRedo { get; }
+
+    /// <summary>
+    /// Raised when this user's history availability arrives from the server.
+    /// UI subscribers must dispatch control updates to the UI thread.
+    /// </summary>
+    event Action HistoryChanged;
 
     /// <summary>
     /// Request a complete whiteboard sync to the server
@@ -45,4 +62,21 @@ public interface IWhiteboardClient : IMessageListener
     /// </summary>
     /// <param name="item">Item to edit</param>
     public void EditItem(IItem item);
+
+    /// <summary>
+    /// Requests undo of this user's latest available action.
+    /// An empty history leaves the canvas unchanged.
+    /// </summary>
+    public void Undo();
+
+    /// <summary>
+    /// Requests redo of this user's latest available undone action.
+    /// An empty redo history leaves the canvas unchanged.
+    /// </summary>
+    public void Redo();
+
+    /// <summary>
+    /// Requests server to replace the shared canvas with a saved snapshot
+    /// </summary>
+    public void RestoreSnapshot(WhiteboardDto whiteboard);
 }

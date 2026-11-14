@@ -18,7 +18,7 @@ public class Program
         // Do: dotnet run -- http://localhost:5038/hub [or https://localhost:7279/hub]
         string url = args.Length > 0 ? args[0] : "http://localhost:5038/hub";
 
-        await using SignalRMessenger messenger = new(url);
+        await using IMessenger messenger = MessengerFactory.GetMessenger(url);
 
         // register all the subscribers
         messenger.MessageReceived += m => Print($"[{m.Timestamp.ToLocalTime():HH:mm:ss}] {m.SenderId}: {m.Content}");

@@ -1,55 +1,92 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Chat;
 using Cloud.Persistence;
+using Controller;
+using Controller.Models;
+using Controller.ViewModels;
+using Cloud.Networking;
+using Cloud.UI.ViewModels;
+using Cloud.UI.Views;
 using FileSynchroniser.Models;
+using FileSynchroniser.Views;
+using FileSynchroniser.Network;
 using Incidents;
-using Incidents.Views ;
+using Incidents.Views;
 using LocationTracker.Services;
 using LocationTracker.Views;
 using Utils;
-using Controller.Models;
-using Controller.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using WinRT.Interop;
 using Microsoft.UI.Xaml.Media;
-// main file
+using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
+using Whiteboard.Services;
+using Whiteboard.ViewModels;
+using UI.Services;
+using UI.ViewModels;
+using UX.Models;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
+
 
 namespace UX;
+
 public sealed partial class MainWindow : Window
 {
     private const string HostRole = "Host";
     private const string ParticipantRole = "Participant";
     private const string AllowedDomain = "@smail.iitpkd.ac.in";
     private readonly ObservableCollection<string> _records = new() { "Weekly Review - Mon, 28 Sep - 45 min", "Patrol Planning - Fri, 25 Sep - 30 min", "Case Briefing - Wed, 23 Sep - 1 hr 10 min" };
-    private Task<IncidentPageContext>? incidentContextTask;
+    private Task<IncidentPageContext>? _incidentContextTask;
     private string _userId = string.Empty;
+    private string _userEmail = string.Empty;
+    private string _picture = string.Empty;
+    private string? _pickedPicture;
     private string _meetingId = string.Empty;
     private string _meetingPort = string.Empty;
-    private string _role = ParticipantRole;
     private bool _inMeeting;
     private bool _isHost;
     private bool _resizingChat;
-    private readonly MeetingSession _session = new();      
+    private readonly MeetingSession _session = new();
     private readonly ControllerMeetingService _meetingService = new();
+    private ChatServer? _chatServer;
+    private ChatClient? _chatClient;
+    private ChatClientAdapter? _chatAdapter;
+    private ChatPanelViewModel? _chatViewModel;
+    private WhiteboardSession? _whiteboardSession;
+    private WhiteBoardViewModel? _whiteboardViewModel;
+    private string Role => _isHost ? HostRole : ParticipantRole;
+
+    // CLOUD TEAM: created on first visit to the Cloud page and kept, so the connection
+    // and the notification list survive pressing Back and coming back.
+    private NotificationServiceViewModel? _cloudViewModel;
+
+
     public MainWindow()
     {
         InitializeComponent();
         Title = "SecureMeet";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 800));
         RecordsList.ItemsSource = _records;
+        IncidentsFrame.Navigated += IncidentsFrame_Navigated;
 
         // CONTROLLER TEAM: initialize controller service and bind MeetingView
         _meetingService.Initialize(_session);
         ControllerMeetingView.ViewModel = new MeetingViewModel(_session);
 
-        _session.ParticipantCountChanged += count =>
-        {
+
+        _ = new ScreenShare.ScreenShareMeetingIntegration(_meetingService, _session, ScreenShareView);
+        _session.ParticipantCountChanged += count => {
             DispatcherQueue.TryEnqueue(() => SetParticipants(count));
         };
         _session.MeetingEnded += () =>
@@ -59,11 +96,45 @@ public sealed partial class MainWindow : Window
                 if (_inMeeting)
                 {
                     _inMeeting = false;
+                    ShowProfile();
                     ProfileName.Text = _userId;
                     ShowScreen("dash");
                 }
             });
         };
+        _session.MeetingEnding += DisposeChatSession;
+        _session.MeetingEnding += DisposeWhiteboardSession;
+        _session.ParticipantsChanged += participants => {
+            if (_inMeeting && !_isHost && _chatViewModel is null && participants.Any(participant => participant.IsHost))
+            {
+                DispatcherQueue.TryEnqueue(() => TryInitializeChatSession(false));
+            }
+
+            if (_inMeeting && !_isHost && _whiteboardViewModel is null && participants.Any(participant => participant.IsHost))
+            {
+                DispatcherQueue.TryEnqueue(() => TryInitializeWhiteboardSession(false));
+            }
+        };
+        Closed += (_, _) => {
+            DisposeChatSession();
+            DisposeWhiteboardSession();
+        };
+
+
+        // the FileSync page unsubscribes from the communicator before the controller disposes it
+        _session.MeetingEnding += () => {
+            if (DispatcherQueue.HasThreadAccess)
+            {
+                FileSyncFrame.Navigate(typeof(Page));
+            }
+            else
+            {
+                DispatcherQueue.TryEnqueue(() => FileSyncFrame.Navigate(typeof(Page)));
+            }
+        };
+
+        // CLOUD TEAM: close the server connection when the app closes.
+        Closed += async (_, _) => await ResetCloudAsync();
 
         ShowScreen("login");
     }
@@ -81,7 +152,7 @@ public sealed partial class MainWindow : Window
         IncidentsView.Visibility = Vis(screen == "incidents");
         LocationView.Visibility = Vis(screen == "location");
         CloudView.Visibility = Vis(screen == "cloud");
-        FileSyncView.Visibility = Vis(screen == "filesync");
+        CrashHandlerView.Visibility = Vis(screen == "crashhandler");
         UserPanel.Visibility = Vis(screen != "login");
         MeetingInfoText.Visibility = Vis(_inMeeting);
     }
@@ -91,33 +162,38 @@ public sealed partial class MainWindow : Window
         return new ContentDialog { Title = title, Content = content, PrimaryButtonText = okText, CloseButtonText = "Cancel", XamlRoot = Root.XamlRoot };
     }
 
-    private void Continue_Click(object sender, RoutedEventArgs e)
+    // shows a picture (file path or web address) in a PersonPicture
+    private static void SetPicture(PersonPicture pic, string? source)
     {
-        string id = UserIdBox.Text.Trim();
-        string mail = EmailBox.Text.Trim().ToLowerInvariant();
+        pic.ProfilePicture = string.IsNullOrEmpty(source) ? null : new BitmapImage(new Uri(source));
+    }
 
-        if (id.Length == 0)
-        {
-            LoginError.Text = "Please enter your user ID.";
-            LoginError.Visibility = Visibility.Visible;
-            return;
-        }
+    // lets the person choose a picture file and returns its path (null if they cancel)
+    private async Task<string?> PickPictureAsync()
+    {
+        var picker = new FileOpenPicker();
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
+        Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
 
-        if (!mail.EndsWith(AllowedDomain, StringComparison.Ordinal) || mail == AllowedDomain)
-        {
-            LoginError.Text = "Please use your " + AllowedDomain + " email address.";
-            LoginError.Visibility = Visibility.Visible;
-            return;
-        }
-
-        _userId = id;
-        LoginError.Visibility = Visibility.Collapsed;
-        ProfileName.Text = _userId;
+    // shows the name, picture and greeting of the signed-in person
+    private void ShowProfile()
+    {
+        ProfileName.Text = _inMeeting ? _userId + " (" + Role + ")" : _userId;
         ProfilePic.DisplayName = _userId;
+        SetPicture(ProfilePic, _picture);
+        IncidentsTopBtn.Visibility = Vis(!_inMeeting);
+        LocationTopBtn.Visibility = Vis(!_inMeeting);
+        CloudTopBtn.Visibility = Vis(!_inMeeting);
+        CrashHandlerTopBtn.Visibility = Vis(!_inMeeting);
 
         // CONTROLLER TEAM: store current user identity into session
         _session.CurrentUserId = _userId;
-        _session.CurrentUserEmail = mail;
+        _session.CurrentUserEmail = _userEmail;
 
         int hour = DateTime.Now.Hour;
         string greeting = "Good Evening";
@@ -131,8 +207,118 @@ public sealed partial class MainWindow : Window
         }
 
         GreetingText.Text = greeting + ", " + _userId + "!";
+    }
+    // opens the browser so the person can log in with their Google account
+    private async void SignIn_Click(object sender, RoutedEventArgs e)
+    {
+        SignInBtn.IsEnabled = false;
+        SignInBtn.Content = "Waiting for Google...";
+        LoginError.Visibility = Visibility.Collapsed;
 
-        ShowScreen("dash");
+        try
+        {
+            GoogleUser user = await GoogleAuth.SignInAsync();
+            Activate();
+
+            string mail = user.Email.Trim().ToLowerInvariant();
+            if (!mail.EndsWith(AllowedDomain, StringComparison.Ordinal) || mail == AllowedDomain)
+            {
+                LoginError.Text = "Please sign in with your " + AllowedDomain + " Google account.";
+                LoginError.Visibility = Visibility.Visible;
+                return;
+            }
+
+            SavedProfile? saved = ProfileStore.Load(mail);
+            _userEmail = mail;
+            _userId = user.Name;
+            string savedPicture = saved?.PicturePath ?? string.Empty;
+            if (_pickedPicture != null)
+            {
+                savedPicture = ProfileStore.CopyPicture(_pickedPicture);
+            }
+
+            if (!File.Exists(savedPicture))
+            {
+                savedPicture = string.Empty;
+            }
+
+            _picture = savedPicture.Length > 0 ? savedPicture : user.Picture;
+            ProfileStore.Save(mail, _userId, savedPicture);
+
+            // CONTROLLER TEAM: store current user identity into session
+            _session.CurrentUserId = _userId;
+            _session.CurrentUserEmail = mail;
+
+            ShowProfile();
+            ShowScreen("dash");
+        }
+        catch (Exception ex)
+        {
+            LoginError.Text = "Google sign-in failed: " + ex.Message;
+            LoginError.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            SignInBtn.IsEnabled = true;
+            SignInBtn.Content = "Sign in with Google";
+        }
+    }
+
+    
+    private async void EditProfile_Click(object sender, RoutedEventArgs e)
+    {
+        string? newPicture = null;
+    
+        var pic = new PersonPicture
+        {
+            Width = 80,
+            Height = 80,
+            DisplayName = _userId
+        };
+    
+        SetPicture(pic, _picture);
+    
+        var changePic = new Button
+        {
+            Content = "Change picture",
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+    
+        changePic.Click += async (_, _) =>
+        {
+            string? path = await PickPictureAsync();
+    
+            if (path != null)
+            {
+                newPicture = path;
+                SetPicture(pic, path);
+            }
+        };
+    
+        ContentDialog dialog = MakeDialog(
+            "Edit profile",
+            new StackPanel
+            {
+                Spacing = 10,
+                Children = { pic, changePic }
+            },
+            "Save");
+    
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary){
+            return;
+        }
+    
+        if (newPicture != null)
+        {
+            _picture = ProfileStore.CopyPicture(newPicture);
+    
+            ProfileStore.Save(
+                _userEmail,
+                _userId,
+                _picture);
+        }
+    
+        ShowProfile();
     }
 
     private void SignOut_Click(object sender, RoutedEventArgs e)
@@ -143,14 +329,39 @@ public sealed partial class MainWindow : Window
         }
         _inMeeting = false;
         LocationHost.Content = null;
-        incidentContextTask = null;
+        _incidentContextTask = null;
+        _userId = string.Empty;
+        _userEmail = string.Empty;
+        _picture = string.Empty;
+        _pickedPicture = null;
+        DisposeChatSession();
+        DisposeWhiteboardSession();
         ShowScreen("login");
+    }
+    //private void Cloud_Click(object sender, RoutedEventArgs e)
+    //{
+    //    ShowScreen("cloud");
+    //}
+
+    private void CloudBack_Click(object sender, RoutedEventArgs e)
+    {
+        ShowScreen(_inMeeting ? "meeting" : "dash");
+    }
+
+    private void CrashHandler_Click(object sender, RoutedEventArgs e)
+    {
+        ShowScreen("crashhandler");
+    }
+
+    private void CrashHandlerBack_Click(object sender, RoutedEventArgs e)
+    {
+        ShowScreen(_inMeeting ? "meeting" : "dash");
     }
 
     private void Start_Click(object sender, RoutedEventArgs e)
     {
         // CONTROLLER TEAM: the real meeting ID and port come from the controller.
-        var (id, port) = _meetingService.CreateMeeting();
+        (string? id, string? port) = _meetingService.CreateMeeting();
         _session.StartMeeting(new MeetingInfo(id, port, IsHost: true));
 
         StartMeeting(id, port, true);
@@ -196,13 +407,13 @@ public sealed partial class MainWindow : Window
     private void StartMeeting(string id, string port, bool host)
     {
         _inMeeting = true;
+        ShowProfile();
         _isHost = host;
-        _role = host ? HostRole : ParticipantRole;
         _meetingId = id;
         _meetingPort = port;
 
         EndBtn.Content = host ? "End Meeting" : "Leave Meeting";
-        ProfileName.Text = _userId + " (" + _role + ")";
+        ShowProfile();
 
         // CONTROLLER TEAM: call SetParticipants() with the real number
         SetParticipants(_session.ParticipantCount);
@@ -211,11 +422,13 @@ public sealed partial class MainWindow : Window
         ShowChat(false);
         ShowPanel("home");
         ShowScreen("meeting");
+        TryInitializeChatSession(host);
+        TryInitializeWhiteboardSession(host);
     }
 
     public void SetParticipants(int count)
     {
-        MeetingInfoText.Text = "Role: " + _role + "   ID: " + _meetingId + "   Port: " + _meetingPort + "   Participants: " + count;
+        MeetingInfoText.Text = "Role: " + Role + "   ID: " + _meetingId + "   Port: " + _meetingPort + "   Participants: " + count;
     }
 
     private void ShowPanel(string which)
@@ -223,9 +436,12 @@ public sealed partial class MainWindow : Window
         HomePanel.Visibility = Vis(which == "home");
         SharePanel.Visibility = Vis(which == "share");
         BoardPanel.Visibility = Vis(which == "board");
+        FileSyncView.Visibility = Vis(which == "filesync");
+
         HomeBtn.IsChecked = which == "home";
         ShareBtn.IsChecked = which == "share";
         BoardBtn.IsChecked = which == "board";
+        FileSyncBtn.IsChecked = which == "filesync";
     }
 
     private void HomeBtn_Click(object sender, RoutedEventArgs e)
@@ -243,15 +459,244 @@ public sealed partial class MainWindow : Window
         ShowPanel("board");
     }
 
+    private void FileSyncBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileSyncFrame.Content is FileSyncPage)
+        {
+            ShowPanel("filesync");
+            return;
+        }
+
+        IControllerService? controller = _meetingService.ActiveController;
+        Networking.ICommunicator? communicator = controller?.Communicator;
+        Utils.ControllerUser? me = controller?.CurrentUser;
+
+        // CurrentUser.Port can still be 0: HostController copies it once, at construction.
+        // ListenPort is read live from the communicator.
+        int localPort = controller.ListenPort <= 0 ? me.Port : controller.ListenPort;
+
+        if (controller == null || communicator == null || me == null
+            || !IPAddress.TryParse(me.Ip, out IPAddress? myIp) || localPort <= 0)
+        {
+            string reason = controller == null ? "there is no active controller"
+                : communicator == null ? "the controller has no communicator"
+                : me == null ? "the controller has no current user"
+                : $"my endpoint is not usable: '{me.Ip}' port {localPort}";
+
+            _ = ShowErrorAsync("File Sync", "Cannot open File Sync: " + reason);
+            return;
+        }
+
+        IPEndPoint? hostEndpoint = null;
+        if (!_isHost)
+        {
+            string hostIp = _meetingId.Equals("localhost", StringComparison.OrdinalIgnoreCase) ? "127.0.0.1" : _meetingId;
+            if (!IPAddress.TryParse(hostIp, out IPAddress? hostAddress) || !int.TryParse(_meetingPort, out int hostPort))
+            {
+                _ = ShowErrorAsync("File Sync", $"Cannot open File Sync: host address '{_meetingId}:{_meetingPort}' is not valid.");
+                return;
+            }
+
+            hostEndpoint = new IPEndPoint(hostAddress, hostPort);
+        }
+
+        List<Utils.ControllerUser> peers = controller.GetActiveUsers()
+            .Where(u => u.UserKey != me.UserKey)
+            .ToList();
+
+        var session = new FileSyncSession(
+            communicator,
+            _isHost,
+            new IPEndPoint(myIp, me.Port),
+            hostEndpoint,
+            peers,
+            _meetingService.RegisterNotificationHandler,
+            _meetingService.UnregisterNotificationHandler);
+
+        FileSyncFrame.Navigate(typeof(FileSyncPage), session);
+        ShowPanel("filesync");
+    }
+
     private void ChatBtn_Click(object sender, RoutedEventArgs e)
     {
+        if (ChatBtn.IsChecked == true)
+        {
+            TryInitializeChatSession(_isHost);
+        }
+
         ShowChat(ChatBtn.IsChecked == true);
+    }
+
+
+    private async void Cloud_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            EnsureCloudView();
+            ShowScreen("cloud");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to load cloud", ex.Message);
+        }
+    }
+
+    /// <summary>Builds the Notification Service page the first time it is needed.</summary>
+    private void EnsureCloudView()
+    {
+        if (_cloudViewModel is not null)
+        {
+            return;
+        }
+
+        // Must run on the UI thread (it does: this is called from a click handler).
+        _cloudViewModel = new NotificationServiceViewModel(MessengerFactory.GetMessenger);
+        CloudHost.Children.Add(new NotificationServiceView(_cloudViewModel));
+    }
+
+    /// <summary>Closes the connection and removes the page; the next visit builds a fresh one.</summary>
+    private async Task ResetCloudAsync()
+    {
+        NotificationServiceViewModel? viewModel = _cloudViewModel;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        _cloudViewModel = null;
+        CloudHost.Children.Clear();
+        await viewModel.DisposeAsync();
     }
 
     private void ShowChat(bool show)
     {
         ChatPanel.Visibility = Vis(show);
         ChatResizer.Visibility = Vis(show);
+    }
+    private void TryInitializeChatSession(bool isHost)
+    {
+        if (_chatViewModel is not null)
+        {
+            return;
+        }
+
+        IControllerService? controller = _meetingService.ActiveController;
+        if (controller?.Communicator is null || controller.CurrentUser is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string username = controller.CurrentUser.Username;
+            string hostName = isHost
+                ? username
+                : controller.GetActiveUsers().FirstOrDefault(user => user.IsHost)?.Username
+                  ?? _session.ActiveParticipants.FirstOrDefault(participant => participant.IsHost)?.Username
+                  ?? string.Empty;
+
+            // A participant needs the host's username before the local room is valid.
+            if (string.IsNullOrWhiteSpace(hostName))
+            {
+                return;
+            }
+
+            var room = new Chatroom($"{_meetingId}:{_meetingPort}", hostName);
+
+            if (isHost)
+            {
+                _chatServer = new ChatServer(room, controller);
+                _chatAdapter = new ChatClientAdapter(_chatServer, controller, DispatcherQueue);
+            }
+            else
+            {
+                string hostIp = _meetingId.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                    ? "127.0.0.1"
+                    : _meetingId;
+
+                if (!IPAddress.TryParse(hostIp, out IPAddress? address)
+                    || address is null
+                    || !int.TryParse(_meetingPort, out int port))
+                {
+                    return;
+                }
+
+                _chatClient = new ChatClient(username, room, controller.Communicator, new IPEndPoint(address, port));
+                _chatAdapter = new ChatClientAdapter(_chatClient, DispatcherQueue);
+            }
+
+            _chatViewModel = new ChatPanelViewModel(_chatAdapter);
+            MeetingChatPanel.ViewModel = _chatViewModel;
+            _chatViewModel.Initialize();
+        }
+        catch (Exception exception)
+        {
+            DisposeChatSession();
+            System.Diagnostics.Trace.WriteLine($"[Chat] Could not start the chat session: {exception}");
+        }
+    }
+
+    private void DisposeChatSession()
+    {
+        MeetingChatPanel.ViewModel = null;
+        _chatViewModel?.Dispose();
+        _chatAdapter?.Dispose();
+        _chatClient?.Dispose();
+        _chatServer?.Dispose();
+        _chatViewModel = null;
+        _chatAdapter = null;
+        _chatClient = null;
+        _chatServer = null;
+    }
+
+    private void TryInitializeWhiteboardSession(bool isHost)
+    {
+        if (_whiteboardViewModel is not null)
+        {
+            return;
+        }
+
+        IControllerService? controller = _meetingService.ActiveController;
+
+        if (controller?.Communicator is null || controller.CurrentUser is null)
+        {
+            return;
+        }
+
+        if (! int.TryParse(_meetingPort, out int portNumber))
+        {
+            return;
+        }
+
+        try
+        {
+            _whiteboardSession = isHost
+                ? WhiteboardSession.StartHost(_userId, controller.Communicator, portNumber)
+                : WhiteboardSession.StartClient(_userId, controller.Communicator, _meetingId, portNumber);
+
+            _whiteboardViewModel = new WhiteBoardViewModel(_whiteboardSession, DispatcherQueue);
+            WhiteboardViewControl.ViewModel = _whiteboardViewModel;
+            _meetingService.RegisterNotificationHandler(_whiteboardSession);
+        }
+        catch (Exception exception)
+        {
+            DisposeWhiteboardSession();
+            System.Diagnostics.Trace.WriteLine($"[Whiteboard] Could not start the whiteboard session: {exception}");
+        }
+    }
+
+    private void DisposeWhiteboardSession()
+    {
+        WhiteboardViewControl.ViewModel = null;
+        _whiteboardViewModel?.Dispose();
+        _whiteboardViewModel = null;
+
+        if (_whiteboardSession != null)
+        {
+            _meetingService.UnregisterNotificationHandler(_whiteboardSession);
+            _whiteboardSession.Dispose();
+            _whiteboardSession = null;
+        }
     }
 
     private async void End_Click(object sender, RoutedEventArgs e)
@@ -268,11 +713,13 @@ public sealed partial class MainWindow : Window
         }
 
         // CONTROLLER TEAM: end the meeting (Host) or disconnect (Participant) here.
+        DisposeChatSession();
+        DisposeWhiteboardSession();
         _session.EndMeeting();
 
         _records.Insert(0, "Meeting " + _meetingId + " - " + DateTime.Now.ToString("ddd, dd MMM") + " - Just now");
         _inMeeting = false;
-        ProfileName.Text = _userId;
+        ShowProfile();
         ShowScreen("dash");
     }
 
@@ -301,8 +748,8 @@ public sealed partial class MainWindow : Window
 
     private async Task<IncidentPageContext> GetIncidentContextAsync()
     {
-        incidentContextTask ??= InitializeIncidentContextAsync();
-        return await incidentContextTask;
+        _incidentContextTask ??= InitializeIncidentContextAsync();
+        return await _incidentContextTask;
     }
 
     private async Task<IncidentPageContext> InitializeIncidentContextAsync()
@@ -311,12 +758,8 @@ public sealed partial class MainWindow : Window
         IFileOperations fileSynchronizer = new Synchroniser();
         IIncidentController controller = await IncidentController.CreateAsync(storage, fileSynchronizer);
 
-        Guid currentUserId = Guid.TryParse(_userId, out Guid parsedUserId)
-            ? parsedUserId
-            : Guid.NewGuid();
-
         IntPtr windowHandle = WindowNative.GetWindowHandle(this);
-        return new IncidentPageContext(controller, currentUserId, windowHandle);
+        return new IncidentPageContext(controller, _userEmail, windowHandle);
     }
 
     private async void Incidents_Click(object sender, RoutedEventArgs e)
@@ -333,15 +776,16 @@ public sealed partial class MainWindow : Window
         }
     }
 
+
     private async void Location_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             IncidentPageContext context = await GetIncidentContextAsync();
             var geocoding = new NominatimGeocodingService(new HttpClient());
-            var map = new LocationMapView();
+            var map = new LocationMapView(new MapService(context.IncidentController, geocoding));
             map.IncidentSelected += LocationIncidentSelected;
-            map.Initialize(new MapService(context.IncidentController, geocoding));
+            map.LocationSelected += LocationSelectedOnMap;
             LocationHost.Content = map;
             ShowScreen("location");
         }
@@ -350,6 +794,7 @@ public sealed partial class MainWindow : Window
             await ShowErrorAsync("Unable to load location", ex.Message);
         }
     }
+
 
     private async void LocationIncidentSelected(Guid incidentId)
     {
@@ -368,25 +813,43 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private async void LocationSelectedOnMap(IncidentLocation location)
+    {
+        try
+        {
+            IncidentPageContext context = await GetIncidentContextAsync();
+            IncidentsFrame.Navigate(
+                typeof(CreateIncidentPage),
+                new IncidentCreatePageWithLocation(
+                    context,
+                    location.Latitude,
+                    location.Longitude,
+                    location.Address));
+            LocationHost.Content = null;
+            ShowScreen("incidents");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to open create incident", ex.Message);
+        }
+    }
+
+    private void IncidentsFrame_Navigated(object sender, NavigationEventArgs e)
+    {
+        if (e.Content is CreateIncidentPage page)
+        {
+            MiniMapView.AttachTo(page);
+        }
+    }
+
     private async Task ShowErrorAsync(string title, string message)
     {
-        await new ContentDialog
-        {
+        await new ContentDialog {
             Title = title,
             Content = message,
             CloseButtonText = "OK",
             XamlRoot = Root.XamlRoot
         }.ShowAsync();
-    }
-
-    private void Cloud_Click(object sender, RoutedEventArgs e)
-    {
-        ShowScreen("cloud");
-    }
-
-    private void FileSync_Click(object sender, RoutedEventArgs e)
-    {
-        ShowScreen("filesync");
     }
 
     private void IncidentsBack_Click(object sender, RoutedEventArgs e)
@@ -397,16 +860,6 @@ public sealed partial class MainWindow : Window
     private void LocationBack_Click(object sender, RoutedEventArgs e)
     {
         ShowScreen(_inMeeting ? "meeting" : "dash");
-    }
-
-    private void CloudBack_Click(object sender, RoutedEventArgs e)
-    {
-        ShowScreen("dash");
-    }
-
-    private void FileSyncBack_Click(object sender, RoutedEventArgs e)
-    {
-        ShowScreen("dash");
     }
 }
 

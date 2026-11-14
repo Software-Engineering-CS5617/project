@@ -19,11 +19,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <ProjectReference Include="..\Chat\UI\UI.csproj" />
+    <ProjectReference Include="..\Cloud.UI\Cloud.UI.csproj" />
     <ProjectReference Include="..\Cloud\Cloud.csproj" />
     <ProjectReference Include="..\FileSynchroniser\FileSynchroniser.csproj" />
     <ProjectReference Include="..\Incident\Incident.csproj" />
     <ProjectReference Include="..\Location\Location.csproj" />
     <ProjectReference Include="..\Controller\Controller.csproj" />
+    <ProjectReference Include="..\Screenshare\Screenshare.csproj" />
     <ProjectReference Include="..\Utils\Utils.csproj" />
+    <ProjectReference Include="..\Whiteboard\Whiteboard.csproj" />
   </ItemGroup>
 </Project>

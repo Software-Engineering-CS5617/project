@@ -1,4 +1,4 @@
-using Incidents;
+﻿using Incidents;
 using LocationTracker.Interfaces;
 using LocationTracker.Models;
 

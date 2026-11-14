@@ -9,11 +9,18 @@
     </Folder>
     <Project Path="Authentication/Auth.csproj" />
     <Project Path="Chat.Test/Chat.Test.csproj" />
+    <Project Path="Chat.Console/Chat.Console.csproj" />
     <Project Path="Chat/Chat.csproj" />
+    <Project Path="Chat/UI/UI.csproj" />
     <Project Path="Cloud.Networking.ClientConsole/Cloud.Networking.ClientConsole.csproj" />
     <Project Path="Cloud.Networking.Server.Test/Cloud.Networking.Server.Test.csproj" />
     <Project Path="Cloud.Networking.Server/Cloud.Networking.Server.csproj" />
+    <Project Path="Cloud.Networking.UIharness/Cloud.Networking.UIharness.csproj">
+        <Platform Project="x64" />
+    </Project>
     <Project Path="Cloud.Test/Cloud.Test.csproj" />
+    <Project Path="Cloud.UI/Cloud.UI.csproj" />
+    <Project Path="Cloud.UI.Test/Cloud.UI.Test.csproj" />
     <Project Path="Cloud/Cloud.csproj" />
     <Project Path="Controller.Test/Controller.Test.csproj" Id="0d0da0e8-11a3-40b5-aeaf-5e513adf26c1" />
     <Project Path="Controller/Controller.csproj" />
@@ -36,6 +43,7 @@
     <Project Path="Location/Location.csproj" />
     <Project Path="Networking.Test/Networking.Test.csproj" />
     <Project Path="Networking/Networking.csproj" />
+    <Project Path="Screenshare.Test/Screenshare.Test.csproj" />
     <Project Path="Screenshare/Screenshare.csproj" />
     <Project Path="Utils/Utils.csproj" />
     <Project Path="UX/UX.csproj">

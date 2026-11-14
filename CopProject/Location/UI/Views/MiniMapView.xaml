@@ -1,0 +1,14 @@
+<UserControl
+    x:Class="LocationTracker.Views.MiniMapView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
+
+    <Border
+        Height="200"
+        CornerRadius="8"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1">
+        <controls:WebView2 x:Name="MapView" DefaultBackgroundColor="White" />
+    </Border>
+</UserControl>

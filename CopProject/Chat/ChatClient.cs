@@ -47,6 +47,16 @@ public sealed class ChatClient : IMessageListener, IDisposable
     public event Action<ChatOperation>? OperationApplied;
 
     /// <summary>
+    /// Raised when the local room messages are reset.
+    /// </summary>
+    public event Action? RoomReset;
+
+    /// <summary>
+    /// Raised when the room participant list changes.
+    /// </summary>
+    public event Action<IReadOnlySet<string>>? ParticipantsChanged;
+
+    /// <summary>
     /// Gets the username this client asserts in its requests.
     /// </summary>
     public string Username { get; }
@@ -93,9 +103,14 @@ public sealed class ChatClient : IMessageListener, IDisposable
     /// </summary>
     /// <param name="content">The message content.</param>
     /// <param name="mentions">The users mentioned by the message.</param>
-    /// <param name="parentMessageId">The thread's root message ID, if this is a reply.</param>
+    /// <param name="threadParentMessageId">The thread's root message ID, if this is a reply.</param>
+    /// <param name="replyToMessageId">The main-room message this message replies to inline.</param>
     /// <returns>The request ID.</returns>
-    public Guid SendMessage(string content, Mentions mentions, Guid? parentMessageId = null)
+    public Guid SendMessage(
+        string content,
+        Mentions mentions,
+        Guid? threadParentMessageId = null,
+        Guid? replyToMessageId = null)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(mentions);
@@ -103,7 +118,8 @@ public sealed class ChatClient : IMessageListener, IDisposable
             DateTimeOffset.UtcNow,
             mentions.Clone(),
             content,
-            parentMessageId));
+            threadParentMessageId,
+            replyToMessageId));
     }
 
     /// <summary>
@@ -111,23 +127,23 @@ public sealed class ChatClient : IMessageListener, IDisposable
     /// </summary>
     /// <param name="messageId">The message ID.</param>
     /// <param name="newContent">The replacement content.</param>
-    /// <param name="parentMessageId">The thread's root message ID, if applicable.</param>
+    /// <param name="threadParentMessageId">The thread's root message ID, if applicable.</param>
     /// <returns>The request ID.</returns>
-    public Guid EditMessage(Guid messageId, string newContent, Guid? parentMessageId = null)
+    public Guid EditMessage(Guid messageId, string newContent, Guid? threadParentMessageId = null)
     {
         ArgumentNullException.ThrowIfNull(newContent);
-        return SendRequest(new EditMessage(messageId, newContent, parentMessageId));
+        return SendRequest(new EditMessage(messageId, newContent, threadParentMessageId));
     }
 
     /// <summary>
     /// Requests deletion of a room or thread message.
     /// </summary>
     /// <param name="messageId">The message ID.</param>
-    /// <param name="parentMessageId">The thread's root message ID, if applicable.</param>
+    /// <param name="threadParentMessageId">The thread's root message ID, if applicable.</param>
     /// <returns>The request ID.</returns>
-    public Guid DeleteMessage(Guid messageId, Guid? parentMessageId = null)
+    public Guid DeleteMessage(Guid messageId, Guid? threadParentMessageId = null)
     {
-        return SendRequest(new DeleteMessage(messageId, parentMessageId));
+        return SendRequest(new DeleteMessage(messageId, threadParentMessageId));
     }
 
     /// <summary>
@@ -135,12 +151,12 @@ public sealed class ChatClient : IMessageListener, IDisposable
     /// </summary>
     /// <param name="messageId">The message ID.</param>
     /// <param name="emoji">The reaction emoji.</param>
-    /// <param name="parentMessageId">The thread's root message ID, if applicable.</param>
+    /// <param name="threadParentMessageId">The thread's root message ID, if applicable.</param>
     /// <returns>The request ID.</returns>
-    public Guid ToggleReaction(Guid messageId, string emoji, Guid? parentMessageId = null)
+    public Guid ToggleReaction(Guid messageId, string emoji, Guid? threadParentMessageId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(emoji);
-        return SendRequest(new global::Chat.ToggleReaction(messageId, emoji, parentMessageId));
+        return SendRequest(new global::Chat.ToggleReaction(messageId, emoji, threadParentMessageId));
     }
 
     /// <summary>
@@ -187,6 +203,7 @@ public sealed class ChatClient : IMessageListener, IDisposable
                         case ChatServerReset:
                             Chatroom.ClearMessages();
                             _version = 0;
+                            RoomReset?.Invoke();
                             break;
 
                         case ChatServerOperationBatch batch:
@@ -223,6 +240,7 @@ public sealed class ChatClient : IMessageListener, IDisposable
                     }
 
                     Chatroom.SetParticipants(updateEnvelope.Participants);
+                    ParticipantsChanged?.Invoke(Chatroom.Participants);
                     break;
 
                 case ChatServerRequestResult result:

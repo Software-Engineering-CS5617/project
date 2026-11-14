@@ -17,27 +17,39 @@
                 <TextBlock Text="Title contains" FontSize="14" FontWeight="SemiBold" Foreground="Black"/>
                 <TextBox x:Name="TitleFilterBox"
                          Foreground="Black"
-                         SelectionChanged="FilterChanged" />
+                         Text="{Binding TitleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <TextBlock Text="Category" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
-                <ComboBox x:Name="CategoryFilterBox" SelectedIndex="0" Foreground="Black"
-                          SelectionChanged="FilterChanged"/>
+                <ComboBox x:Name="CategoryFilterBox"
+                          Foreground="Black"
+                          ItemsSource="{Binding CategoryOptions}"
+                          SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"/>
 
                 <TextBlock Text="Severity" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
-                <ComboBox x:Name="SeverityFilterBox" SelectedIndex="0" Foreground="Black"
-                          SelectionChanged="FilterChanged"/>
+                <ComboBox x:Name="SeverityFilterBox"
+                          Foreground="Black"
+                          ItemsSource="{Binding SeverityOptions}"
+                          SelectedItem="{Binding SelectedSeverity, Mode=TwoWay}"/>
 
                 <TextBlock Text="Status" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
-                <ComboBox x:Name="StatusFilterBox" SelectedIndex="0" Foreground="Black"
-                          SelectionChanged="FilterChanged"/>
+                <ComboBox x:Name="StatusFilterBox"
+                          Foreground="Black"
+                          ItemsSource="{Binding StatusOptions}"
+                          SelectedItem="{Binding SelectedStatus, Mode=TwoWay}"/>
 
                 <TextBlock Text="From date" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
-                <CalendarDatePicker x:Name="FromDatePicker" Foreground="Black"
-                                    DateChanged="FilterChanged" />
+                <CalendarDatePicker x:Name="FromDatePicker"
+                                    Foreground="Black"
+                                    Date="{Binding FromDate, Mode=TwoWay}" />
 
                 <TextBlock Text="To date" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" Foreground="Black"/>
-                <CalendarDatePicker x:Name="ToDatePicker" Foreground="Black"
-                                    DateChanged="FilterChanged" />
+                <CalendarDatePicker x:Name="ToDatePicker"
+                                    Foreground="Black"
+                                    Date="{Binding ToDate, Mode=TwoWay}" />
+
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="DarkRed"
+                           TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 

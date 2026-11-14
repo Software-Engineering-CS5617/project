@@ -39,7 +39,11 @@ public enum ModuleType
     Insights,
 
     ///<summary>The Controller module</summary>
-    Controller
+    Controller,
+    ///<summary>The Crash Reporting module</summary>
+    CrashReports,
+    ///<summary>The Crash Groups module</summary>
+    CrashGroups
 
 
 }

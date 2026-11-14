@@ -433,7 +433,7 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = Save(path, content);
 
         Assert.IsTrue(result[path]);
-        Assert.AreEqual(0, errors.Count);
+        Assert.IsEmpty(errors);
         CollectionAssert.AreEqual(content, File.ReadAllBytes(FullPath(path)));
     }
 
@@ -466,7 +466,7 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = Save(path, Encoding.UTF8.GetBytes("replacement"));
 
         Assert.IsFalse(result[path]);
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
         CollectionAssert.AreEqual(original, File.ReadAllBytes(FullPath(path)));
     }
 
@@ -482,8 +482,8 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = _sync.SaveFile(new Dictionary<string, byte[]> { [path] = null! });
 
         Assert.IsFalse(result[path]);
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("content"));
+        Assert.HasCount(1, errors);
+        Assert.Contains("content", errors[0]);
         Assert.IsFalse(File.Exists(FullPath(path)));
     }
 
@@ -513,8 +513,8 @@ public sealed class SynchroniserTest
 
         Assert.IsTrue(result[first]);
         Assert.IsFalse(result[second]);
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("Duplicate path in batch"));
+        Assert.HasCount(1, errors);
+        Assert.Contains("Duplicate path in batch", errors[0]);
         CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("first"), File.ReadAllBytes(FullPath(first)));
     }
 
@@ -547,7 +547,7 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = Update(path, Encoding.UTF8.GetBytes("data"));
 
         Assert.IsFalse(result[path]);
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
         Assert.IsFalse(File.Exists(FullPath(path)));
     }
 
@@ -566,7 +566,7 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = _sync.UpdateFile(new Dictionary<string, byte[]> { [path] = null! });
 
         Assert.IsFalse(result[path]);
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
         CollectionAssert.AreEqual(original, File.ReadAllBytes(FullPath(path)));
     }
 
@@ -595,10 +595,10 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, byte[]?> result = _sync.ReadFile(new[] { path1, path2 });
 
-        Assert.AreEqual(2, result.Count);
+        Assert.HasCount(2, result);
         CollectionAssert.AreEqual(content1, result[path1]);
         CollectionAssert.AreEqual(content2, result[path2]);
-        Assert.AreEqual(0, errors.Count);
+        Assert.IsEmpty(errors);
     }
 
     /// <summary>
@@ -613,7 +613,7 @@ public sealed class SynchroniserTest
         byte[]? data = Read(path);
 
         Assert.IsNull(data);
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
     }
 
     /// <summary>
@@ -639,8 +639,8 @@ public sealed class SynchroniserTest
         byte[]? data = Read(path);
 
         Assert.IsNull(data);
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("Batch size limit"));
+        Assert.HasCount(1, errors);
+        Assert.Contains("Batch size limit", errors[0]);
     }
 
     /// <summary>
@@ -653,8 +653,8 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, byte[]?> result = _sync.ReadFile(Array.Empty<string>());
 
-        Assert.AreEqual(0, result.Count);
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, result);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>
@@ -694,7 +694,7 @@ public sealed class SynchroniserTest
         IReadOnlyDictionary<string, bool> result = Delete(path);
 
         Assert.IsFalse(result[path]);
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
     }
 
     /// <summary>
@@ -718,7 +718,7 @@ public sealed class SynchroniserTest
         List<string> errors = CaptureErrors();
 
         Assert.IsTrue(_sync.FileExists(path));
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>
@@ -730,7 +730,7 @@ public sealed class SynchroniserTest
         List<string> errors = CaptureErrors();
 
         Assert.IsFalse(_sync.FileExists($"{_testDir}/absent.txt"));
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>
@@ -747,7 +747,7 @@ public sealed class SynchroniserTest
         List<string> errors = CaptureErrors();
 
         Assert.IsFalse(_sync.FileExists(path));
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
     }
 
     /// <summary>
@@ -759,7 +759,7 @@ public sealed class SynchroniserTest
         List<string> errors = CaptureErrors();
 
         Assert.IsFalse(_sync.FileExists(null!));
-        Assert.AreEqual(1, errors.Count);
+        Assert.HasCount(1, errors);
     }
 
     /// <summary>
@@ -772,8 +772,8 @@ public sealed class SynchroniserTest
         List<string> errors = CaptureErrors();
 
         Assert.IsFalse(_sync.FileExists(absolute));
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("Absolute paths are not allowed"));
+        Assert.HasCount(1, errors);
+        Assert.Contains("Absolute paths are not allowed", errors[0]);
     }
 
 
@@ -787,9 +787,9 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, bool> result = _sync.DeleteFile(new string[] { null! });
 
-        Assert.AreEqual(0, result.Count);
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("A null path was skipped."));
+        Assert.HasCount(0, result);
+        Assert.HasCount(1, errors);
+        Assert.Contains("A null path was skipped.", errors[0]);
     }
 
     /// <summary>
@@ -804,9 +804,9 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, bool> result = _sync.DeleteFile(new[] { path, path });
 
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
         Assert.IsTrue(result[path]);
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>
@@ -826,10 +826,10 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, bool> result = _sync.DeleteFile(paths);
 
-        Assert.AreEqual(Synchroniser.MaxBatchFileCount + 1, result.Count);
+        Assert.HasCount(Synchroniser.MaxBatchFileCount + 1, result);
         Assert.IsTrue(result.Values.All(r => !r));
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains($"the limit is {Synchroniser.MaxBatchFileCount}"));
+        Assert.HasCount(1, errors);
+        Assert.Contains($"the limit is {Synchroniser.MaxBatchFileCount}", errors[0]);
     }
 
     /// <summary>
@@ -846,9 +846,9 @@ public sealed class SynchroniserTest
 
         IReadOnlyDictionary<string, bool> result = InvokeExecuteBatch<bool>(paths, 0, _ => true);
 
-        Assert.AreEqual(Synchroniser.MaxBatchFileCount, result.Count);
+        Assert.HasCount(Synchroniser.MaxBatchFileCount, result);
         Assert.IsTrue(result.Values.All(r => r));
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>
@@ -870,10 +870,10 @@ public sealed class SynchroniserTest
             });
 
         Assert.IsFalse(invoked);
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
         Assert.IsFalse(result["too-big.txt"]);
-        Assert.AreEqual(1, errors.Count);
-        Assert.IsTrue(errors[0].Contains("exceeds the limit"));
+        Assert.HasCount(1, errors);
+        Assert.Contains("exceeds the limit", errors[0]);
     }
 
     /// <summary>
@@ -895,7 +895,7 @@ public sealed class SynchroniserTest
 
         Assert.IsTrue(invoked);
         Assert.IsTrue(result["at-limit.txt"]);
-        Assert.AreEqual(0, errors.Count);
+        Assert.HasCount(0, errors);
     }
 
     /// <summary>

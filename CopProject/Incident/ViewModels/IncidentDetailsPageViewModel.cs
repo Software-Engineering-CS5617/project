@@ -14,7 +14,7 @@ namespace Incidents.ViewModels;
 public sealed class IncidentDetailsPageViewModel : ViewModelBase
 {
     private readonly IIncidentController _incidentController;
-    private readonly Guid _currentUserId;
+    private readonly string _currentUserId;
 
     private Incident? _incident;
     private bool _isEditMode;
@@ -34,7 +34,7 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     /// </summary>
     public IncidentDetailsPageViewModel(
         IIncidentController incidentController,
-        Guid currentUserId)
+        string currentUserId)
     {
         _incidentController = incidentController ?? throw new ArgumentNullException(nameof(incidentController));
         _currentUserId = currentUserId;
@@ -46,6 +46,33 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
         ToggleEditModeCommand = new RelayCommand(ToggleEditMode);
         CancelEditCommand = new RelayCommand(CancelEdit);
         SaveChangesCommand = new RelayCommand(async () => await SaveChangesAsync());
+        UnresolveIncidentCommand = new RelayCommand(async () => await UnresolveIncidentAsync());
+    }
+
+    /// <summary>
+    /// Notifies the UI about every property that depends on the incident status
+    /// or on the edit mode, so buttons and panels always match the current state.
+    /// </summary>
+    private void RefreshStatusVisibility()
+    {
+        OnPropertyChanged(nameof(IsResolved));
+        OnPropertyChanged(nameof(EditButtonVisibility));
+        OnPropertyChanged(nameof(UnresolveButtonVisibility));
+        OnPropertyChanged(nameof(EditActionsVisibility));
+        OnPropertyChanged(nameof(EditVisibility));
+        OnPropertyChanged(nameof(ReadOnlyVisibility));
+        OnPropertyChanged(nameof(EditButtonText));
+    }
+
+    /// <summary>
+    /// Reloads the incident from the controller, then refreshes the status-dependent UI.
+    /// The refresh is called AFTER the new incident is assigned (and outside the
+    /// Incident setter) so the UI never reads a half-updated state.
+    /// </summary>
+    private async Task ReloadIncidentAsync(Guid incidentId)
+    {
+        Incident = await _incidentController.GetIncidentById(incidentId);
+        RefreshStatusVisibility();
     }
 
     /// <summary>
@@ -56,7 +83,11 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
         get => _incident;
         private set {
             _incident = value;
+
+            // Always raise, even if the controller returned the same instance
+            // (its Status may have been changed in place).
             OnPropertyChanged(nameof(Incident));
+            RefreshStatusVisibility();
         }
     }
 
@@ -71,9 +102,7 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
             _isEditMode = value;
             OnPropertyChanged(nameof(IsEditMode));
             OnPropertyChanged(nameof(IsReadOnlyMode));
-            OnPropertyChanged(nameof(EditButtonText));
-            OnPropertyChanged(nameof(EditVisibility));
-            OnPropertyChanged(nameof(ReadOnlyVisibility));
+            RefreshStatusVisibility();
         }
     }
 
@@ -137,6 +166,26 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     /// </summary>
     public Visibility ErrorVisibility =>
         string.IsNullOrWhiteSpace(ErrorMessage) ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
+    /// Bool to check if the status it resolves
+    /// </summary>
+    public bool IsResolved => Incident?.Status == IncidentStatus.Resolved;
+
+    /// <summary>
+    /// The visibility of EditButton
+    /// </summary>
+    public Visibility EditButtonVisibility => IsResolved || IsEditMode ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
+    /// The visibility of UnResolve Button
+    /// </summary>
+    public Visibility UnresolveButtonVisibility => IsResolved ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// Visibility of EditActions (Add Evidence / Add Incidents), hidden when resolved
+    /// </summary>
+    public Visibility EditActionsVisibility => IsResolved ? Visibility.Collapsed : Visibility.Visible;
 
     // Editable bindings
 
@@ -244,6 +293,11 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     public ObservableCollection<IChange> ChangeTimeline { get; } = [];
 
     /// <summary>
+    /// Incidents connected to the currently displayed incident.
+    /// </summary>
+    public ObservableCollection<Incident> CorrelatedIncidents { get; } = [];
+
+    /// <summary>
     /// Switches between read-only and edit mode.
     /// </summary>
     public RelayCommand ToggleEditModeCommand { get; }
@@ -259,6 +313,11 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     public RelayCommand SaveChangesCommand { get; }
 
     /// <summary>
+    /// Changes a resolved incident back to InProgress.
+    /// </summary>
+    public RelayCommand UnresolveIncidentCommand { get; }
+
+    /// <summary>
     /// Loads the incident with the given id and fills the editable fields and lists.
     /// </summary>
     public async Task LoadIncidentAsync(Guid incidentId)
@@ -268,12 +327,14 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
             IsBusy = true;
             ErrorMessage = string.Empty;
 
-            Incident = await _incidentController.GetIncidentById(incidentId);
+            await ReloadIncidentAsync(incidentId);
 
             if (Incident != null)
             {
                 ResetEditableFields();
                 RefreshCollections();
+                await RefreshCorrelatedIncidentsAsync();
+                RefreshStatusVisibility(); // make sure buttons match the loaded status
             }
         }
         catch (Exception ex)
@@ -291,7 +352,7 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     /// </summary>
     public void ToggleEditMode()
     {
-        if (Incident == null) { return; }
+        if (Incident == null || IsResolved) { return; }
         ResetEditableFields();
         IsEditMode = !IsEditMode;
     }
@@ -310,7 +371,7 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     /// </summary>
     public async Task SaveChangesAsync()
     {
-        if (Incident == null) { return; }
+        if (Incident == null || IsResolved) { return; }
 
         try
         {
@@ -345,11 +406,12 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
             }
 
             // Reload to sync latest incident object state and timeline
-            Incident = await _incidentController.GetIncidentById(Incident.Id);
+            await ReloadIncidentAsync(Incident.Id);
             ResetEditableFields();
             RefreshCollections();
 
             IsEditMode = false;
+            RefreshStatusVisibility(); // status may have changed through the edit form
         }
         catch (Exception ex)
         {
@@ -362,11 +424,47 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Changes a resolved incident back to InProgress.
+    /// </summary>
+    public async Task UnresolveIncidentAsync()
+    {
+        if (Incident == null || !IsResolved) { return; }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+
+            await _incidentController.UpdateStatus(
+                Incident,
+                IncidentStatus.InProgress);
+
+            // Refreshes the buttons immediately after the status change
+            await ReloadIncidentAsync(Incident.Id);
+
+            ResetEditableFields();
+            RefreshCollections();
+            await RefreshCorrelatedIncidentsAsync();
+
+            IsEditMode = false;
+            RefreshStatusVisibility();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to unresolve incident: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
     /// Adds new evidence to the incident and refreshes the lists.
     /// </summary>
-    public async Task AddEvidenceItemsAsync(List<IncidentEvidence> newEvidences)
+    public async Task AddEvidenceItemsAsync(List<(IncidentEvidence, byte[])> newEvidences)
     {
-        if (Incident == null || newEvidences.Count == 0) { return; }
+        if (Incident == null || IsResolved || newEvidences.Count == 0) { return; }
 
         try
         {
@@ -375,7 +473,7 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
 
             await _incidentController.AddEvidence(Incident, newEvidences);
 
-            Incident = await _incidentController.GetIncidentById(Incident.Id);
+            await ReloadIncidentAsync(Incident.Id);
             RefreshCollections();
         }
         catch (Exception ex)
@@ -421,6 +519,63 @@ public sealed class IncidentDetailsPageViewModel : ViewModelBase
         foreach (IChange change in Incident.ChangeHistory.OrderByDescending(c => c.ChangedTime))
         {
             ChangeTimeline.Add(change);
+        }
+    }
+
+    /// <summary>
+    /// Loads all incidents connected to the current incident.
+    /// </summary>
+    public async Task RefreshCorrelatedIncidentsAsync()
+    {
+        if (Incident == null) { return; }
+
+        CorrelatedIncidents.Clear();
+
+        List<Incident> correlated =
+            await _incidentController.GetCorrelatedIncidents(Incident.Id);
+
+        foreach (Incident incident in correlated)
+        {
+            CorrelatedIncidents.Add(incident);
+        }
+    }
+
+    /// <summary>
+    /// Correlates the current incident with the selected incidents.
+    /// </summary>
+    public async Task CorrelateIncidentsAsync(List<Guid> incidentIds)
+    {
+        if (Incident == null || IsResolved || incidentIds.Count == 0) { return; }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+
+            foreach (Guid id in incidentIds)
+            {
+                Incident otherIncident =
+                    await _incidentController.GetIncidentById(id);
+
+                await _incidentController.CorrelateIncident(
+                    Incident,
+                    otherIncident);
+            }
+
+            // Reload the incident and its correlated group.
+            await ReloadIncidentAsync(Incident.Id);
+
+            RefreshCollections();
+            await RefreshCorrelatedIncidentsAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to correlate incidents: {ex.Message}";
+            await RefreshCorrelatedIncidentsAsync();
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 }

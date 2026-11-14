@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Linq;
 using System.Net;
 using Networking;
 using Whiteboard.Interfaces;
@@ -11,6 +12,7 @@ using Whiteboard.Network.Dtos;
 using Whiteboard.Network.Mappers;
 using Whiteboard.Network.Messages;
 using Whiteboard.Network.Serializations;
+using System.Collections.Generic;
 
 namespace Whiteboard.Client;
 
@@ -31,6 +33,19 @@ public class WhiteboardClient : IWhiteboardClient
 
     public string UserId { get; }
 
+    private List<HistoryEntryDto> _undo = new();
+    private List<HistoryEntryDto> _redo = new();
+
+    /// <inheritdoc/>
+    public bool CanUndo => _undo.Count > 0;
+
+    /// <inheritdoc/>
+    public bool CanRedo => _redo.Count > 0;
+
+
+    /// <inheritdoc/>
+    public event Action HistoryChanged = delegate { };
+
     public WhiteboardClient(ICommunicator communicator, IPEndPoint serverEndpoint, string userId)
     {
         ArgumentNullException.ThrowIfNull(communicator);
@@ -49,10 +64,19 @@ public class WhiteboardClient : IWhiteboardClient
     /// Send <see cref="ClientMessage"/> to the server
     /// </summary>
     /// <param name="msg">Client message to send</param>
-    private void SendToServer(ClientMessage msg)
+    private void SendToServer(ClientMessage message)
     {
-        byte[] serialized = new ClientMessageByteSerializer().Serialize(msg);
-        _communicator.SendMessage(_serverEndpoint, serialized, Constants.WhiteboardModuleId, priority: Constants.WhiteboardModulePriority);
+        // History follows the actor, which can differ from an item's creator.
+        ClientMessage request = message with { UserId = UserId };
+
+        byte[] bytes =
+            new ClientMessageByteSerializer().Serialize(request);
+
+        _communicator.SendMessage(
+            _serverEndpoint,
+            bytes,
+            Constants.WhiteboardModuleId,
+            priority: Constants.WhiteboardModulePriority);
     }
 
     public void RequestSync()
@@ -62,44 +86,91 @@ public class WhiteboardClient : IWhiteboardClient
 
     public void AddItem(IItem item)
     {
+        ArgumentNullException.ThrowIfNull(item);
+
+        Canvas.AddItem(item);
         SendToServer(new ClientMessage.ReqAddItem(item.Id, ItemMapper.ToDto(item)));
     }
 
     public void DeleteItem(Guid id)
     {
+        Canvas.DeleteItem(id);
         SendToServer(new ClientMessage.ReqDeleteItem(id));
     }
 
     public void EditItem(IItem item)
     {
+        ArgumentNullException.ThrowIfNull(item);
+
+        Canvas.EditItem(item);
         SendToServer(new ClientMessage.ReqUpdateItem(item.Id, ItemMapper.ToDto(item)));
     }
 
+    /// <inheritdoc/>
+    public void Undo()
+    {
+        SendToServer(new ClientMessage.ReqUndo());
+    }
+
+    /// <inheritdoc/>
+    public void Redo()
+    {
+        SendToServer(new ClientMessage.ReqRedo());
+    }
+
+    /// <summary>
+    /// Applies a full canvas response or updates this user's history availability.
+    /// </summary>
+    /// <param name="message">Serialized server message.</param>
     public void OnMessageReceived(byte[] message)
     {
-        ServerMessage notification = new ServerMessageByteSerializer().Deserialize(message);
+        ServerMessage response =
+            new ServerMessageByteSerializer().Deserialize(message);
 
-        switch (notification)
+        switch (response)
         {
-            case ServerMessage.ResUpdate(var whiteboardDto):
-                Canvas.Items.Clear();
-                foreach (ItemDto dto in whiteboardDto.Items)
+            case ServerMessage.ResUpdate(var state):
                 {
-                    Canvas.AddItem(ItemMapper.FromDto(dto));
+                    // Convert first, before removing the current state.
+                    IItem[] items = state.Items
+                        .Select(ItemMapper.FromDto)
+                        .ToArray();
+
+                    // Delete through the model so the renderer removes stale visuals.
+                    // Clearing the dictionary directly would not raise deletion events.
+                    foreach (Guid id in Canvas.Items.Keys.ToArray())
+                    {
+                        Canvas.DeleteItem(id);
+                    }
+
+                    foreach (IItem item in items)
+                    {
+                        Canvas.AddItem(item);
+                    }
+
+                    break;
                 }
-                break;
 
-            case ServerMessage.ResAddItem(var id, var itemDto):
-                Canvas.AddItem(ItemMapper.FromDto(itemDto));
-                break;
+            // History states are broadcast; only apply the current user's state.
+            case ServerMessage.ResHistory(
+                var userId,
+                var undo,
+                var redo)
+                when string.Equals(
+                    userId,
+                    UserId,
+                    StringComparison.Ordinal):
 
-            case ServerMessage.ResDeleteItem(var id):
-                Canvas.DeleteItem(id);
-                break;
-
-            case ServerMessage.ResUpdateItem(var id, var itemDto):
-                Canvas.EditItem(ItemMapper.FromDto(itemDto));
+                _undo = undo;
+                _redo = redo;
+                HistoryChanged();
                 break;
         }
+    }
+
+    public void RestoreSnapshot(WhiteboardDto whiteboard)
+    {
+        ArgumentNullException.ThrowIfNull(whiteboard);
+        SendToServer(new ClientMessage.ReqRestoreSnapshot(whiteboard));
     }
 }

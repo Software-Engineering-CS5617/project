@@ -32,6 +32,26 @@ public class IncidentCloudStorageService : IStorage
         return Task.FromResult((false, string.Empty));
     }
 
+    public Task<(bool Success, Dictionary<string, string> Etags)> ReadEtags(string[] keys)
+    {
+        Dictionary<string, string> etags = new();
+        bool success = true;
+
+        foreach (string key in keys)
+        {
+            if (_memory.ContainsKey(key))
+            {
+                etags[key] = Guid.NewGuid().ToString();
+            }
+            else
+            {
+                success = false;
+            }
+        }
+
+        return Task.FromResult((success, etags));
+    }
+
     public Task<(bool Success, Dictionary<string, string>)> ReadAllEtags()
     {
         Dictionary<string, string> etags = new();
@@ -134,5 +154,14 @@ public class IncidentCloudStorageService : IStorage
         }
 
         return true;
+    }
+
+    public Task<(bool Success, Dictionary<string, byte[]> Items)> ReadLatest(int n)
+    {
+        Dictionary<string, byte[]> latestItems = _memory
+            .TakeLast(n)
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        return Task.FromResult((true, latestItems));
     }
 }

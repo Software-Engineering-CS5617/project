@@ -15,7 +15,7 @@ namespace Incidents.ViewModels;
 public sealed class AllIncidentsPageViewModel : ViewModelBase
 {
     private readonly IIncidentController _incidentController;
-    private readonly Guid _currentUserId;
+    private readonly string _currentUserId;
 
     private List<Incident> _allIncidents = [];
     private string _searchText = string.Empty;
@@ -64,7 +64,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
     /// </summary>
     public AllIncidentsPageViewModel(
         IIncidentController incidentController,
-        Guid currentUserId)
+        string currentUserId)
     {
         _incidentController = incidentController ?? throw new ArgumentNullException(nameof(incidentController));
         _currentUserId = currentUserId;
@@ -186,6 +186,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
     /// </summary>
     public async Task LoadAsync()
     {
+        await _incidentController.Refresh();
         _allIncidents = await _incidentController.GetAllIncidents();
         ApplyFilter();
     }
@@ -226,9 +227,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
         IncidentStatus? statusFilter = Enum.TryParse<IncidentStatus>(SelectedStatus, out IncidentStatus s) ? s : null;
         IncidentCategory? categoryFilter = Enum.TryParse<IncidentCategory>(SelectedCategory, out IncidentCategory c) ? c : null;
         IncidentSeverity? severityFilter = Enum.TryParse<IncidentSeverity>(SelectedSeverity, out IncidentSeverity v) ? v : null;
-
-        // Convert string to Guid if valid
-        Guid? createdByGuid = Guid.TryParse(CreatedByInput.Trim(), out Guid parsedGuid) ? parsedGuid : null;
+        string createdByFilter = CreatedByInput.Trim();
 
         IncidentFilter filter = new(
             Title: titlePattern,
@@ -237,7 +236,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
             Severity: severityFilter,
             FromDateTime: FromDate?.DateTime,
             ToDateTime: ToDate?.DateTime,
-            CreatedBy: createdByGuid,
+            CreatedBy: createdByFilter,
             Location: null
         );
 

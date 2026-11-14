@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Whiteboard.Interfaces;
 using Windows.UI;
 
@@ -7,7 +8,22 @@ namespace Whiteboard.Items;
 
 public class FreehandItem : Item, IFreehand
 {
-    public override Rect2D BoundingBox { get; }
+    public override Rect2D BoundingBox
+    {
+        get {
+            if (Points == null || Points.Count == 0)
+            {
+                return new Rect2D(0, 0, 0, 0);
+            }
+
+            double minX = Points.Min(p => p.X);
+            double maxX = Points.Max(p => p.X);
+            double minY = Points.Min(p => p.Y);
+            double maxY = Points.Max(p => p.Y);
+
+            return new Rect2D(minX, minY, maxX - minX, maxY - minY);
+        }
+    }
     public List<Point2D> Points { get; set; }
     public Color StrokeColor { get; set; }
     public double StrokeWidth { get; set; }
@@ -15,6 +31,14 @@ public class FreehandItem : Item, IFreehand
     public FreehandItem()
     {
         Points = [];
+    }
+
+    public override void MoveBy(double dX, double dY)
+    {
+        for (int i = 0; i < Points.Count; i++)
+        {
+            Points[i] = Points[i] with { X = Points[i].X + dX, Y = Points[i].Y + dY };
+        }
     }
 
     public override bool HitTest(Point2D point)

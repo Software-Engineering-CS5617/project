@@ -1,4 +1,4 @@
-﻿using System.Reflection.Metadata.Ecma335;
+using System.Reflection.Metadata.Ecma335;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
 using Whiteboard.Interfaces;
@@ -9,15 +9,20 @@ namespace Whiteboard.Items;
 /// <inheritdoc/>
 public class Textbox : Item, ITextbox
 {
-    public Point2D Center { get; init; } = new(0, 0);
+    public Point2D Center { get; set; } = new(0, 0);
+
+    public override void MoveBy(double dX, double dY)
+    {
+        Center = Center with { X = Center.X + dX, Y = Center.Y + dY };
+    }
 
     // Model size for selection/hit-testing (not UI control size)
     public double Width { get; set; } = 150;
     public double Height { get; set; } = 40;
 
     public override Rect2D BoundingBox => new(
-        Left,
-        Top,
+        Center.X - (Width / 2.0),
+        Center.Y - (Height / 2.0),
         Width,
         Height
     );

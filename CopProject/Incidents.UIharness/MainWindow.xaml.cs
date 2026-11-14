@@ -28,13 +28,13 @@ public sealed partial class MainWindow : Window
         IFileOperations fileSynchroniser = new Synchroniser();
 
         IIncidentController controller = await IncidentController.CreateAsync(storageService, fileSynchroniser);
-        Guid currentUserId = Guid.NewGuid();
+        string currentUserId = "TestUser";
         IntPtr windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
         IncidentPageContext context = new(controller, currentUserId, windowHandle);
-        //RootFrame.Navigate(typeof(AllIncidentsPage), context);
-        IncidentCreatePageWithLocation locationContext = new(context, 37.7749, -122.4194, "San Francisco, CA");
-        RootFrame.Navigate(typeof(CreateIncidentPage), locationContext);
+        RootFrame.Navigate(typeof(AllIncidentsPage), context);
+        //IncidentCreatePageWithLocation locationContext = new(context, 37.7749, -122.4194, "San Francisco, CA");
+        //RootFrame.Navigate(typeof(CreateIncidentPage), locationContext);
 
     }
 }

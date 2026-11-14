@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Policy;
 using Incidents.ViewModels;
 using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
@@ -83,9 +84,42 @@ public sealed partial class IncidentDetailsPage : Page
 
         if (result == ContentDialogResult.Primary && dialogViewModel.IsValid && ViewModel != null)
         {
-            IncidentEvidence evidence = dialogViewModel.BuildEvidence(_context.CurrentUserId);
+            (IncidentEvidence Evidence, byte[] Content) res = await dialogViewModel.BuildEvidenceAsync(_context.CurrentUserId);
+            IncidentEvidence evidence = res.Evidence;
+            byte[] content = res.Content;
+            await ViewModel.AddEvidenceItemsAsync([(evidence, content)]);
+        }
+    }
 
-            await ViewModel.AddEvidenceItemsAsync([evidence]);
+    /// <summary>
+    /// Shows the Correlate Incidents dialog and correlates the selected incidents.
+    /// </summary>
+    private async void CorrelateIncidents_Click(object _, RoutedEventArgs __)
+    {
+        if (_context == null || ViewModel?.Incident == null)
+        {
+            return;
+        }
+
+        CorrelateIncidentsDialogViewModel dialogViewModel = new(
+            _context.IncidentController,
+            ViewModel.Incident.Id
+        );
+
+        await dialogViewModel.LoadIncidentsAsync();
+
+        CorrelateIncidentsDialog dialog = new() {
+            XamlRoot = this.XamlRoot,
+            DataContext = dialogViewModel
+        };
+
+        ContentDialogResult result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            List<Guid> selectedIds = dialogViewModel.GetSelectedIncidentIds();
+
+            await ViewModel.CorrelateIncidentsAsync(selectedIds);
         }
     }
 }

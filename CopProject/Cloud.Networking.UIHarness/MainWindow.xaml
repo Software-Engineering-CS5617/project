@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Cloud.Networking.UIHarness.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Mirrors the SecureMeet shell (same colours, header bar, page title and white card as the
+         Cloud page in the UX project), so the notification view can be judged as it will really look. -->
+    <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Background="#0B2A4A" Padding="20,10">
+            <TextBlock Text="SecureMeet" FontSize="20" FontWeight="SemiBold"
+                       Foreground="White" VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Padding="40,24" RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Cloud" FontSize="32" FontWeight="SemiBold"/>
+
+            <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
+                <ContentControl x:Name="ViewHost" HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

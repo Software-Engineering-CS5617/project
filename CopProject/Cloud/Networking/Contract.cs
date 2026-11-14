@@ -18,4 +18,10 @@ public static class Contract
     /// Method name string for the client-side method invoked by the server (to receive it)
     /// </summary>
     public const string ReceiveMessage = "ReceiveMessage";
+
+    /// <summary>
+    /// Method name string for the server-side method that returns the messages created after a given time.
+    /// Used by Sync.
+    /// </summary>
+    public const string GetMessagesSince = "GetMessagesSince";
 }

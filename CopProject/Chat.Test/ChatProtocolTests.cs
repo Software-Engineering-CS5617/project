@@ -46,14 +46,14 @@ public class ChatProtocolTests
         Guid parentId = chatroom.AddMessage(NewMessage("guest", "Root"));
         Guid replyId = Guid.NewGuid();
         ChatMessageWithThreads reply = NewMessage("host", "Reply");
-        reply.ParentMessageId = parentId;
-
-        RoomResult result = ChatProtocol.ApplyOperation(chatroom, new MessageAdded(replyId, reply));
+        RoomResult result = ChatProtocol.ApplyOperation(
+            chatroom,
+            new MessageAdded(replyId, reply, parentId));
 
         Assert.Equal(RoomResult.Ok, result);
         Assert.True(chatroom.TryGetMessage(replyId, out ChatMessage storedReply));
         Assert.Equal("Reply", storedReply.Content);
-        Assert.Equal(parentId, storedReply.ParentMessageId);
+        Assert.Null(storedReply.ParentMessageId);
     }
 
     [Fact]
@@ -61,11 +61,11 @@ public class ChatProtocolTests
     {
         Chatroom chatroom = new("room", "host");
         ChatMessageWithThreads reply = NewMessage("host", "Reply");
-        reply.ParentMessageId = Guid.NewGuid();
+        Guid threadParentId = Guid.NewGuid();
 
         Assert.Equal(
             RoomResult.NotFound,
-            ChatProtocol.ApplyOperation(chatroom, new MessageAdded(Guid.NewGuid(), reply)));
+            ChatProtocol.ApplyOperation(chatroom, new MessageAdded(Guid.NewGuid(), reply, threadParentId)));
     }
 
     [Fact]

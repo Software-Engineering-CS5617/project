@@ -19,7 +19,7 @@ public sealed class IncidentControllerUpdatesTest
             id: Guid.NewGuid(),
             title: "Invalid Incident",
             description: "This is an invalid Incident",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
             status: IncidentStatus.InProgress,
             category: IncidentCategory.Accident,
@@ -56,7 +56,7 @@ public sealed class IncidentControllerUpdatesTest
         new CreateIncidentRequest(
             title: "Test Incident 1",
             description: "This is a test incident 1.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.Accident,
             severity: IncidentSeverity.Medium,
             location: new IncidentLocation(Latitude: 0.0, Longitude: 0.0),
@@ -65,7 +65,7 @@ public sealed class IncidentControllerUpdatesTest
         new CreateIncidentRequest(
             title: "Test Incident 2",
             description: "This is a test incident 2.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.DrunkDriving,
             severity: IncidentSeverity.High,
             location: new IncidentLocation(Latitude: 1.0, Longitude: 1.0),
@@ -74,7 +74,7 @@ public sealed class IncidentControllerUpdatesTest
         new CreateIncidentRequest(
             title: "Test Incident 3",
             description: "This is a test incident 3.",
-            createdBy: Guid.Empty,
+            createdBy: string.Empty,
             category: IncidentCategory.Theft,
             severity: IncidentSeverity.Low,
             location: new IncidentLocation(Latitude: 3.0, Longitude: 3.0),

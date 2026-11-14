@@ -48,16 +48,11 @@ public class SendingQueueListenerClient : IDisposable
         {
             if (_sendingQueue.IsEmpty())
             {
-                Thread.Sleep(100);
+                _sendingQueue.WaitForItem(100);
                 continue;
             }
 
-            Packet? packet = _sendingQueue.Dequeue();
-            if (packet == null)
-            {
-                continue;
-            }
-
+            Packet packet = _sendingQueue.Dequeue()!;
             byte[] data = _packetSerializer.PacketToBytes(packet);
 
             try

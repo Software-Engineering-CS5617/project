@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Incidents;
 
 namespace Location.Test.Fakes;
@@ -31,6 +31,12 @@ internal sealed class FakeIncidentController : IIncidentController
     {
         return (Incident)RuntimeHelpers.GetUninitializedObject(typeof(Incident));
     }
+
+    public Task Refresh()
+    {
+        throw new NotSupportedException();
+    }
+
     public Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
     {
         LastFilter = filter;
@@ -48,7 +54,7 @@ internal sealed class FakeIncidentController : IIncidentController
     {
         throw new NotSupportedException();
     }
-    public Task<bool> AddEvidence(Incident incident, List<IncidentEvidence> evidence)
+    public Task<bool> AddEvidence(Incident incident, List<(IncidentEvidence, byte[])> evidence)
     {
         throw new NotSupportedException();
     }

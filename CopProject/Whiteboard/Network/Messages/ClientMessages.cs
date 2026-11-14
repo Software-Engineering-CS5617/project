@@ -17,10 +17,20 @@ namespace Whiteboard.Network.Messages;
 [JsonDerivedType(typeof(ReqAddItem), "req_add_item")]
 [JsonDerivedType(typeof(ReqDeleteItem), "req_delete_item")]
 [JsonDerivedType(typeof(ReqUpdateItem), "req_update_item")]
+[JsonDerivedType(typeof(ReqUndo), "req_undo")]
+[JsonDerivedType(typeof(ReqRedo), "req_redo")]
+[JsonDerivedType(typeof(ReqRestoreSnapshot), "req_restore_snapshot")]
 [ExcludeFromCodeCoverage]
 public abstract record ClientMessage
 {
     private ClientMessage() { }
+
+    /// <summary>
+    /// Identifies the user performing this operation.
+    /// This may differ from the creator of the affected item.
+    /// </summary>
+    // Set by WhiteboardClient.SendToServer for every request.
+    public string UserId { get; init; } = string.Empty;
 
     /// <summary>
     /// Sent when a new client connects the whiteboard,
@@ -55,4 +65,23 @@ public abstract record ClientMessage
     /// <param name="Item">Updated item</param>
     [ExcludeFromCodeCoverage]
     public sealed record ReqUpdateItem(Guid Id, ItemDto Item) : ClientMessage;
+
+    /// <summary>
+    /// Requests undo of the requesting user's most recent
+    /// available action.
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public sealed record ReqUndo() : ClientMessage;
+
+    /// <summary>
+    /// Requests redo of the requesting user's most recently
+    /// undone action that remains available.
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public sealed record ReqRedo() : ClientMessage;
+
+    /// <summary>
+    /// Requests server to replace the shared canvas with a saved snapshot
+    /// </summary>
+    public sealed record ReqRestoreSnapshot(WhiteboardDto Whiteboard) : ClientMessage;
 }

@@ -31,6 +31,11 @@ public class FileChunk
     /// Binary data payload of this chunk.
     /// </summary>
     public byte[] Data { get; set; } = Array.Empty<byte>();
+
+    /// <summary>
+    /// Optional last modified time (UTC) of the original file.
+    /// </summary>
+    public DateTime? LastModifiedUtc { get; set; }
 }
 
 /// <summary>
@@ -54,6 +59,19 @@ public class FileChunker
     public List<FileChunk> SplitFile(string fullPath, string relativePath, int chunkSize)
     {
         var chunks = new List<FileChunk>();
+        DateTime? lastModifiedUtc = null;
+
+        try
+        {
+            if (File.Exists(fullPath))
+            {
+                lastModifiedUtc = File.GetLastWriteTimeUtc(fullPath);
+            }
+        }
+        catch
+        {
+            // ignore if unable to query file timestamp
+        }
 
         using FileStream fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
 
@@ -63,7 +81,8 @@ public class FileChunker
                 FileId = relativePath,
                 ChunkNumber = 0,
                 TotalChunks = 1,
-                Data = Array.Empty<byte>()
+                Data = Array.Empty<byte>(),
+                LastModifiedUtc = lastModifiedUtc
             });
             return chunks;
         }
@@ -83,7 +102,8 @@ public class FileChunker
                 FileId = relativePath,
                 ChunkNumber = currentChunk,
                 TotalChunks = totalChunks,
-                Data = actualData
+                Data = actualData,
+                LastModifiedUtc = lastModifiedUtc
             };
 
             chunks.Add(chunk);
@@ -97,7 +117,7 @@ public class FileChunker
     /// Merges chunks in chunk order and writes the full file.
     /// The caller's list is not modified.
     /// </summary>
-    public void MergeChunks(List<FileChunk> receivedChunks, string savePath)
+    public void MergeChunks(List<FileChunk> receivedChunks, string savePath, DateTime? lastModifiedUtc = null)
     {
         ArgumentNullException.ThrowIfNull(receivedChunks);
 
@@ -110,11 +130,25 @@ public class FileChunker
             Directory.CreateDirectory(parent);
         }
 
-        using FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
-
-        foreach (FileChunk chunk in ordered)
+        using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
         {
-            fs.Write(chunk.Data, 0, chunk.Data.Length);
+            foreach (FileChunk chunk in ordered)
+            {
+                fs.Write(chunk.Data, 0, chunk.Data.Length);
+            }
+        }
+
+        DateTime? targetTime = lastModifiedUtc ?? ordered.FirstOrDefault(c => c.LastModifiedUtc.HasValue)?.LastModifiedUtc;
+        if (targetTime.HasValue)
+        {
+            try
+            {
+                File.SetLastWriteTimeUtc(savePath, targetTime.Value);
+            }
+            catch
+            {
+                // ignore if filesystem does not permit timestamp update
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ using Incidents.ViewModels.Utils;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
+using System.IO;
 
 namespace Incidents.ViewModels;
 
@@ -105,17 +106,29 @@ public sealed class AddEvidenceDialogViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Creates an evidence record from the entered values with a new Id and the current time.
+    /// Creates an evidence record and reads the selected file's contents.
     /// </summary>
-    /// <param name="uploadedBy">Id of the user adding the evidence (current user).</param>
-    public IncidentEvidence BuildEvidence(Guid uploadedBy)
+    /// <param name="uploadedBy">Id of the user adding the evidence.</param>
+    /// <returns>Evidence metadata and its file contents.</returns>
+    public async Task<(IncidentEvidence Evidence, byte[] Content)> BuildEvidenceAsync(
+        string uploadedBy)
     {
-        return new IncidentEvidence(
+        if (!IsValid)
+        {
+            throw new InvalidOperationException(
+                "A file and description are required.");
+        }
+
+        byte[] content = await File.ReadAllBytesAsync(FilePath);
+
+        IncidentEvidence evidence = new(
             Id: Guid.NewGuid(),
             Description: Description.Trim(),
             FilePath: FilePath,
             UploadTime: DateTime.Now,
             UploadedBy: uploadedBy
         );
+
+        return (evidence, content);
     }
 }
