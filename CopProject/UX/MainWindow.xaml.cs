@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -497,6 +498,8 @@ public sealed partial class MainWindow : Window
                 : me == null ? "the controller has no current user"
                 : $"my endpoint is not usable: '{me.Ip}' port {localPort}";
 
+            System.Diagnostics.Debug.WriteLine($"[FileSync] Cannot open File Sync: {reason}");
+
             _ = ShowErrorAsync("File Sync", "Cannot open File Sync: " + reason);
             return;
         }
@@ -507,6 +510,8 @@ public sealed partial class MainWindow : Window
             string hostIp = _meetingId.Equals("localhost", StringComparison.OrdinalIgnoreCase) ? "127.0.0.1" : _meetingId;
             if (!IPAddress.TryParse(hostIp, out IPAddress? hostAddress) || !int.TryParse(_meetingPort, out int hostPort))
             {
+
+                System.Diagnostics.Debug.WriteLine($"[FileSync] Invalid host endpoint address: {_meetingId}:{_meetingPort}");
                 _ = ShowErrorAsync("File Sync", $"Cannot open File Sync: host address '{_meetingId}:{_meetingPort}' is not valid.");
                 return;
             }
