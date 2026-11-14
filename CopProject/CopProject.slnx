@@ -22,6 +22,12 @@
     <Project Path="Cloud.UI/Cloud.UI.csproj" />
     <Project Path="Cloud.UI.Test/Cloud.UI.Test.csproj" />
     <Project Path="Cloud/Cloud.csproj" />
+    <Project Path="Cloud/Functions/Cloud.Crash.Functions.csproj" Id="c97b5d7d-1346-5655-5529-b74411be984d" />
+    <Project Path="Cloud/UI/Cloud.Crash.UI.csproj" Id="ae8f9a28-511d-948e-16b6-5e1dc3f66d1a" />
+    <Project Path="Cloud/UIharness/Cloud.Crash.UIharness.csproj" Id="4f684650-90a0-ebe3-4ccb-c8e9aa7cbb06">
+        <Platform Solution="*|x64" Project="x64" />
+        <Platform Solution="Debug|Any CPU" Project="x64" />
+    </Project>
     <Project Path="Controller.Test/Controller.Test.csproj" Id="0d0da0e8-11a3-40b5-aeaf-5e513adf26c1" />
     <Project Path="Controller/Controller.csproj" />
     <Project Path="Filesync.Test/Filesync.Test.csproj" />

@@ -8,6 +8,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Chat;
 using Cloud.Persistence;
+using Cloud.Crash;
+using Cloud.UI.Views;
 using Controller;
 using Controller.Models;
 using Controller.ViewModels;
@@ -376,10 +378,25 @@ public sealed partial class MainWindow : Window
     {
         ShowScreen(_inMeeting ? "meeting" : "dash");
     }
-
+    private async void ShowCrashDashboard()
+    {
+        try
+        {
+            ICrashReportService service = await CrashReportService.CreateAsync(CrashHandler.Current?.PendingUploader);
+            CrashFrame.Navigate(typeof(CrashDashboardPage), new CrashPageContext(service));
+        }
+        catch (Exception ex)
+        {
+            CrashFrame.Content = new TextBlock {
+                Text = "The crash dashboard could not be loaded: " + ex.Message,
+                TextWrapping = TextWrapping.Wrap
+            };
+        }
+    }
     private void CrashHandler_Click(object sender, RoutedEventArgs e)
     {
         ShowScreen("crashhandler");
+        ShowCrashDashboard();
     }
 
     private void CrashHandlerBack_Click(object sender, RoutedEventArgs e)

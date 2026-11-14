@@ -1,8 +1,8 @@
 ﻿namespace Incidents;
 
+using System.Diagnostics;
 using Cloud.Persistence;
 using FileSynchroniser.Models;
-using Incidents;
 
 public class IncidentController : IIncidentController
 {
@@ -26,10 +26,12 @@ public class IncidentController : IIncidentController
     {
         try
         {
+            Trace.TraceInformation($"[Incidents]: Initializing IncidentController.");
             (bool success, List<string> keys) = await cloudStorageService.GetAllKeys();
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to retrieve keys from cloud storage.");
                 throw new InvalidOperationException("Failed to retrieve keys from cloud storage.");
             }
 
@@ -37,6 +39,7 @@ public class IncidentController : IIncidentController
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to read data from cloud storage.");
                 throw new InvalidOperationException("Failed to read data from cloud storage.");
             }
 
@@ -51,10 +54,11 @@ public class IncidentController : IIncidentController
                 }
                 catch (Exception)
                 {
-
+                    Trace.TraceWarning($"[Incidents]: Failed to deserialize incident with ID {id}. Skipping this incident.");
                 }
             }
 
+            Trace.TraceInformation($"[Incidents]: IncidentController initialized successfully with {incidentMap.Count} incidents.");
             return new IncidentController(
                 cloudStorageService,
                 fileSynchronizerService,
@@ -63,6 +67,7 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
+            Trace.TraceError($"[Incidents]: Failed to initialize IncidentController: {ex.Message}");
             throw new InvalidOperationException("Failed to initialize IncidentController:", ex);
         }
     }
@@ -104,10 +109,12 @@ public class IncidentController : IIncidentController
                 e => $"{_relativePath}/{e.Item1.Id}",
                 e => e.Item2);
 
+            Trace.TraceInformation($"[Incidents]: Saving {files.Count} evidence files to file synchronizer service for incident with title {request.Title} created by {request.CreatedBy}");
             IReadOnlyDictionary<string, bool> saveResults = _fileSynchronizerService.SaveFile(files);
 
             if (saveResults.Count != files.Count || saveResults.Values.Any(saved => !saved))
             {
+                Trace.TraceError($"[Incidents]: Failed to save evidence files for incident with title {request.Title} created by {request.CreatedBy} to file synchronizer service.");
                 throw new InvalidOperationException("Failed to save evidence files to file synchronizer service.");
             }
 
@@ -127,6 +134,7 @@ public class IncidentController : IIncidentController
                 evidenceMeta
             );
 
+            Trace.TraceInformation($"[Incidents]: Persisting new created incident with ID '{incident.Id}' to cloud storage.");
             bool success = await _cloudStorageService.Create(
                 incident.Id.ToString(),
                 Incidents.IncidentSerializer.Serialize(incident)
@@ -134,14 +142,17 @@ public class IncidentController : IIncidentController
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to persist new incident with ID {incident.Id} to cloud storage. Attempting to redact saved evidence files.");
                 bool result = RedactFilesSave(evidenceMeta);
 
                 if (result)
                 {
-                    throw new InvalidOperationException("Failed to persist incident to cloud storage.");
+                    Trace.TraceInformation($"[Incidents]: Successfully redacted saved evidence files after failed cloud persistence for incident with ID {incident.Id}.");
+                    throw new InvalidOperationException($"Failed to persist incident with ID {incident.Id} to cloud storage.");
                 }
 
-                throw new InvalidOperationException("Failed to persist incident to cloud storage." +
+                Trace.TraceError($"[Incidents]: Failed to redact saved evidence files for incident with ID {incident.Id}. File synchronizer directory is in inconsistent state.");
+                throw new InvalidOperationException($"Failed to persist incident with ID {incident.Id} to cloud storage." +
                     " File syncronizer directory is in inconsistent state");
             }
 
@@ -151,7 +162,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to persist incident to cloud storage.", ex);
+            Trace.TraceError($"[Incidents]: Failed to create incident with title {request.Title} by {request.CreatedBy}.");
+            throw new InvalidOperationException($"Failed to create incident with title {request.Title} by {request.CreatedBy}", ex);
         }
     }
 
@@ -176,10 +188,12 @@ public class IncidentController : IIncidentController
     {
         try
         {
+            Trace.TraceInformation($"[Incidents]: Fetching all incident keys from cloud storage for refresh.");
             (bool success, List<string> keys) = await _cloudStorageService.GetAllKeys();
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to retrieve keys from cloud storage during refresh.");
                 throw new InvalidOperationException("Failed to refresh from cloud storage.");
             }
 
@@ -187,6 +201,7 @@ public class IncidentController : IIncidentController
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to read incident data from cloud storage during refresh.");
                 throw new InvalidOperationException("Failed to refresh from cloud storage.");
             }
 
@@ -201,12 +216,13 @@ public class IncidentController : IIncidentController
                 }
                 catch (Exception)
                 {
-
+                    Trace.TraceWarning($"[Incidents]: Failed to deserialize incident with ID {id} during refresh. Skipping this incident.");
                 }
             }
         }
         catch (Exception ex)
         {
+            Trace.TraceError($"[Incidents]: Failed to refresh incidents from cloud storage: {ex.Message}");
             throw new InvalidOperationException("Failed to refresh from cloud storage: ", ex);
         }
     }
@@ -271,11 +287,13 @@ public class IncidentController : IIncidentController
                     e => $"{_relativePath}/{e.Item1.Id}",
                     e => e.Item2);
 
+            Trace.TraceInformation($"[Incidents]: Saving {files.Count} new evidence files to file synchronizer service.");
             IReadOnlyDictionary<string, bool> saveResults = _fileSynchronizerService.SaveFile(files);
 
             if (saveResults.Count != files.Count || saveResults.Values.Any(saved => !saved))
             {
-                throw new InvalidOperationException("Failed to save evidence files to file synchronizer service.");
+                Trace.TraceError($"[Incidents]: Failed to save new evidence files for incident with ID {clone.Id} to file synchronizer service.");
+                throw new InvalidOperationException($"Failed to save new evidence files for incident with ID {clone.Id} to file synchronizer service.");
             }
 
             // set storage path in which files will be stored by file synchronizer service.
@@ -286,22 +304,24 @@ public class IncidentController : IIncidentController
 
             clone.AddEvidence(evidenceMeta);
 
+            Trace.TraceInformation($"[Incidents]: Reading ETag for incident with ID {clone.Id} in cloud storage.");
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
             {
-                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
+                throw new InvalidOperationException($"Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
             }
 
-            success = await _cloudStorageService.Update(
+            Trace.TraceInformation($"[Incidents]: Updating incident with ID {clone.Id} with ETag {etag} with evidence in cloud storage.");
+            if (!await _cloudStorageService.Update(
                 clone.Id.ToString(),
                 Incidents.IncidentSerializer.Serialize(clone),
                 etag
-           );
-
-            if (!success)
+            ))
             {
-                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to update incident with ID {clone.Id} with ETag {etag} with evidence in cloud storage.");
+                throw new InvalidOperationException($"Failed to update incident with ID {clone.Id} with ETag {etag} with evidence in cloud storage.");
             }
 
             incident.AddEvidence(evidenceMeta);
@@ -310,7 +330,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to add evidence to incident with ID {incident.Id} in cloud storage.");
+            throw new InvalidOperationException($"Failed to add evidence to incident with ID {incident.Id} in cloud storage: ", ex);
         }
     }
 
@@ -329,22 +350,24 @@ public class IncidentController : IIncidentController
 
         try
         {
+            Trace.TraceInformation($"[Incidents]: Reading ETag for incident with ID {clone.Id} in cloud storage.");
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
             {
-                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
+                throw new InvalidOperationException($"Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
             }
 
-            success = await _cloudStorageService.Update(
+            Trace.TraceInformation($"[Incidents]: Updating incident with ID {clone.Id} with ETag {etag} in cloud storage.");
+            if (!await _cloudStorageService.Update(
                 clone.Id.ToString(),
                 Incidents.IncidentSerializer.Serialize(clone),
                 etag
-           );
-
-            if (!success)
+            ))
             {
-                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to update status for incident with ID {clone.Id} with ETag {etag} in cloud storage.");
+                throw new InvalidOperationException($"Failed to update status for incident with ID {clone.Id} with ETag {etag} in cloud storage");
             }
 
             incident.UpdateStatus(newStatus, "");
@@ -353,7 +376,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to update status for incident with ID {clone.Id} in cloud storage.");
+            throw new InvalidOperationException($"Failed to update status for incident with ID {clone.Id} in cloud storage: ", ex);
         }
     }
 
@@ -377,22 +401,24 @@ public class IncidentController : IIncidentController
 
         try
         {
+            Trace.TraceInformation($"[Incidents]: Reading ETag for incident with ID {clone.Id} in cloud storage.");
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
             {
-                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
+                throw new InvalidOperationException($"Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
             }
 
-            success = await _cloudStorageService.Update(
+            Trace.TraceInformation($"[Incidents]: Updating incident with ID {clone.Id} with ETag {etag} in cloud storage.");
+            if (!await _cloudStorageService.Update(
                 clone.Id.ToString(),
                    Incidents.IncidentSerializer.Serialize(clone),
                 etag
-           );
-
-            if (!success)
+            ))
             {
-                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to update category for incident with ID {clone.Id} with ETag {etag} in cloud storage.");
+                throw new InvalidOperationException($"Failed to update category for incident with ID {clone.Id} with ETag {etag} in cloud storage.");
             }
 
             incident.UpdateCategory(newCategory, "");
@@ -401,7 +427,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to update category to {newCategory} for incident with ID {clone.Id} in cloud storage.");
+            throw new InvalidOperationException($"Failed to update category to {newCategory} for incident with ID {clone.Id} in cloud storage: ", ex);
         }
     }
 
@@ -425,22 +452,24 @@ public class IncidentController : IIncidentController
 
         try
         {
+            Trace.TraceInformation($"[Incidents]: Reading ETag for incident with ID {clone.Id} in cloud storage.");
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
                 throw new InvalidOperationException("Failed to read ETag from cloud storage.");
             }
 
-            success = await _cloudStorageService.Update(
+            Trace.TraceInformation($"[Incidents]: Updating severity of incident with ID {clone.Id} with ETag {etag} to {newSeverity} in cloud storage.");
+            if (!await _cloudStorageService.Update(
                 clone.Id.ToString(),
                 Incidents.IncidentSerializer.Serialize(clone),
                 etag
-           );
-
-            if (!success)
+            ))
             {
-                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to update severity of incident with ID {clone.Id} with ETag {etag} to {newSeverity} in cloud storage.");
+                throw new InvalidOperationException($"Failed to update severity of incident with ID {clone.Id} with ETag {etag} to {newSeverity} in cloud storage.");
             }
 
             incident.UpdateSeverity(newSeverity, "");
@@ -449,7 +478,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to read ETag from cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to update severity of incident with ID {clone.Id} to {newSeverity} in cloud storage.");
+            throw new InvalidOperationException($"Failed to update severity of incident with ID {clone.Id} to {newSeverity} in cloud storage: ", ex);
         }
     }
 
@@ -469,13 +499,16 @@ public class IncidentController : IIncidentController
 
         try
         {
+            Trace.TraceInformation($"[Incidents]: Reading ETag for incident with ID {clone.Id} in cloud storage.");
             (bool success, string etag) = await _cloudStorageService.ReadEtag(clone.Id.ToString());
 
             if (!success)
             {
+                Trace.TraceError($"[Incidents]: Failed to read ETag for incident with ID {clone.Id} in cloud storage.");
                 throw new InvalidOperationException("Failed to read ETag from cloud storage.");
             }
 
+            Trace.TraceInformation($"[Incidents]: Updating location of incident with ID {clone.Id} with ETag {etag} to {location} in cloud storage.");
             success = await _cloudStorageService.Update(
                 clone.Id.ToString(),
                 Incidents.IncidentSerializer.Serialize(clone),
@@ -484,7 +517,8 @@ public class IncidentController : IIncidentController
 
             if (!success)
             {
-                throw new InvalidOperationException("Failed to update Incident to cloud storage.");
+                Trace.TraceError($"[Incidents]: Failed to update location of incident with ID {clone.Id} with ETag {etag} to {location} in cloud storage.");
+                throw new InvalidOperationException($"Failed to update location of incident with ID {clone.Id} to {location} in cloud storage.");
             }
 
             incident.UpdateLocation(location, "");
@@ -493,7 +527,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to update Incident to cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to update location of incident with ID {clone.Id} to {location} in cloud storage.");
+            throw new InvalidOperationException($"Failed to update location of incident with ID {clone.Id} to {location} in cloud storage: ", ex);
         }
     }
 
@@ -524,22 +559,20 @@ public class IncidentController : IIncidentController
         Incident incident1Clone = incident1.Clone();
         Incident incident2Clone = incident2.Clone();
 
-        bool success = Incident.AddAdjacentIncident(incident1Clone, incident2Clone, "");
-
-        if (!success)
+        if (!Incident.AddAdjacentIncident(incident1Clone, incident2Clone, ""))
         {
             return false;
         }
 
         try
         {
-            // TODO(@shreesh): Update to ReadAllEtags later
-            (bool success1, string etag1) = await _cloudStorageService.ReadEtag(incident1Clone.Id.ToString());
-            (bool success2, string etag2) = await _cloudStorageService.ReadEtag(incident2Clone.Id.ToString());
+            Trace.TraceInformation($"[Incidents]: Reading ETags for incidents with IDs {incident1Clone.Id} and {incident2Clone.Id} in cloud storage.");
+            (bool success, Dictionary<string, string> etags) = await _cloudStorageService.ReadEtags([incident1Clone.Id.ToString(), incident2Clone.Id.ToString()]);
 
-            if (!success1 || !success2)
+            if (!success)
             {
-                throw new InvalidOperationException("Failed to read ETag from cloud storage.");
+                Trace.TraceInformation($"[Incidents]: Failed to read ETags for incidents with IDs {incident1Clone.Id} and {incident2Clone.Id} in cloud storage.");
+                throw new InvalidOperationException($"Failed to read ETags  for incidents with IDs {incident1Clone.Id} and {incident2Clone.Id} in cloud storage.");
             }
 
             Dictionary<string, byte[]> itemsToUpdate = new Dictionary<string, byte[]>
@@ -548,16 +581,10 @@ public class IncidentController : IIncidentController
                 { incident2Clone.Id.ToString(), Incidents.IncidentSerializer.Serialize(incident2Clone) }
             };
 
-            Dictionary<string, string> etags = new Dictionary<string, string>
+            Trace.TraceInformation($"[Incidents]: Updating incidents with IDs {incident1Clone.Id} and {incident2Clone.Id} in cloud storage.");
+            if (!await _cloudStorageService.UpdateAll(itemsToUpdate, etags))
             {
-                { incident1Clone.Id.ToString(), etag1 },
-                { incident2Clone.Id.ToString(), etag2 }
-            };
-
-            success = await _cloudStorageService.UpdateAll(itemsToUpdate, etags);
-
-            if (!success)
-            {
+                Trace.TraceError($"[Incidents]: Failed to update incidents with IDs {incident1Clone.Id} and {incident2Clone.Id} in cloud storage.");
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
@@ -567,7 +594,8 @@ public class IncidentController : IIncidentController
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to update Incident to cloud storage:", ex);
+            Trace.TraceError($"[Incidents]: Failed to correlate incidents with IDs {incident1.Id} and {incident2.Id} in cloud storage");
+            throw new InvalidOperationException($"Failed to correlate incidents with IDs {incident1.Id} and {incident2.Id} in cloud storage: ", ex);
         }
     }
 }

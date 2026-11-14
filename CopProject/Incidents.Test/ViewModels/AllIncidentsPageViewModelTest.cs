@@ -6,6 +6,7 @@ using Incidents;
 using Incidents.Test.Implementations;
 using Incidents.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Incidents.Test.ViewModels;
@@ -135,7 +136,11 @@ public class AllIncidentsPageViewModelTests
                 "All",
                 "DrunkDriving",
                 "Theft",
-                "Accident"
+                "Accident",
+                "Assault",
+                "Vandalism",
+                "Murder",
+                "Other",
             },
             _viewModel.CategoryOptions);
 

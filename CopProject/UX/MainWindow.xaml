@@ -158,7 +158,7 @@
 
             <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
                 <Grid>
-                    <!-- CrashHandler TEAM: WRITE YOUR XAML CODE INSIDE THIS GRID -->
+                    <Frame x:Name="CrashFrame" />
                 </Grid>
             </Border>
         </Grid>
