@@ -3,11 +3,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.IO;
+using System.Net;
 using System.Threading.Tasks;
 using FileSynchroniser.Models;
-using Controller;
 using FileSynchroniser.Network;
 using FileSynchroniser.ViewModels;
 using Microsoft.UI;
@@ -22,23 +21,20 @@ namespace FileSynchroniser.Views;
 
 [ExcludeFromCodeCoverage]
 /// <summary>
-/// Page that lists the synchronised folder and lets the user add, delete and refresh files.
+/// Page that lists the synchronised folder and lets the user add, delete, refresh and sync files.
+/// Navigate to it with a <see cref="FileSyncSession"/> as the parameter.
 /// </summary>
 public sealed partial class FileSyncPage : Page
 {
     /// <summary>
-    /// ViewModel that the page binds to.
+    /// ViewModel the page binds to. It implements <see cref="IUserNotificationHandler"/>, so the
+    /// controller can call OnUserJoined / OnUserLeft / SetAvailableUsers on it directly.
     /// </summary>
     public FileSyncViewModel ViewModel { get; }
 
-    private SimulatedCommunicator? _communicator;
     private NetworkSyncHandler? _syncHandler;
-    private IControllerService? _controller;
-    private int _currentPort = 0;
+    private FileSyncSession? _session;
 
-    /// <summary>
-    /// Creates the page and its ViewModel.
-    /// </summary>
     public FileSyncPage()
     {
         // Created here (on the UI thread) so UiDispatcher can capture the DispatcherQueue.
@@ -48,171 +44,90 @@ public sealed partial class FileSyncPage : Page
     }
 
     /// <summary>
-    /// ensures communicator is initialized on the configured listening port
-    /// </summary>
-    private void EnsureCommunicator(int listenPort)
-    {
-        if (_communicator != null && _currentPort == listenPort)
-        {
-            return;
-        }
-
-        _communicator?.Dispose();
-        _communicator = new SimulatedCommunicator(listenPort);
-        _currentPort = listenPort;
-
-        _syncHandler = new NetworkSyncHandler(ViewModel.RootDirectory, _communicator);
-
-        _syncHandler.OnLog += msg => {
-            DispatcherQueue.TryEnqueue(() => {
-                StatusTextBlock.Text = msg;
-            });
-        };
-
-        _syncHandler.OnSyncCompleted += () => {
-            DispatcherQueue.TryEnqueue(() => {
-                ViewModel.RefreshCommand.Execute(null);
-                StatusTextBlock.Text = "[sync] synchronisation finished successfully!";
-            });
-        };
-    }
-
-    /// <summary>
-    /// handles click event on the sync button
-    /// </summary>
-    private void OnSyncButtonClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        string peerIp = PeerIpTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(peerIp))
-        {
-            peerIp = "127.0.0.1";
-        }
-
-        if (!int.TryParse(MyPortTextBox.Text.Trim(), out int listenPort))
-        {
-            listenPort = 8001;
-        }
-
-        if (!int.TryParse(PeerPortTextBox.Text.Trim(), out int peerPort))
-        {
-            peerPort = 8002;
-        }
-
-        StatusTextBlock.Text = $"Connecting on port {listenPort} to {peerIp}:{peerPort}...";
-
-        System.Threading.Tasks.Task.Run(() => {
-            try
-            {
-                EnsureCommunicator(listenPort);
-
-                var peerEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse(peerIp), peerPort);
-                _communicator!.RegisterPeer(peerEndpoint);
-                _syncHandler!.DefaultPeerEndpoint = peerEndpoint;
-
-                _syncHandler.StartSync();
-            }
-            catch (Exception ex)
-            {
-                DispatcherQueue.TryEnqueue(() => {
-                    StatusTextBlock.Text = $"Network sync error: {ex.Message}";
-                });
-            }
-        });
-    }
-
-    /// <summary>
-    /// preset A button click: listen 8001, target 8002
-    /// </summary>
-    private void OnPresetAClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        MyPortTextBox.Text = "8001";
-        PeerIpTextBox.Text = "127.0.0.1";
-        PeerPortTextBox.Text = "8002";
-    }
-
-    /// <summary>
-    /// preset B button click: listen 8002, target 8001
-    /// </summary>
-    private void OnPresetBClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        MyPortTextBox.Text = "8002";
-        PeerIpTextBox.Text = "127.0.0.1";
-        PeerPortTextBox.Text = "8001";
-    }
-
-    /// <summary>
-    /// Attaches controller service when navigated to during a meeting
+    /// Reads the session from the navigation parameter and starts listening on the meeting's communicator.
     /// </summary>
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
-        // Navigation parameter carries the meeting controller, if any
-        if (e.Parameter is IControllerService controller)
+        if (e.Parameter is FileSyncSession session)
         {
-            AttachController(controller);
+            AttachSession(session);
+        }
+        else
+        {
+            StatusTextBlock.Text = "Not connected to a meeting.";
         }
     }
 
     /// <summary>
-    /// Stores the controller, pre-fills the local port, loads current peers, and subscribes to join/leave events.
+    /// Creates the sync handler on the meeting's communicator (no new sockets are opened)
+    /// and loads the peers that are already in the meeting.
     /// </summary>
-    private void AttachController(IControllerService controller)
+    private void AttachSession(FileSyncSession session)
     {
-        _controller = controller;
-
-        // Auto-fill our own listening port if controller has one
-        if (_controller.ListenPort > 0)
+        if (_syncHandler != null)
         {
-            MyPortTextBox.Text = _controller.ListenPort.ToString();
+            return;
         }
 
-        // Populate active participants
-        List<ControllerUser> users = _controller.GetActiveUsers();
-        if (users != null && users.Count > 0)
-        {
-            // Exclude ourselves from the peer list
-            List<ControllerUser> peers = _controller.CurrentUser != null
-                ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
-                : users;
+        _session = session;
 
-            ViewModel.SetAvailableUsers(peers);
-        }
+        _syncHandler = new NetworkSyncHandler(
+            ViewModel.RootDirectory,
+            session.Communicator,
+            session.IsHost,
+            session.LocalEndpoint,
+            session.HostEndpoint);
 
-        _controller.UserJoined += OnControllerUserJoined;
-        _controller.UserLeft += OnControllerUserLeft;
-    }
+        _syncHandler.OnLog += msg => DispatcherQueue.TryEnqueue(() => StatusTextBlock.Text = msg);
 
-    /// <summary>
-    /// Adds a newly joined meeting participant to the peer list (ignores ourselves).
-    /// </summary>
-    private void OnControllerUserJoined(object? sender, UserJoinedEventArgs e)
-    {
-        // Event may fire on a background thread; marshal to the UI thread
-        DispatcherQueue.TryEnqueue(() => {
-            if (e.User != null)
-            {
-                // Skip our own join event
-                if (_controller?.CurrentUser != null && e.User.UserKey == _controller.CurrentUser.UserKey)
-                {
-                    return;
-                }
-
-                ViewModel.OnUserJoined(e.User);
-            }
+        _syncHandler.OnSyncCompleted += () => DispatcherQueue.TryEnqueue(() => {
+            ViewModel.RefreshCommand.Execute(null);
+            StatusTextBlock.Text = "[sync] synchronisation finished successfully!";
         });
+
+        if (session.InitialPeers != null)
+        {
+            ViewModel.SetAvailableUsers(session.InitialPeers);
+        }
+
+        // live join / leave updates from the controller
+        session.RegisterHandler?.Invoke(ViewModel);
     }
 
     /// <summary>
-    /// Removes a participant who left the meeting from the peer list.
+    /// Pulls the files of the selected (or typed) peer into this machine.
     /// </summary>
-    private void OnControllerUserLeft(object? sender, UserLeftEventArgs e)
+    private void OnSyncButtonClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        // Marshal to the UI thread before touching the ViewModel
-        DispatcherQueue.TryEnqueue(() => {
-            if (e.User != null)
+        NetworkSyncHandler? handler = _syncHandler;
+        if (handler == null)
+        {
+            StatusTextBlock.Text = "Not connected to a meeting.";
+            return;
+        }
+
+        if (!IPAddress.TryParse(PeerIpTextBox.Text.Trim(), out IPAddress? ip)
+            || !int.TryParse(PeerPortTextBox.Text.Trim(), out int port)
+            || port is < 1 or > 65535)
+        {
+            StatusTextBlock.Text = "Select a peer, or enter a valid peer IP and port.";
+            return;
+        }
+
+        var peer = new IPEndPoint(ip, port);
+        StatusTextBlock.Text = $"Syncing from {peer}...";
+
+        // reading the manifest and files can be slow, so keep it off the UI thread
+        Task.Run(() => {
+            try
             {
-                ViewModel.OnUserLeft(e.User);
+                handler.StartSync(peer);
+            }
+            catch (Exception ex)
+            {
+                DispatcherQueue.TryEnqueue(() => StatusTextBlock.Text = $"Network sync error: {ex.Message}");
             }
         });
     }
@@ -222,58 +137,41 @@ public sealed partial class FileSyncPage : Page
     /// </summary>
     private void OnPeerSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ViewModel.SelectedPeer is ControllerUser selected)
+        if (ViewModel.SelectedPeer is not ControllerUser selected)
         {
-            // Only overwrite fields when the peer has valid values
-            if (!string.IsNullOrWhiteSpace(selected.Ip))
-            {
-                PeerIpTextBox.Text = selected.Ip;
-            }
+            return;
+        }
 
-            if (selected.Port > 0)
-            {
-                PeerPortTextBox.Text = selected.Port.ToString();
-            }
+        if (!string.IsNullOrWhiteSpace(selected.Ip))
+        {
+            PeerIpTextBox.Text = selected.Ip;
+        }
+
+        // the host's entry in the user list can carry a stale port 0; a client knows the real one
+        int port = selected.Port;
+        if (port <= 0 && selected.IsHost && _session?.HostEndpoint != null)
+        {
+            port = _session.HostEndpoint.Port;
+        }
+
+        if (port > 0)
+        {
+            PeerPortTextBox.Text = port.ToString();
         }
     }
 
     /// <summary>
-    /// Reloads the active peer list from the controller and reports the result in the status text.
-    /// </summary>
-    private void OnRefreshPeersClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        if (_controller != null)
-        {
-            List<ControllerUser> users = _controller.GetActiveUsers();
-
-            // Exclude ourselves from the peer list
-            List<ControllerUser> peers = _controller.CurrentUser != null
-                ? users.Where(u => u.UserKey != _controller.CurrentUser.UserKey).ToList()
-                : users;
-
-            ViewModel.SetAvailableUsers(peers);
-            StatusTextBlock.Text = $"Refreshed {peers.Count} available peer(s) from meeting.";
-        }
-        else
-        {
-            // No meeting context; user can still connect by typing IP/port
-            StatusTextBlock.Text = "No active meeting controller connected. You can enter IP and Port manually.";
-        }
-    }
-
-    /// <summary>
-    /// Disposes the ViewModel when the user navigates away from the page.
+    /// Unsubscribes from the meeting's communicator and disposes the ViewModel when leaving the page.
     /// </summary>
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
-        if (_controller != null)
-        {
-            _controller.UserJoined -= OnControllerUserJoined;
-            _controller.UserLeft -= OnControllerUserLeft;
-            _controller = null;
-        }
+        _session?.UnregisterHandler?.Invoke(ViewModel);
+        _session = null;
 
-        _communicator?.Dispose();
+        // the communicator belongs to the meeting: only unsubscribe, never dispose it
+        _syncHandler?.Dispose();
+        _syncHandler = null;
+
         ViewModel.Dispose();
         base.OnNavigatedFrom(e);
     }
@@ -281,8 +179,6 @@ public sealed partial class FileSyncPage : Page
     /// <summary>
     /// Opens a file picker and adds the chosen file(s) to the synchronised folder.
     /// </summary>
-    /// <param name="sender">The Add File button.</param>
-    /// <param name="e">Event data for the click.</param>
     private async void AddFile_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         try
@@ -334,8 +230,7 @@ public sealed partial class FileSyncPage : Page
     }
 
     /// <summary>
-    /// Returns a name that is not already used in the batch, e.g. "report (2).pdf"
-    /// when two picked files from different folders are both called "report.pdf".
+    /// Returns a name that is not already used in the batch, e.g. "report (2).pdf".
     /// </summary>
     private static string GetUniqueName(string fileName, IReadOnlyDictionary<string, byte[]> existing)
     {
@@ -362,9 +257,6 @@ public sealed partial class FileSyncPage : Page
     /// <summary>
     /// Shows a simple message dialog with an OK button.
     /// </summary>
-    /// <param name="title">Title of the dialog.</param>
-    /// <param name="message">Message text shown in the dialog.</param>
-    /// <returns>A task that completes when the dialog is closed.</returns>
     private async Task ShowMessageAsync(string title, string message)
     {
         var dialog = new ContentDialog {

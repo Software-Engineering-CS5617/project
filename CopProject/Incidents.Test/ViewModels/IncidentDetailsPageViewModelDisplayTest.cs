@@ -125,9 +125,13 @@ public class IncidentDetailsPageViewModelDisplayTest
             {
                 nameof(_viewModel.IsEditMode),
                 nameof(_viewModel.IsReadOnlyMode),
-                nameof(_viewModel.EditButtonText),
+                nameof(_viewModel.IsResolved),
+                nameof(_viewModel.EditButtonVisibility),
+                nameof(_viewModel.UnresolveButtonVisibility),
+                nameof(_viewModel.EditActionsVisibility),
                 nameof(_viewModel.EditVisibility),
-                nameof(_viewModel.ReadOnlyVisibility)
+                nameof(_viewModel.ReadOnlyVisibility),
+                nameof(_viewModel.EditButtonText)
             },
             changedProperties);
     }

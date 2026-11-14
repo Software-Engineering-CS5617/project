@@ -470,5 +470,24 @@ public class ChatClientTests
         public void MulticastMessage(int multicastGroup, byte[] message, int module, int priority)
         {
         }
+
+        public void AddLossySubscriber(int module, IMessageListenerLossy subscriber)
+        {
+        }
+
+        public void RemoveLossySubscriber(int module)
+        {
+        }
+        public void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message, int module, int priority)
+        {
+        }
+
+        public void BroadcastMessageLossy(byte[] message, int module, int priority)
+        {
+        }
+
+        public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority)
+        {
+        }
     }
 }

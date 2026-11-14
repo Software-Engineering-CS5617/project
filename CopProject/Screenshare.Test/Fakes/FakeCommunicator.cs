@@ -183,6 +183,30 @@ internal sealed class FakeCommunicator : ICommunicator
         throw new NotSupportedException();
     }
 
+    public void AddLossySubscriber(int module, IMessageListenerLossy subscriber)
+    {
+        throw new NotSupportedException();
+    }
+
+    public void RemoveLossySubscriber(int module)
+    {
+        throw new NotSupportedException();
+    }
+    public void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message, int module, int priority)
+    {
+        throw new NotSupportedException();
+    }
+
+    public void BroadcastMessageLossy(byte[] message, int module, int priority)
+    {
+        throw new NotSupportedException();
+    }
+
+    public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority)
+    {
+        throw new NotSupportedException();
+    }
+
     internal void Deliver(int module, byte[] bytes)
     {
         IMessageListener? listener;

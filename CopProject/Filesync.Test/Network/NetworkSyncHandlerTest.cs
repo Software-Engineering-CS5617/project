@@ -7,7 +7,6 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using FileSynchroniser.Models;
 using FileSynchroniser.Network;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Networking;
@@ -17,19 +16,31 @@ namespace Filesync.Test.Network;
 [TestClass]
 public class NetworkSyncHandlerTest
 {
+    // three participants of the fake meeting: the host and two clients
+    private static readonly IPEndPoint s_hostEp = new(IPAddress.Loopback, 8001);
+    private static readonly IPEndPoint s_epA = new(IPAddress.Loopback, 8002);
+    private static readonly IPEndPoint s_epB = new(IPAddress.Loopback, 8003);
+
     private string _tempDir = null!;
     private FakeCommunicator _communicator = null!;
+
+    // the handler under test, running on the host (local endpoint = HostEp)
     private NetworkSyncHandler _handler = null!;
 
     /// <summary>
-    /// Simple fake communicator for testing NetworkSyncHandler without opening real sockets
+    /// Fake communicator for testing NetworkSyncHandler without opening real sockets
     /// </summary>
-    private class FakeCommunicator : ICommunicator
+    private sealed class FakeCommunicator : ICommunicator
     {
-        public int ListenPort => 8001;
-        public IPAddress ListenIpAddress => IPAddress.Loopback;
+        // deliberately different from every endpoint used in the tests:
+        // the handler must take its own endpoint from its constructor, not from these
+        public int ListenPort => 9999;
+        public IPAddress ListenIpAddress => IPAddress.Any;
+
         public IMessageListener? Subscriber { get; private set; }
         public int SubscribedModule { get; private set; }
+        public int RemoveCalls { get; private set; }
+        public bool ThrowOnRemove { get; set; }
         public List<(IPEndPoint? endpoint, byte[] data, int module, int priority)> SentMessages { get; } = new();
         public List<(byte[] data, int module, int priority)> BroadcastMessages { get; } = new();
 
@@ -41,6 +52,13 @@ public class NetworkSyncHandlerTest
 
         public void RemoveSubscriber(int module)
         {
+            RemoveCalls++;
+
+            if (ThrowOnRemove)
+            {
+                throw new ObjectDisposedException("communicator");
+            }
+
             if (SubscribedModule == module)
             {
                 Subscriber = null;
@@ -60,17 +78,40 @@ public class NetworkSyncHandlerTest
         public void MulticastMessage(int multicastGroup, byte[] message, int module, int priority) { }
         public void JoinMulticastGroup(int multicastGroup, IPEndPoint clientIp) { }
         public void LeaveMulticastGroup(int multicastGroup, IPEndPoint clientIp) { }
+        public void AddLossySubscriber(int module, IMessageListenerLossy subscriber)
+        {
+        }
+
+        public void RemoveLossySubscriber(int module)
+        {
+        }
+        public void SendMessageLossy(IPEndPoint iPEndPoint, byte[] message, int module, int priority)
+        {
+        }
+
+        public void BroadcastMessageLossy(byte[] message, int module, int priority)
+        {
+        }
+
+        public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority)
+        {
+        }
     }
 
     /// <summary>
-    /// Initializing test temp folder and handler before each test
+    /// A sent message split into where it travelled to and what its envelope says
+    /// </summary>
+    private sealed record Sent(IPEndPoint? Transport, string Type, string From, string To, string Payload, int Module, int Priority);
+
+    /// <summary>
+    /// Initializing test temp folder and a host-side handler before each test
     /// </summary>
     [TestInitialize]
     public void Setup()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"SyncHandlerTests_{Guid.NewGuid():N}");
         _communicator = new FakeCommunicator();
-        _handler = new NetworkSyncHandler(_tempDir, _communicator);
+        _handler = new NetworkSyncHandler(_tempDir, _communicator, isHost: true, s_hostEp, hostEndpoint: null);
     }
 
     /// <summary>
@@ -85,17 +126,26 @@ public class NetworkSyncHandlerTest
         }
     }
 
-    private void Send(string text)
+    // ---------- helpers ----------
+
+    private static byte[] MakeEnvelope(string type, string payload, IPEndPoint from, IPEndPoint to)
     {
-        _handler.OnMessageReceived(Encoding.UTF8.GetBytes(text));
+        var env = new { Type = type, From = from.ToString(), To = to.ToString(), Payload = payload };
+        return JsonSerializer.SerializeToUtf8Bytes(env);
     }
 
-    private void SendManifest(Dictionary<string, DateTime> manifest)
+    /// <summary>delivers a message from EpA (or another sender) addressed to the host handler</summary>
+    private void Receive(string type, string payload, IPEndPoint? from = null)
     {
-        Send("MANIFEST:" + JsonSerializer.Serialize(manifest));
+        _handler.OnMessageReceived(MakeEnvelope(type, payload, from ?? s_epA, s_hostEp));
     }
 
-    private void SendChunk(string fileId, int number, int total, string content, DateTime? lastModified = null)
+    private void ReceiveManifest(Dictionary<string, DateTime> manifest, IPEndPoint? from = null)
+    {
+        Receive("MANIFEST", JsonSerializer.Serialize(manifest), from);
+    }
+
+    private void ReceiveChunk(string fileId, int number, int total, string content, DateTime? lastModified = null, IPEndPoint? from = null)
     {
         var dto = new {
             FileId = fileId,
@@ -104,252 +154,77 @@ public class NetworkSyncHandlerTest
             Base64Data = Convert.ToBase64String(Encoding.UTF8.GetBytes(content)),
             LastModifiedUtc = lastModified
         };
-        Send("CHUNK:" + JsonSerializer.Serialize(dto));
+        Receive("CHUNK", JsonSerializer.Serialize(dto), from);
     }
 
+    private static List<Sent> ReadSent(FakeCommunicator comm)
+    {
+        return comm.SentMessages.Select(m => {
+            using JsonDocument doc = JsonDocument.Parse(m.data);
+            JsonElement root = doc.RootElement;
+            return new Sent(
+                m.endpoint,
+                root.GetProperty("Type").GetString()!,
+                root.GetProperty("From").GetString()!,
+                root.GetProperty("To").GetString()!,
+                root.GetProperty("Payload").GetString()!,
+                m.module,
+                m.priority);
+        }).ToList();
+    }
+
+    private static (string FileId, int Number, int Total, string Text) ReadChunk(string payload)
+    {
+        using JsonDocument doc = JsonDocument.Parse(payload);
+        JsonElement root = doc.RootElement;
+        string text = Encoding.UTF8.GetString(Convert.FromBase64String(root.GetProperty("Base64Data").GetString()!));
+        return (
+            root.GetProperty("FileId").GetString()!,
+            root.GetProperty("ChunkNumber").GetInt32(),
+            root.GetProperty("TotalChunks").GetInt32(),
+            text);
+    }
+
+    /// <summary>a handler running on client EpA, whose only route is the host</summary>
+    private (NetworkSyncHandler handler, FakeCommunicator comm) CreateClient()
+    {
+        var comm = new FakeCommunicator();
+        var handler = new NetworkSyncHandler(_tempDir, comm, isHost: false, s_epA, s_hostEp);
+        return (handler, comm);
+    }
+
+    // ---------- constructor ----------
+
     /// <summary>
-    /// 1. Constructor creates root folder and subscribes to module 5
+    /// 1. Constructor creates root folder and subscribes to the default module
     /// </summary>
     [TestMethod]
     public void Constructor_CreatesDirectoryAndRegistersSubscriber()
     {
         Assert.IsTrue(Directory.Exists(_tempDir));
         Assert.AreEqual(Path.GetFullPath(_tempDir), _handler.RootDirectory);
-        Assert.AreEqual(NetworkSyncHandler.ModuleId, _communicator.SubscribedModule);
+        Assert.AreEqual(NetworkSyncHandler.DefaultModuleId, _communicator.SubscribedModule);
         Assert.AreSame(_handler, _communicator.Subscriber);
     }
 
     /// <summary>
-    /// 2. StartSync sends GET_MANIFEST to DefaultPeerEndpoint when specified
+    /// 2. Constructor subscribes on a custom module id and sends on it
     /// </summary>
     [TestMethod]
-    public void StartSync_WithDefaultPeer_SendsGetManifestToPeer()
+    public void Constructor_CustomModuleId_SubscribesAndSendsOnIt()
     {
-        var endpoint = new IPEndPoint(IPAddress.Loopback, 8002);
-        _handler.DefaultPeerEndpoint = endpoint;
+        var comm = new FakeCommunicator();
+        var handler = new NetworkSyncHandler(_tempDir, comm, isHost: true, s_hostEp, null, moduleId: 42);
 
-        _handler.StartSync();
+        handler.StartSync(s_epA);
 
-        Assert.HasCount(1, _communicator.SentMessages);
-        Assert.AreEqual(endpoint, _communicator.SentMessages[0].endpoint);
-        string msg = Encoding.UTF8.GetString(_communicator.SentMessages[0].data);
-        Assert.AreEqual("GET_MANIFEST", msg);
+        Assert.AreEqual(42, comm.SubscribedModule);
+        Assert.HasCount(1, comm.SentMessages);
+        Assert.AreEqual(42, comm.SentMessages[0].module);
     }
 
     /// <summary>
-    /// 3. StartSync broadcasts GET_MANIFEST when no default peer is set
-    /// </summary>
-    [TestMethod]
-    public void StartSync_WithoutDefaultPeer_BroadcastsGetManifest()
-    {
-        _handler.DefaultPeerEndpoint = null;
-
-        _handler.StartSync();
-
-        Assert.HasCount(1, _communicator.BroadcastMessages);
-        string msg = Encoding.UTF8.GetString(_communicator.BroadcastMessages[0].data);
-        Assert.AreEqual("GET_MANIFEST", msg);
-    }
-
-    /// <summary>
-    /// 4. Receiving GET_MANIFEST sends local files manifest
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_GetManifest_SendsLocalManifest()
-    {
-        var endpoint = new IPEndPoint(IPAddress.Loopback, 8002);
-        _handler.DefaultPeerEndpoint = endpoint;
-
-        // create a test file locally
-        string testFile = Path.Combine(_tempDir, "sample.txt");
-        File.WriteAllText(testFile, "hello filesync");
-
-        Send("GET_MANIFEST");
-
-        Assert.HasCount(1, _communicator.SentMessages);
-        string response = Encoding.UTF8.GetString(_communicator.SentMessages[0].data);
-        Assert.StartsWith("MANIFEST:", response);
-        Assert.Contains("sample.txt", response);
-    }
-
-    /// <summary>
-    /// 5. Receiving GET_MANIFEST without default peer broadcasts local manifest
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_GetManifest_WithoutPeer_BroadcastsLocalManifest()
-    {
-        _handler.DefaultPeerEndpoint = null;
-
-        Send("GET_MANIFEST");
-
-        Assert.HasCount(1, _communicator.BroadcastMessages);
-        string response = Encoding.UTF8.GetString(_communicator.BroadcastMessages[0].data);
-        Assert.StartsWith("MANIFEST:", response);
-    }
-
-    /// <summary>
-    /// 6. HandleManifest requests files that are missing locally
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Manifest_RequestsMissingFile()
-    {
-        var endpoint = new IPEndPoint(IPAddress.Loopback, 8002);
-        _handler.DefaultPeerEndpoint = endpoint;
-
-        SendManifest(new Dictionary<string, DateTime> { { "missing.txt", DateTime.UtcNow } });
-
-        Assert.HasCount(1, _communicator.SentMessages);
-        string sent = Encoding.UTF8.GetString(_communicator.SentMessages[0].data);
-        Assert.AreEqual("REQUEST:missing.txt", sent);
-    }
-
-    /// <summary>
-    /// 7. HandleManifest requests files when remote version is newer
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Manifest_RequestsNewerFile()
-    {
-        _handler.DefaultPeerEndpoint = null;
-
-        string localFile = Path.Combine(_tempDir, "older.txt");
-        File.WriteAllText(localFile, "old content");
-        File.SetLastWriteTimeUtc(localFile, DateTime.UtcNow.AddHours(-2));
-
-        SendManifest(new Dictionary<string, DateTime> { { "older.txt", DateTime.UtcNow } });
-
-        Assert.HasCount(1, _communicator.BroadcastMessages);
-        string sent = Encoding.UTF8.GetString(_communicator.BroadcastMessages[0].data);
-        Assert.AreEqual("REQUEST:older.txt", sent);
-    }
-
-    /// <summary>
-    /// 8. HandleManifest triggers OnSyncCompleted when all files are already up-to-date
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Manifest_WhenUpToDate_InvokesSyncCompleted()
-    {
-        string localFile = Path.Combine(_tempDir, "current.txt");
-        File.WriteAllText(localFile, "current content");
-        DateTime fileTime = File.GetLastWriteTimeUtc(localFile);
-
-        bool completed = false;
-        _handler.OnSyncCompleted += () => completed = true;
-
-        SendManifest(new Dictionary<string, DateTime> { { "current.txt", fileTime.AddHours(-1) } });
-
-        Assert.IsTrue(completed);
-        Assert.HasCount(0, _communicator.SentMessages);
-    }
-
-    /// <summary>
-    /// 9. HandleManifest with invalid JSON does not throw or crash
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Manifest_InvalidJson_DoesNotThrow()
-    {
-        Send("MANIFEST:invalid json data");
-
-        Assert.HasCount(0, _communicator.SentMessages);
-    }
-
-    /// <summary>
-    /// 10. HandleFileRequest splits local file and sends chunks to peer
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Request_ValidFile_SendsChunksToPeer()
-    {
-        var endpoint = new IPEndPoint(IPAddress.Loopback, 8002);
-        _handler.DefaultPeerEndpoint = endpoint;
-
-        string localFile = Path.Combine(_tempDir, "data.txt");
-        File.WriteAllText(localFile, "chunk file test data");
-
-        Send("REQUEST:data.txt");
-
-        Assert.IsGreaterThanOrEqualTo(1, _communicator.SentMessages.Count);
-        string firstChunkPacket = Encoding.UTF8.GetString(_communicator.SentMessages[0].data);
-        Assert.StartsWith("CHUNK:", firstChunkPacket);
-    }
-
-    /// <summary>
-    /// 11. HandleFileRequest broadcasts chunks when DefaultPeerEndpoint is null
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Request_WithoutDefaultPeer_BroadcastsChunks()
-    {
-        _handler.DefaultPeerEndpoint = null;
-
-        string localFile = Path.Combine(_tempDir, "broadcast.txt");
-        File.WriteAllText(localFile, "broadcast chunk data");
-
-        Send("REQUEST:broadcast.txt");
-
-        Assert.IsGreaterThanOrEqualTo(1, _communicator.BroadcastMessages.Count);
-        string packet = Encoding.UTF8.GetString(_communicator.BroadcastMessages[0].data);
-        Assert.StartsWith("CHUNK:", packet);
-    }
-
-    /// <summary>
-    /// 12. HandleFileRequest rejects non-existent files or path traversal attempts
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Request_InvalidOrOutsideRoot_RejectsRequest()
-    {
-        // non-existent file
-        Send("REQUEST:ghost.txt");
-
-        // path traversal attempt
-        Send("REQUEST:../../etc/passwd");
-
-        Assert.HasCount(0, _communicator.SentMessages);
-        Assert.HasCount(0, _communicator.BroadcastMessages);
-    }
-
-    /// <summary>
-    /// 13. HandleChunk reassembles incoming chunks into file and raises OnSyncCompleted
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Chunk_ReassemblesFileAndInvokesSyncCompleted()
-    {
-        bool completed = false;
-        _handler.OnSyncCompleted += () => completed = true;
-
-        SendChunk("received.txt", 0, 1, "full reconstructed file content");
-
-        Assert.IsTrue(completed);
-        string assembledPath = Path.Combine(_tempDir, "received.txt");
-        Assert.IsTrue(File.Exists(assembledPath));
-        Assert.AreEqual("full reconstructed file content", File.ReadAllText(assembledPath));
-    }
-
-    /// <summary>
-    /// 14. HandleChunk with invalid JSON does not throw
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_Chunk_InvalidJson_DoesNotThrow()
-    {
-        Send("CHUNK:not a json");
-
-        Assert.IsFalse(File.Exists(Path.Combine(_tempDir, "invalid.txt")));
-    }
-
-    /// <summary>
-    /// 15. OnLog fires event when log messages are emitted
-    /// </summary>
-    [TestMethod]
-    public void OnLog_FiresLogEvent()
-    {
-        string? loggedMessage = null;
-        _handler.OnLog += msg => loggedMessage = msg;
-
-        _handler.StartSync();
-
-        Assert.IsNotNull(loggedMessage);
-        Assert.Contains("[sync]", loggedMessage);
-    }
-
-    /// <summary>
-    /// 16. Constructor with an already existing directory skips directory creation
+    /// 3. Constructor with an already existing directory uses it and registers the subscriber
     /// </summary>
     [TestMethod]
     public void Constructor_ExistingDirectory_UsesItAndRegistersSubscriber()
@@ -359,7 +234,7 @@ public class NetworkSyncHandlerTest
         try
         {
             var comm = new FakeCommunicator();
-            var handler = new NetworkSyncHandler(dir, comm);
+            var handler = new NetworkSyncHandler(dir, comm, isHost: true, s_hostEp, null);
 
             Assert.AreEqual(Path.GetFullPath(dir), handler.RootDirectory);
             Assert.AreSame(handler, comm.Subscriber);
@@ -371,19 +246,145 @@ public class NetworkSyncHandlerTest
     }
 
     /// <summary>
-    /// 17. Unknown message prefix is ignored
+    /// 4. The local endpoint comes from the constructor argument, not from the communicator
     /// </summary>
     [TestMethod]
-    public void OnMessageReceived_UnknownMessage_IsIgnored()
+    public void Constructor_LocalEndpoint_ComesFromArgument()
     {
-        Send("HELLO_WORLD");
-
-        Assert.HasCount(0, _communicator.SentMessages);
-        Assert.HasCount(0, _communicator.BroadcastMessages);
+        Assert.AreEqual(s_hostEp, _handler.LocalEndpoint);
+        Assert.AreNotEqual(_communicator.ListenPort, _handler.LocalEndpoint.Port);
     }
 
     /// <summary>
-    /// 18. Local manifest includes files from sub folders using forward slashes
+    /// 5. A client without a host endpoint cannot be created
+    /// </summary>
+    [TestMethod]
+    public void Constructor_ClientWithoutHostEndpoint_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new NetworkSyncHandler(_tempDir, new FakeCommunicator(), isHost: false, s_epA, hostEndpoint: null));
+    }
+
+    /// <summary>
+    /// 6. Missing arguments are rejected
+    /// </summary>
+    [TestMethod]
+    public void Constructor_InvalidArguments_Throw()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new NetworkSyncHandler(_tempDir, null!, isHost: true, s_hostEp, null));
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            new NetworkSyncHandler(_tempDir, new FakeCommunicator(), isHost: true, null!, null));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new NetworkSyncHandler("   ", new FakeCommunicator(), isHost: true, s_hostEp, null));
+    }
+
+    // ---------- StartSync ----------
+
+    /// <summary>
+    /// 7. Host: StartSync sends GET_MANIFEST straight to the peer
+    /// </summary>
+    [TestMethod]
+    public void StartSync_OnHost_SendsGetManifestDirectlyToPeer()
+    {
+        _handler.StartSync(s_epA);
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Assert.HasCount(0, _communicator.BroadcastMessages);
+
+        Sent sent = ReadSent(_communicator)[0];
+        Assert.AreEqual(s_epA, sent.Transport);
+        Assert.AreEqual("GET_MANIFEST", sent.Type);
+        Assert.AreEqual(s_hostEp.ToString(), sent.From);
+        Assert.AreEqual(s_epA.ToString(), sent.To);
+        Assert.AreEqual(NetworkSyncHandler.DefaultModuleId, sent.Module);
+        Assert.AreEqual(1, sent.Priority);
+    }
+
+    /// <summary>
+    /// 8. Client: StartSync travels to the host but names the peer as the target
+    /// </summary>
+    [TestMethod]
+    public void StartSync_OnClient_SendsToHostWithPeerAsTarget()
+    {
+        (NetworkSyncHandler client, FakeCommunicator comm) = CreateClient();
+
+        client.StartSync(s_epB);
+
+        Assert.HasCount(1, comm.SentMessages);
+        Sent sent = ReadSent(comm)[0];
+        Assert.AreEqual(s_hostEp, sent.Transport);
+        Assert.AreEqual("GET_MANIFEST", sent.Type);
+        Assert.AreEqual(s_epA.ToString(), sent.From);
+        Assert.AreEqual(s_epB.ToString(), sent.To);
+    }
+
+    /// <summary>
+    /// 9. Syncing with yourself sends nothing and logs it
+    /// </summary>
+    [TestMethod]
+    public void StartSync_WithOwnEndpoint_SendsNothing()
+    {
+        string? logged = null;
+        _handler.OnLog += msg => logged = msg;
+
+        _handler.StartSync(s_hostEp);
+
+        Assert.HasCount(0, _communicator.SentMessages);
+        Assert.IsNotNull(logged);
+        Assert.Contains("cannot sync with yourself", logged);
+    }
+
+    /// <summary>
+    /// 10. StartSync without a peer is rejected
+    /// </summary>
+    [TestMethod]
+    public void StartSync_NullPeer_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => _handler.StartSync(null!));
+    }
+
+    /// <summary>
+    /// 11. OnLog fires when sync starts
+    /// </summary>
+    [TestMethod]
+    public void OnLog_FiresLogEvent()
+    {
+        string? loggedMessage = null;
+        _handler.OnLog += msg => loggedMessage = msg;
+
+        _handler.StartSync(s_epA);
+
+        Assert.IsNotNull(loggedMessage);
+        Assert.Contains("[sync]", loggedMessage);
+    }
+
+    // ---------- GET_MANIFEST ----------
+
+    /// <summary>
+    /// 12. Receiving GET_MANIFEST sends the local manifest back to the sender
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_GetManifest_SendsLocalManifestToSender()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "sample.txt"), "hello filesync");
+
+        Receive("GET_MANIFEST", string.Empty);
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent reply = ReadSent(_communicator)[0];
+        Assert.AreEqual("MANIFEST", reply.Type);
+        Assert.AreEqual(s_epA, reply.Transport);
+        Assert.AreEqual(s_epA.ToString(), reply.To);
+        Assert.AreEqual(s_hostEp.ToString(), reply.From);
+
+        Dictionary<string, DateTime>? manifest = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(reply.Payload);
+        Assert.IsNotNull(manifest);
+        Assert.IsTrue(manifest.ContainsKey("sample.txt"));
+    }
+
+    /// <summary>
+    /// 13. Local manifest includes files from sub folders using forward slashes
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_GetManifest_IncludesNestedFiles()
@@ -393,12 +394,100 @@ public class NetworkSyncHandlerTest
         File.WriteAllText(Path.Combine(subDir, "inner.txt"), "inner");
         File.WriteAllText(Path.Combine(_tempDir, "top.txt"), "top");
 
-        Send("GET_MANIFEST");
+        Receive("GET_MANIFEST", string.Empty);
 
-        Assert.HasCount(1, _communicator.BroadcastMessages);
-        string response = Encoding.UTF8.GetString(_communicator.BroadcastMessages[0].data);
-        Assert.Contains("sub/inner.txt", response);
-        Assert.Contains("top.txt", response);
+        Dictionary<string, DateTime>? manifest = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(ReadSent(_communicator)[0].Payload);
+        Assert.IsNotNull(manifest);
+        Assert.IsTrue(manifest.ContainsKey("sub/inner.txt"));
+        Assert.IsTrue(manifest.ContainsKey("top.txt"));
+    }
+
+    /// <summary>
+    /// 14. Client: the manifest reply goes through the host and names the original sender as target
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_GetManifest_OnClient_RepliesViaHost()
+    {
+        (NetworkSyncHandler client, FakeCommunicator comm) = CreateClient();
+
+        client.OnMessageReceived(MakeEnvelope("GET_MANIFEST", string.Empty, s_epB, s_epA));
+
+        Assert.HasCount(1, comm.SentMessages);
+        Sent reply = ReadSent(comm)[0];
+        Assert.AreEqual(s_hostEp, reply.Transport);
+        Assert.AreEqual("MANIFEST", reply.Type);
+        Assert.AreEqual(s_epB.ToString(), reply.To);
+        Assert.AreEqual(s_epA.ToString(), reply.From);
+    }
+
+    // ---------- MANIFEST ----------
+
+    /// <summary>
+    /// 15. A file that is missing locally is requested from the sender
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Manifest_RequestsMissingFile()
+    {
+        ReceiveManifest(new Dictionary<string, DateTime> { { "missing.txt", DateTime.UtcNow } });
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent sent = ReadSent(_communicator)[0];
+        Assert.AreEqual("REQUEST", sent.Type);
+        Assert.AreEqual("missing.txt", sent.Payload);
+        Assert.AreEqual(s_epA, sent.Transport);
+        Assert.AreEqual(s_epA.ToString(), sent.To);
+    }
+
+    /// <summary>
+    /// 16. A file whose remote version is newer is requested
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Manifest_RequestsNewerFile()
+    {
+        string localFile = Path.Combine(_tempDir, "older.txt");
+        File.WriteAllText(localFile, "old content");
+        File.SetLastWriteTimeUtc(localFile, DateTime.UtcNow.AddHours(-2));
+
+        ReceiveManifest(new Dictionary<string, DateTime> { { "older.txt", DateTime.UtcNow } });
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent sent = ReadSent(_communicator)[0];
+        Assert.AreEqual("REQUEST", sent.Type);
+        Assert.AreEqual("older.txt", sent.Payload);
+    }
+
+    /// <summary>
+    /// 17. Nothing to fetch completes the sync and requests nothing
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Manifest_WhenUpToDate_InvokesSyncCompleted()
+    {
+        string localFile = Path.Combine(_tempDir, "current.txt");
+        File.WriteAllText(localFile, "current content");
+        DateTime fileTime = File.GetLastWriteTimeUtc(localFile);
+
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        ReceiveManifest(new Dictionary<string, DateTime> { { "current.txt", fileTime.AddHours(-1) } });
+
+        Assert.IsTrue(completed);
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 18. Manifest with invalid JSON is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Manifest_InvalidJson_DoesNotThrow()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        Receive("MANIFEST", "invalid json data");
+
+        Assert.IsFalse(completed);
+        Assert.HasCount(0, _communicator.SentMessages);
     }
 
     /// <summary>
@@ -410,11 +499,10 @@ public class NetworkSyncHandlerTest
         bool completed = false;
         _handler.OnSyncCompleted += () => completed = true;
 
-        Send("MANIFEST:null");
+        Receive("MANIFEST", "null");
 
         Assert.IsFalse(completed);
         Assert.HasCount(0, _communicator.SentMessages);
-        Assert.HasCount(0, _communicator.BroadcastMessages);
     }
 
     /// <summary>
@@ -434,57 +522,116 @@ public class NetworkSyncHandlerTest
         File.WriteAllText(current, "current");
         DateTime currentTime = File.GetLastWriteTimeUtc(current);
 
-        SendManifest(new Dictionary<string, DateTime>
+        ReceiveManifest(new Dictionary<string, DateTime>
         {
             { "missing.txt", DateTime.UtcNow },
             { "older.txt", DateTime.UtcNow },
             { "current.txt", currentTime.AddHours(-1) }
         });
 
-        Assert.HasCount(2, _communicator.BroadcastMessages);
-        List<string> sent = _communicator.BroadcastMessages
-            .Select(m => Encoding.UTF8.GetString(m.data))
-            .ToList();
-        CollectionAssert.Contains(sent, "REQUEST:missing.txt");
-        CollectionAssert.Contains(sent, "REQUEST:older.txt");
+        List<string> requested = ReadSent(_communicator).Select(s => s.Payload).ToList();
+        Assert.HasCount(2, requested);
+        CollectionAssert.Contains(requested, "missing.txt");
+        CollectionAssert.Contains(requested, "older.txt");
         Assert.IsFalse(completed);
     }
 
     /// <summary>
-    /// 21. Up-to-date manifest without any OnSyncCompleted subscriber does not throw
+    /// 21. An empty manifest without any OnSyncCompleted subscriber does not throw
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_Manifest_WhenUpToDate_NoSubscriber_DoesNotThrow()
     {
-        SendManifest(new Dictionary<string, DateTime>());
+        ReceiveManifest(new Dictionary<string, DateTime>());
 
         Assert.HasCount(0, _communicator.SentMessages);
         Assert.HasCount(0, _communicator.BroadcastMessages);
     }
 
     /// <summary>
-    /// 22. Large file is split into several chunks
+    /// 22. A manifest entry that escapes the root folder is never requested
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Manifest_PathOutsideRoot_IsNotRequested()
+    {
+        ReceiveManifest(new Dictionary<string, DateTime>
+        {
+            { "../evil.txt", DateTime.UtcNow },
+            { "..\\..\\evil2.txt", DateTime.UtcNow }
+        });
+
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    // ---------- REQUEST ----------
+
+    /// <summary>
+    /// 23. A valid request sends the file as CHUNK messages to the requester
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Request_ValidFile_SendsChunkToRequester()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "data.txt"), "chunk file test data");
+
+        Receive("REQUEST", "data.txt");
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent sent = ReadSent(_communicator)[0];
+        Assert.AreEqual("CHUNK", sent.Type);
+        Assert.AreEqual(s_epA, sent.Transport);
+        Assert.AreEqual(s_epA.ToString(), sent.To);
+
+        (string FileId, int Number, int Total, string Text) chunk = ReadChunk(sent.Payload);
+        Assert.AreEqual("data.txt", chunk.FileId);
+        Assert.AreEqual(0, chunk.Number);
+        Assert.AreEqual(1, chunk.Total);
+        Assert.AreEqual("chunk file test data", chunk.Text);
+    }
+
+    /// <summary>
+    /// 24. A large file is split into several consistent chunks
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_Request_LargeFile_SendsMultipleChunks()
     {
-        _handler.DefaultPeerEndpoint = new IPEndPoint(IPAddress.Loopback, 8002);
-
         byte[] big = new byte[200 * 1024];
         new Random(42).NextBytes(big);
         File.WriteAllBytes(Path.Combine(_tempDir, "big.bin"), big);
 
-        Send("REQUEST:big.bin");
+        Receive("REQUEST", "big.bin");
 
-        Assert.IsGreaterThan(1, _communicator.SentMessages.Count);
-        foreach ((IPEndPoint? _, byte[] data, int _, int _) in _communicator.SentMessages)
+        List<Sent> sent = ReadSent(_communicator);
+        Assert.IsGreaterThan(1, sent.Count);
+
+        foreach (Sent message in sent)
         {
-            Assert.StartsWith("CHUNK:", Encoding.UTF8.GetString(data));
+            Assert.AreEqual("CHUNK", message.Type);
         }
+
+        List<int> numbers = sent.Select(s => ReadChunk(s.Payload).Number).OrderBy(n => n).ToList();
+        CollectionAssert.AreEqual(Enumerable.Range(0, sent.Count).ToList(), numbers);
+        Assert.IsTrue(sent.All(s => ReadChunk(s.Payload).Total == sent.Count));
     }
 
     /// <summary>
-    /// 23. Request with an absolute path outside the root is rejected even if the file exists
+    /// 25. Non-existent files and path traversal attempts are rejected
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Request_InvalidOrOutsideRoot_RejectsRequest()
+    {
+        var logs = new List<string>();
+        _handler.OnLog += msg => logs.Add(msg);
+
+        Receive("REQUEST", "ghost.txt");
+        Receive("REQUEST", "../../etc/passwd");
+
+        Assert.HasCount(0, _communicator.SentMessages);
+        Assert.HasCount(0, _communicator.BroadcastMessages);
+        Assert.AreEqual(2, logs.Count(l => l.Contains("rejected invalid file request")));
+    }
+
+    /// <summary>
+    /// 26. A request with an absolute path outside the root is rejected even if the file exists
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_Request_AbsolutePathOutsideRoot_IsRejected()
@@ -493,7 +640,7 @@ public class NetworkSyncHandlerTest
         File.WriteAllText(outsideFile, "secret");
         try
         {
-            Send("REQUEST:" + outsideFile);
+            Receive("REQUEST", outsideFile);
 
             Assert.HasCount(0, _communicator.SentMessages);
             Assert.HasCount(0, _communicator.BroadcastMessages);
@@ -505,7 +652,78 @@ public class NetworkSyncHandlerTest
     }
 
     /// <summary>
-    /// 24. Chunks arriving one by one are merged only after the last chunk arrives
+    /// 27. Client: chunks go through the host and are addressed to the requester
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Request_OnClient_SendsChunksViaHost()
+    {
+        (NetworkSyncHandler client, FakeCommunicator comm) = CreateClient();
+        File.WriteAllText(Path.Combine(_tempDir, "shared.txt"), "client data");
+
+        client.OnMessageReceived(MakeEnvelope("REQUEST", "shared.txt", s_epB, s_epA));
+
+        Assert.HasCount(1, comm.SentMessages);
+        Sent sent = ReadSent(comm)[0];
+        Assert.AreEqual("CHUNK", sent.Type);
+        Assert.AreEqual(s_hostEp, sent.Transport);
+        Assert.AreEqual(s_epB.ToString(), sent.To);
+    }
+
+    // ---------- CHUNK ----------
+
+    /// <summary>
+    /// 28. A chunk is reassembled into a file, raises OnSyncCompleted and is acknowledged to the sender
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_ReassemblesFileInvokesSyncCompletedAndAcks()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        ReceiveChunk("received.txt", 0, 1, "full reconstructed file content");
+
+        Assert.IsTrue(completed);
+        string assembledPath = Path.Combine(_tempDir, "received.txt");
+        Assert.IsTrue(File.Exists(assembledPath));
+        Assert.AreEqual("full reconstructed file content", File.ReadAllText(assembledPath));
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent ack = ReadSent(_communicator)[0];
+        Assert.AreEqual("SYNC_ACK", ack.Type);
+        Assert.AreEqual("received.txt", ack.Payload);
+        Assert.AreEqual(s_epA, ack.Transport);
+        Assert.AreEqual(s_epA.ToString(), ack.To);
+    }
+
+    /// <summary>
+    /// 29. A chunk with invalid JSON is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_InvalidJson_DoesNotThrow()
+    {
+        Receive("CHUNK", "not a json");
+
+        Assert.HasCount(0, Directory.GetFiles(_tempDir));
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 30. Chunk JSON "null" deserializes to null and is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_NullJson_IsIgnored()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        Receive("CHUNK", "null");
+
+        Assert.IsFalse(completed);
+        Assert.HasCount(0, Directory.GetFiles(_tempDir));
+    }
+
+    /// <summary>
+    /// 31. Chunks arriving one by one are merged only after the last chunk arrives
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_Chunk_MultipleChunks_AssemblesAfterLast()
@@ -514,45 +732,273 @@ public class NetworkSyncHandlerTest
         _handler.OnSyncCompleted += () => completedCount++;
         string target = Path.Combine(_tempDir, "multi.txt");
 
-        SendChunk("multi.txt", 0, 2, "AAAA");
+        ReceiveChunk("multi.txt", 0, 2, "AAAA");
+
+        Assert.AreEqual(0, completedCount);
+        Assert.IsFalse(File.Exists(target));
+        Assert.HasCount(0, _communicator.SentMessages);
+
+        ReceiveChunk("multi.txt", 1, 2, "BBBB");
+
+        Assert.AreEqual(1, completedCount);
+        Assert.AreEqual("AAAABBBB", File.ReadAllText(target));
+        Assert.HasCount(1, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 32. A duplicate chunk number is ignored and does not complete the file early
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_Duplicate_IsIgnored()
+    {
+        int completedCount = 0;
+        _handler.OnSyncCompleted += () => completedCount++;
+        string target = Path.Combine(_tempDir, "dup.txt");
+
+        ReceiveChunk("dup.txt", 0, 2, "AAAA");
+        ReceiveChunk("dup.txt", 0, 2, "AAAA");
 
         Assert.AreEqual(0, completedCount);
         Assert.IsFalse(File.Exists(target));
 
-        SendChunk("multi.txt", 1, 2, "BBBB");
+        ReceiveChunk("dup.txt", 1, 2, "BBBB");
 
         Assert.AreEqual(1, completedCount);
         Assert.AreEqual("AAAABBBB", File.ReadAllText(target));
     }
 
     /// <summary>
-    /// 25. Chunk JSON "null" deserializes to null and is ignored
+    /// 33. Chunks of the same file from two different senders are never mixed
     /// </summary>
     [TestMethod]
-    public void OnMessageReceived_Chunk_NullJson_IsIgnored()
+    public void OnMessageReceived_Chunk_SameFileFromTwoSenders_AreNotMixed()
+    {
+        int completedCount = 0;
+        _handler.OnSyncCompleted += () => completedCount++;
+
+        ReceiveChunk("shared.txt", 0, 2, "AAAA", from: s_epA);
+        ReceiveChunk("shared.txt", 1, 2, "BBBB", from: s_epB);
+
+        Assert.AreEqual(0, completedCount);
+        Assert.IsFalse(File.Exists(Path.Combine(_tempDir, "shared.txt")));
+    }
+
+    /// <summary>
+    /// 34. A chunk that claims zero total chunks is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_ZeroTotalChunks_IsIgnored()
     {
         bool completed = false;
         _handler.OnSyncCompleted += () => completed = true;
 
-        Send("CHUNK:null");
+        ReceiveChunk("zero.txt", 0, 0, "data");
 
         Assert.IsFalse(completed);
         Assert.HasCount(0, Directory.GetFiles(_tempDir));
     }
 
     /// <summary>
-    /// 26. Completed chunk assembly without any OnSyncCompleted subscriber does not throw
+    /// 35. A chunk with invalid base64 data is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_InvalidBase64_IsIgnored()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        var dto = new { FileId = "bad.txt", ChunkNumber = 0, TotalChunks = 1, Base64Data = "***not base64***", LastModifiedUtc = (DateTime?)null };
+        Receive("CHUNK", JsonSerializer.Serialize(dto));
+
+        Assert.IsFalse(completed);
+        Assert.HasCount(0, Directory.GetFiles(_tempDir));
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 36. A chunk whose file id escapes the root folder is never written
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_PathOutsideRoot_IsIgnored()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        ReceiveChunk("../escaped.txt", 0, 1, "should not be written");
+
+        Assert.IsFalse(completed);
+        Assert.HasCount(0, Directory.GetFiles(_tempDir));
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 37. A completed chunk assembly without any OnSyncCompleted subscriber does not throw
     /// </summary>
     [TestMethod]
     public void OnMessageReceived_Chunk_Complete_NoSubscriber_DoesNotThrow()
     {
-        SendChunk("quiet.txt", 0, 1, "quiet content");
+        ReceiveChunk("quiet.txt", 0, 1, "quiet content");
 
         Assert.IsTrue(File.Exists(Path.Combine(_tempDir, "quiet.txt")));
     }
 
     /// <summary>
-    /// 27. With OnLog and OnSyncCompleted subscribed, every code path raises its event
+    /// 38. The peer's last modified timestamp is kept on the reconstructed file
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_PreservesPeerLastModifiedTimestamp()
+    {
+        DateTime peerTime = new DateTime(2025, 8, 15, 14, 0, 0, DateTimeKind.Utc);
+
+        ReceiveChunk("timestamped.txt", 0, 1, "peer content", peerTime);
+
+        string assembledPath = Path.Combine(_tempDir, "timestamped.txt");
+        Assert.IsTrue(File.Exists(assembledPath));
+        Assert.AreEqual(peerTime, File.GetLastWriteTimeUtc(assembledPath));
+    }
+
+    /// <summary>
+    /// 39. A chunk without a timestamp still produces the file
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Chunk_WithoutTimestamp_StillAssemblesFile()
+    {
+        ReceiveChunk("untimed.txt", 0, 1, "content without chunk timestamp", lastModified: null);
+
+        string assembledPath = Path.Combine(_tempDir, "untimed.txt");
+        Assert.IsTrue(File.Exists(assembledPath));
+        Assert.AreEqual("content without chunk timestamp", File.ReadAllText(assembledPath));
+    }
+
+    // ---------- SYNC_ACK ----------
+
+    /// <summary>
+    /// 40. SYNC_ACK is only logged: it does not complete the receiving side's sync
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_SyncAck_LogsButDoesNotInvokeCompletion()
+    {
+        string? logged = null;
+        bool completed = false;
+        _handler.OnLog += msg => logged = msg;
+        _handler.OnSyncCompleted += () => completed = true;
+
+        Receive("SYNC_ACK", "notes.txt");
+
+        Assert.IsFalse(completed);
+        Assert.IsNotNull(logged);
+        Assert.Contains("peer confirmed receipt", logged);
+        Assert.Contains("notes.txt", logged);
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    // ---------- routing ----------
+
+    /// <summary>
+    /// 41. Host: a message addressed to another participant is forwarded unchanged
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Host_ForwardsMessageForSomeoneElse()
+    {
+        bool completed = false;
+        _handler.OnSyncCompleted += () => completed = true;
+        byte[] message = MakeEnvelope("GET_MANIFEST", string.Empty, s_epA, s_epB);
+
+        _handler.OnMessageReceived(message);
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        (IPEndPoint? endpoint, byte[] data, int module, int priority) forwarded = _communicator.SentMessages[0];
+        Assert.AreEqual(s_epB, forwarded.endpoint);
+        CollectionAssert.AreEqual(message, forwarded.data);
+        Assert.AreEqual(NetworkSyncHandler.DefaultModuleId, forwarded.module);
+        Assert.AreEqual(1, forwarded.priority);
+        Assert.IsFalse(completed);
+    }
+
+    /// <summary>
+    /// 42. Client: a message that is not addressed to it is dropped, never forwarded
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_Client_DropsMessageForSomeoneElse()
+    {
+        (NetworkSyncHandler client, FakeCommunicator comm) = CreateClient();
+
+        client.OnMessageReceived(MakeEnvelope("GET_MANIFEST", string.Empty, s_hostEp, s_epB));
+
+        Assert.HasCount(0, comm.SentMessages);
+        Assert.HasCount(0, comm.BroadcastMessages);
+    }
+
+    /// <summary>
+    /// 43. An IPv4-mapped IPv6 target address is recognised as the local endpoint
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_MappedIpv4Target_IsHandledLocally()
+    {
+        byte[] message = JsonSerializer.SerializeToUtf8Bytes(new {
+            Type = "GET_MANIFEST",
+            From = s_epA.ToString(),
+            To = "[::ffff:127.0.0.1]:8001",
+            Payload = string.Empty
+        });
+
+        _handler.OnMessageReceived(message);
+
+        Assert.HasCount(1, _communicator.SentMessages);
+        Sent reply = ReadSent(_communicator)[0];
+        Assert.AreEqual("MANIFEST", reply.Type);
+        Assert.AreEqual(s_epA, reply.Transport);
+    }
+
+    /// <summary>
+    /// 44. Messages that are not valid envelopes are ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_MalformedEnvelope_IsIgnored()
+    {
+        _handler.OnMessageReceived(Encoding.UTF8.GetBytes("GET_MANIFEST"));
+        _handler.OnMessageReceived(Encoding.UTF8.GetBytes("null"));
+        _handler.OnMessageReceived(Array.Empty<byte>());
+
+        Assert.HasCount(0, _communicator.SentMessages);
+        Assert.HasCount(0, _communicator.BroadcastMessages);
+    }
+
+    /// <summary>
+    /// 45. Envelopes with a missing or invalid sender or target are ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_InvalidEndpointsInEnvelope_AreIgnored()
+    {
+        var noTarget = new { Type = "GET_MANIFEST", From = s_epA.ToString(), To = "", Payload = "" };
+        var badTarget = new { Type = "GET_MANIFEST", From = s_epA.ToString(), To = "not an endpoint", Payload = "" };
+        var noSender = new { Type = "GET_MANIFEST", From = "", To = s_hostEp.ToString(), Payload = "" };
+        var badSender = new { Type = "GET_MANIFEST", From = "garbage", To = s_hostEp.ToString(), Payload = "" };
+
+        _handler.OnMessageReceived(JsonSerializer.SerializeToUtf8Bytes(noTarget));
+        _handler.OnMessageReceived(JsonSerializer.SerializeToUtf8Bytes(badTarget));
+        _handler.OnMessageReceived(JsonSerializer.SerializeToUtf8Bytes(noSender));
+        _handler.OnMessageReceived(JsonSerializer.SerializeToUtf8Bytes(badSender));
+
+        Assert.HasCount(0, _communicator.SentMessages);
+    }
+
+    /// <summary>
+    /// 46. An unknown message type is ignored
+    /// </summary>
+    [TestMethod]
+    public void OnMessageReceived_UnknownType_IsIgnored()
+    {
+        Receive("HELLO_WORLD", "anything");
+
+        Assert.HasCount(0, _communicator.SentMessages);
+        Assert.HasCount(0, _communicator.BroadcastMessages);
+    }
+
+    // ---------- events ----------
+
+    /// <summary>
+    /// 47. With OnLog and OnSyncCompleted subscribed, every code path raises its event
     /// </summary>
     [TestMethod]
     public void AllEventsSubscribed_FullFlow_RaisesLogsAndCompletion()
@@ -564,74 +1010,64 @@ public class NetworkSyncHandlerTest
 
         File.WriteAllText(Path.Combine(_tempDir, "local.txt"), "local data");
 
-        _handler.StartSync();
-        Send("GET_MANIFEST");
-        SendManifest(new Dictionary<string, DateTime> { { "remote.txt", DateTime.UtcNow } });
-        SendManifest(new Dictionary<string, DateTime>());
-        Send("REQUEST:ghost.txt");
-        Send("REQUEST:local.txt");
-        SendChunk("assembled.txt", 0, 1, "abc");
+        _handler.StartSync(s_epA);
+        Receive("GET_MANIFEST", string.Empty);
+        ReceiveManifest(new Dictionary<string, DateTime> { { "remote.txt", DateTime.UtcNow } });
+        ReceiveManifest(new Dictionary<string, DateTime>());
+        Receive("REQUEST", "ghost.txt");
+        Receive("REQUEST", "local.txt");
+        ReceiveChunk("assembled.txt", 0, 1, "abc");
+        Receive("SYNC_ACK", "assembled.txt");
 
         Assert.AreEqual(2, completedCount);
-        Assert.IsTrue(logs.Any(l => l.Contains("starting sync")));
-        Assert.IsTrue(logs.Any(l => l.Contains("sending local manifest")));
-        Assert.IsTrue(logs.Any(l => l.Contains("received remote manifest")));
-        Assert.IsTrue(logs.Any(l => l.Contains("requesting newer file")));
+        Assert.IsTrue(logs.Any(l => l.Contains("requesting manifest from")));
+        Assert.IsTrue(logs.Any(l => l.Contains("sending manifest with")));
+        Assert.IsTrue(logs.Any(l => l.Contains("received manifest with")));
+        Assert.IsTrue(logs.Any(l => l.Contains("requesting: remote.txt")));
         Assert.IsTrue(logs.Any(l => l.Contains("already up-to-date")));
         Assert.IsTrue(logs.Any(l => l.Contains("rejected invalid file request")));
-        Assert.IsTrue(logs.Any(l => l.Contains("splitting and sending chunks")));
-        Assert.IsTrue(logs.Any(l => l.Contains("sending chunk 1/1")));
-        Assert.IsTrue(logs.Any(l => l.Contains("sent all 1 chunks")));
+        Assert.IsTrue(logs.Any(l => l.Contains("sent 1 chunk(s) for local.txt")));
         Assert.IsTrue(logs.Any(l => l.Contains("received chunk 1/1")));
-        Assert.IsTrue(logs.Any(l => l.Contains("successfully assembled file")));
+        Assert.IsTrue(logs.Any(l => l.Contains("assembled file")));
+        Assert.IsTrue(logs.Any(l => l.Contains("peer confirmed receipt")));
+    }
+
+    // ---------- dispose ----------
+
+    /// <summary>
+    /// 48. Dispose unsubscribes from the communicator without disposing it
+    /// </summary>
+    [TestMethod]
+    public void Dispose_RemovesSubscriber()
+    {
+        _handler.Dispose();
+
+        Assert.IsNull(_communicator.Subscriber);
+        Assert.AreEqual(1, _communicator.RemoveCalls);
     }
 
     /// <summary>
-    /// 28. HandleChunk preserves the peer's last modified timestamp on reconstructed file
+    /// 49. Disposing twice unsubscribes only once
     /// </summary>
     [TestMethod]
-    public void OnMessageReceived_Chunk_PreservesPeerLastModifiedTimestamp()
+    public void Dispose_CalledTwice_UnsubscribesOnce()
     {
-        DateTime peerTime = new DateTime(2025, 8, 15, 14, 0, 0, DateTimeKind.Utc);
-        SendChunk("timestamped.txt", 0, 1, "peer content", peerTime);
+        _handler.Dispose();
+        _handler.Dispose();
 
-        string assembledPath = Path.Combine(_tempDir, "timestamped.txt");
-        Assert.IsTrue(File.Exists(assembledPath));
-        Assert.AreEqual(peerTime, File.GetLastWriteTimeUtc(assembledPath));
+        Assert.AreEqual(1, _communicator.RemoveCalls);
     }
 
     /// <summary>
-    /// 29. HandleChunk preserves manifest timestamp if chunk DTO has null timestamp
+    /// 50. Dispose does not throw when the meeting already disposed the communicator
     /// </summary>
     [TestMethod]
-    public void OnMessageReceived_Chunk_FallsBackToManifestTimestamp()
+    public void Dispose_WhenCommunicatorAlreadyGone_DoesNotThrow()
     {
-        DateTime manifestTime = new DateTime(2025, 9, 1, 12, 0, 0, DateTimeKind.Utc);
-        SendManifest(new Dictionary<string, DateTime> { { "manifest_timed.txt", manifestTime } });
+        _communicator.ThrowOnRemove = true;
 
-        SendChunk("manifest_timed.txt", 0, 1, "content without chunk timestamp");
+        _handler.Dispose();
 
-        string assembledPath = Path.Combine(_tempDir, "manifest_timed.txt");
-        Assert.IsTrue(File.Exists(assembledPath));
-        Assert.AreEqual(manifestTime, File.GetLastWriteTimeUtc(assembledPath));
-    }
-
-    /// <summary>
-    /// 30. Receiving SYNC_ACK invokes completion and logs peer confirmation
-    /// </summary>
-    [TestMethod]
-    public void OnMessageReceived_SyncAck_LogsAndInvokesCompletion()
-    {
-        string? logged = null;
-        bool completed = false;
-        _handler.OnLog += msg => logged = msg;
-        _handler.OnSyncCompleted += () => completed = true;
-
-        Send("SYNC_ACK:notes.txt");
-
-        Assert.IsTrue(completed);
-        Assert.IsNotNull(logged);
-        Assert.Contains("peer confirmed receipt", logged);
-        Assert.Contains("notes.txt", logged);
+        Assert.AreEqual(1, _communicator.RemoveCalls);
     }
 }

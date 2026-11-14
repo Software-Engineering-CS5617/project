@@ -80,4 +80,15 @@ public sealed partial class AllIncidentsPage : Page
             );
         }
     }
+
+    /// <summary>
+    /// Synchronizes with the cloud and refreshes the incidents list.
+    /// </summary>
+    private async void Sync_Click(object _, RoutedEventArgs __)
+    {
+        if (ViewModel != null)
+        {
+            await ViewModel.LoadAsync();
+        }
+    }
 }

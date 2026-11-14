@@ -26,6 +26,25 @@ public sealed partial class CreateIncidentPage : Page
     }
 
     /// <summary>
+    /// Navigates to the All Incidents page.
+    /// </summary>
+    private void NavigateToAllIncidents()
+    {
+        if (_context != null)
+        {
+            Frame.Navigate(typeof(AllIncidentsPage), _context);
+        }
+    }
+
+    /// <summary>
+    /// Goes to the All Incidents page without creating an incident.
+    /// </summary>
+    private void CancelButton_Click(object _, RoutedEventArgs __)
+    {
+        NavigateToAllIncidents();
+    }
+
+    /// <summary>
     /// Creates the ViewModel from the navigation context and fills in the location if one was passed.
     /// </summary>
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -47,12 +66,7 @@ public sealed partial class CreateIncidentPage : Page
                 _context.CurrentUserId
             );
 
-            vm.IncidentCreated += (s, args) => {
-                if (Frame.CanGoBack)
-                {
-                    Frame.GoBack();
-                }
-            };
+            vm.IncidentCreated += (s, args) => NavigateToAllIncidents();
 
             DataContext = vm;
         }
@@ -65,16 +79,6 @@ public sealed partial class CreateIncidentPage : Page
         }
     }
 
-    /// <summary>
-    /// Goes back to the previous page without creating an incident.
-    /// </summary>
-    private void CancelButton_Click(object _, RoutedEventArgs __)
-    {
-        if (this.Frame.CanGoBack)
-        {
-            this.Frame.GoBack();
-        }
-    }
 
     /// <summary>
     /// Shows the Add Evidence dialog and adds the evidence to the incident if the user confirms.
