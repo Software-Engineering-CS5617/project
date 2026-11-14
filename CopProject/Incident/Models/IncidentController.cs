@@ -6,23 +6,26 @@ using FileSynchroniser.Models;
 
 public class IncidentController : IIncidentController
 {
+    private readonly string _currentUserId;
     private readonly string _relativePath = "Incidents";
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
     private readonly Dictionary<Guid, Incident> _incidentMap;
 
     private IncidentController(
+        string currentUserId,
         IStorage cloudStorageService,
         IFileOperations fileSynchronizerService,
         Dictionary<Guid, Incident> incidentMap
     )
     {
+        _currentUserId = currentUserId;
         _cloudStorageService = cloudStorageService;
         _fileSynchronizerService = fileSynchronizerService;
         _incidentMap = incidentMap;
     }
 
-    public async static Task<IncidentController> CreateAsync(IStorage cloudStorageService, IFileOperations fileSynchronizerService)
+    public async static Task<IncidentController> CreateAsync(string currentUserId, IStorage cloudStorageService, IFileOperations fileSynchronizerService)
     {
         try
         {
@@ -60,6 +63,7 @@ public class IncidentController : IIncidentController
 
             Trace.TraceInformation($"[Incidents]: IncidentController initialized successfully with {incidentMap.Count} incidents.");
             return new IncidentController(
+                currentUserId,
                 cloudStorageService,
                 fileSynchronizerService,
                 incidentMap
@@ -106,7 +110,7 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = request.Evidences.ToDictionary(
-                e => $"{_relativePath}/{e.Item1.Id}",
+                e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
                 e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} evidence files to file synchronizer service for incident with title {request.Title} created by {request.CreatedBy}");
@@ -121,7 +125,7 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = request.Evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
                 : e.Item1).ToList();
 
             Incident incident = new Incident(
@@ -284,7 +288,7 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = evidences.ToDictionary(
-                    e => $"{_relativePath}/{e.Item1.Id}",
+                    e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
                     e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} new evidence files to file synchronizer service.");
@@ -299,7 +303,7 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}" }
+                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
                 : e.Item1).ToList();
 
             clone.AddEvidence(evidenceMeta);
@@ -346,7 +350,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateStatus(newStatus, "");
+        clone.UpdateStatus(newStatus, _currentUserId);
 
         try
         {
@@ -370,7 +374,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException($"Failed to update status for incident with ID {clone.Id} with ETag {etag} in cloud storage");
             }
 
-            incident.UpdateStatus(newStatus, "");
+            incident.UpdateStatus(newStatus, _currentUserId);
 
             return true;
         }
@@ -397,7 +401,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateCategory(newCategory, "");
+        clone.UpdateCategory(newCategory, _currentUserId);
 
         try
         {
@@ -421,7 +425,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException($"Failed to update category for incident with ID {clone.Id} with ETag {etag} in cloud storage.");
             }
 
-            incident.UpdateCategory(newCategory, "");
+            incident.UpdateCategory(newCategory, _currentUserId);
 
             return true;
         }
@@ -448,7 +452,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateSeverity(newSeverity, "");
+        clone.UpdateSeverity(newSeverity, _currentUserId);
 
         try
         {
@@ -472,7 +476,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException($"Failed to update severity of incident with ID {clone.Id} with ETag {etag} to {newSeverity} in cloud storage.");
             }
 
-            incident.UpdateSeverity(newSeverity, "");
+            incident.UpdateSeverity(newSeverity, _currentUserId);
 
             return true;
         }
@@ -495,7 +499,7 @@ public class IncidentController : IIncidentController
 
         Incident clone = incident.Clone();
 
-        clone.UpdateLocation(location, "");
+        clone.UpdateLocation(location, _currentUserId);
 
         try
         {
@@ -521,7 +525,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException($"Failed to update location of incident with ID {clone.Id} to {location} in cloud storage.");
             }
 
-            incident.UpdateLocation(location, "");
+            incident.UpdateLocation(location, _currentUserId);
 
             return true;
         }
@@ -559,7 +563,7 @@ public class IncidentController : IIncidentController
         Incident incident1Clone = incident1.Clone();
         Incident incident2Clone = incident2.Clone();
 
-        if (!Incident.AddAdjacentIncident(incident1Clone, incident2Clone, ""))
+        if (!Incident.AddAdjacentIncident(incident1Clone, incident2Clone, _currentUserId))
         {
             return false;
         }
@@ -588,7 +592,7 @@ public class IncidentController : IIncidentController
                 throw new InvalidOperationException("Failed to update Incident to cloud storage.");
             }
 
-            Incident.AddAdjacentIncident(incident1, incident2, "");
+            Incident.AddAdjacentIncident(incident1, incident2, _currentUserId);
 
             return true;
         }

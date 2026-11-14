@@ -807,7 +807,7 @@ public sealed partial class MainWindow : Window
     {
         IStorage storage = await StorageFactory.CreateAsync(ModuleType.IncidentManagement);
         IFileOperations fileSynchronizer = new Synchroniser();
-        IIncidentController controller = await IncidentController.CreateAsync(storage, fileSynchronizer);
+        IIncidentController controller = await IncidentController.CreateAsync(_userEmail, storage, fileSynchronizer);
 
         IntPtr windowHandle = WindowNative.GetWindowHandle(this);
         return new IncidentPageContext(controller, _userEmail, windowHandle);
