@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace WhiteboardSuggestion.Core;
@@ -9,8 +10,11 @@ public static class ShapeSuggestionParser
 {
     public static ShapeSuggestionResult Parse(string responseText)
     {
+        Trace.TraceInformation("[Insights] Parsing Gemini shape recognition response.");
+
         if (string.IsNullOrWhiteSpace(responseText))
         {
+            Trace.TraceWarning("[Insights] Gemini returned an empty shape recognition response.");
             throw new FormatException("Gemini returned an empty response.");
         }
 
@@ -19,27 +23,32 @@ public static class ShapeSuggestionParser
         try
         {
             using JsonDocument document = JsonDocument.Parse(json);
+            // ExtractJsonObject returns the substring beginning with '{' and ending with '}',
+            // so the parsed root is an object whenever JSON parsing succeeds.
             JsonElement root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object)
-            {
-                throw new FormatException("Gemini's response must be a JSON object.");
-            }
 
             double confidence = ReadConfidence(root);
             string resultType = GetString(root, "type");
 
-            return resultType.Trim().ToLowerInvariant() switch
+            ShapeSuggestionResult result = resultType.Trim().ToLowerInvariant() switch
             {
                 "unknown" => new ShapeSuggestionResult.Unknown(confidence),
                 "line" => ParseLine(root, confidence),
                 "polygon" => ParsePolygon(root, confidence),
                 "circle" => ParseCircle(root, confidence),
                 "ellipse" => ParseEllipse(root, confidence),
-                _ => new ShapeSuggestionResult.Unknown(confidence)
+                _ => InvalidGeometry(confidence, "unsupported or missing result type")
             };
+
+            Trace.TraceInformation(
+                "[Insights] Gemini shape response parsed as '{0}'.",
+                result.GetType().Name);
+
+            return result;
         }
         catch (JsonException exception)
         {
+            Trace.TraceError("[Insights] Gemini shape response contained invalid JSON: {0}", exception);
             throw new FormatException("Gemini's response was not valid JSON.", exception);
         }
     }
@@ -52,7 +61,7 @@ public static class ShapeSuggestionParser
             || !TryGetFiniteNumber(root, "endY", out double endY)
             || (startX == endX && startY == endY))
         {
-            return new ShapeSuggestionResult.Unknown(confidence);
+            return InvalidGeometry(confidence, "line endpoints were missing, non-finite, or identical");
         }
 
         return new ShapeSuggestionResult.Line(
@@ -66,7 +75,7 @@ public static class ShapeSuggestionParser
         if (!root.TryGetProperty("vertices", out JsonElement verticesElement)
             || verticesElement.ValueKind != JsonValueKind.Array)
         {
-            return new ShapeSuggestionResult.Unknown(confidence);
+            return InvalidGeometry(confidence, "polygon vertices were missing or not an array");
         }
 
         var vertices = new List<(double X, double Y)>();
@@ -76,7 +85,7 @@ public static class ShapeSuggestionParser
                 || !TryGetFiniteNumber(vertex, "x", out double x)
                 || !TryGetFiniteNumber(vertex, "y", out double y))
             {
-                return new ShapeSuggestionResult.Unknown(confidence);
+                return InvalidGeometry(confidence, "polygon contained an invalid vertex");
             }
 
             var point = (X: x, Y: y);
@@ -94,7 +103,7 @@ public static class ShapeSuggestionParser
 
         if (vertices.Distinct().Count() < 3)
         {
-            return new ShapeSuggestionResult.Unknown(confidence);
+            return InvalidGeometry(confidence, "polygon contained fewer than three distinct vertices");
         }
 
         return new ShapeSuggestionResult.Polygon(
@@ -109,7 +118,7 @@ public static class ShapeSuggestionParser
             || !TryGetFiniteNumber(root, "radius", out double radius)
             || radius <= 0)
         {
-            return new ShapeSuggestionResult.Unknown(confidence);
+            return InvalidGeometry(confidence, "circle centre or positive radius was invalid");
         }
 
         return new ShapeSuggestionResult.Circle(
@@ -127,7 +136,7 @@ public static class ShapeSuggestionParser
             || radiusX <= 0
             || radiusY <= 0)
         {
-            return new ShapeSuggestionResult.Unknown(confidence);
+            return InvalidGeometry(confidence, "ellipse centre or positive radii were invalid");
         }
 
         return new ShapeSuggestionResult.Ellipse(
@@ -135,6 +144,14 @@ public static class ShapeSuggestionParser
             radiusX,
             radiusY,
             confidence);
+    }
+
+    private static ShapeSuggestionResult.Unknown InvalidGeometry(
+        double confidence,
+        string reason)
+    {
+        Trace.TraceWarning("[Insights] Shape response could not be represented as valid geometry: {0}.", reason);
+        return new ShapeSuggestionResult.Unknown(confidence);
     }
 
     private static string GetString(JsonElement element, string propertyName)
@@ -147,9 +164,14 @@ public static class ShapeSuggestionParser
 
     private static double ReadConfidence(JsonElement root)
     {
-        return TryGetFiniteNumber(root, "confidence", out double confidence)
-            ? Math.Clamp(confidence, 0.0, 1.0)
-            : 0.0;
+        if (TryGetFiniteNumber(root, "confidence", out double confidence))
+        {
+            return Math.Clamp(confidence, 0.0, 1.0);
+        }
+
+        Trace.TraceWarning(
+            "[Insights] Shape response did not contain a valid confidence value; defaulting to 0.");
+        return 0.0;
     }
 
     private static bool TryGetFiniteNumber(
@@ -177,6 +199,7 @@ public static class ShapeSuggestionParser
 
         if (start < 0 || end < start)
         {
+            Trace.TraceWarning("[Insights] Gemini shape response did not contain a JSON object.");
             throw new FormatException("Gemini's response did not contain a JSON object.");
         }
 

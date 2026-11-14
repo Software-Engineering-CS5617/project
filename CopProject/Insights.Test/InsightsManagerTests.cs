@@ -1,4 +1,4 @@
-﻿using Insights.AI;
+using Insights.AI;
 using Xunit;
 
 namespace Insights.Test;
@@ -104,6 +104,47 @@ public class InsightsManagerTests
         Assert.Equal(0, firstProvider.ChatCallCount);
         Assert.Equal(1, secondProvider.ChatCallCount);
         Assert.Equal(context, secondProvider.LastChatContext);
+    }
+
+    [Fact]
+    public async Task RequestTextAnalysisAsync_WhenProviderFails_RethrowsException()
+    {
+        var manager = new InsightsManager(new ThrowingInsightsProvider());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => manager.RequestTextAnalysisAsync("incident"));
+    }
+
+    [Fact]
+    public async Task RequestImageAnalysisAsync_WhenProviderFails_RethrowsException()
+    {
+        var manager = new InsightsManager(new ThrowingInsightsProvider());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => manager.RequestImageAnalysisAsync(new byte[] { 1 }, "prompt"));
+    }
+
+    [Fact]
+    public async Task GenerateChatResponseAsync_WhenProviderFails_RethrowsException()
+    {
+        var manager = new InsightsManager(new ThrowingInsightsProvider());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => manager.GenerateChatResponseAsync("question"));
+    }
+
+    private sealed class ThrowingInsightsProvider : IInsightsProvider
+    {
+        public string ModelName => "ThrowingProvider";
+
+        public Task<string> AnalyzeTrafficIncidentAsync(string textDescription) =>
+            Task.FromException<string>(new InvalidOperationException("provider failed"));
+
+        public Task<string> AnalyzeImageAsync(byte[] imageData, string prompt) =>
+            Task.FromException<string>(new InvalidOperationException("provider failed"));
+
+        public Task<string> GenerateChatResponseAsync(string userMessage, string? chatContext = null) =>
+            Task.FromException<string>(new InvalidOperationException("provider failed"));
     }
 
     private class FakeInsightsProvider : IInsightsProvider
