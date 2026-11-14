@@ -4,9 +4,7 @@ using Xunit;
 
 namespace Screenshare.Tests;
 
-/// <summary>
-/// tests that control messages store their values, report their kind and reject bad arguments
-/// </summary>
+
 public class ControlMessageTests
 {
     private static readonly IPEndPoint s_endpoint = new(IPAddress.Loopback, 5000);
