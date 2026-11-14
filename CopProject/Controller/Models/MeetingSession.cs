@@ -13,9 +13,12 @@ public sealed class MeetingSession
 
     public string CurrentUserId { get; set; } = string.Empty;
     public string CurrentUserEmail { get; set; } = string.Empty;
-
+    public byte[]? CurrentUserProfilePicture { get; set; }
+    
     public MeetingInfo? Meeting { get; private set; }
     public bool InMeeting => Meeting != null;
+    public DateTime? MeetingStartTime { get; private set; }
+    public string? EndReason { get; set; }
 
     public int ParticipantCount
     {
@@ -45,12 +48,14 @@ public sealed class MeetingSession
     public event Action? MeetingEnded;
     public event Action<int>? ParticipantCountChanged;
     public event Action<IReadOnlyList<ParticipantInfo>>? ParticipantsChanged;
+    public event Action<string>? SecurityAlertReceived;
     public event Action? Changed;
 
     public void StartMeeting(MeetingInfo info)
     {
         Meeting = info;
         participantCount = 1;
+        MeetingStartTime = DateTime.Now;
         Changed?.Invoke();
         MeetingStarted?.Invoke(info);
     }
@@ -60,9 +65,16 @@ public sealed class MeetingSession
         if (Meeting == null) return;
         MeetingEnding?.Invoke();
         Meeting = null;
+        MeetingStartTime = null;
         _activeParticipants = Array.Empty<ParticipantInfo>();
         ParticipantsChanged?.Invoke(_activeParticipants);
         MeetingEnded?.Invoke();
         Changed?.Invoke();
+    }
+
+    public void RaiseSecurityAlert(string message)
+    {
+        if (uiThread != null) uiThread.Post(_ => SecurityAlertReceived?.Invoke(message), null);
+        else SecurityAlertReceived?.Invoke(message);
     }
 }

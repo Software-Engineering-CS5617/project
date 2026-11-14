@@ -24,6 +24,7 @@ using Incidents;
 using Incidents.Views;
 using LocationTracker.Services;
 using LocationTracker.Views;
+using Utils;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -91,8 +92,10 @@ public sealed partial class MainWindow : Window
         _session.ParticipantCountChanged += count => {
             DispatcherQueue.TryEnqueue(() => SetParticipants(count));
         };
-        _session.MeetingEnded += () => {
-            DispatcherQueue.TryEnqueue(() => {
+        _session.MeetingEnded += () =>
+        {
+            DispatcherQueue.TryEnqueue(async () =>
+            {
                 if (_inMeeting)
                 {
                     _inMeeting = false;
@@ -168,6 +171,28 @@ public sealed partial class MainWindow : Window
         pic.ProfilePicture = string.IsNullOrEmpty(source) ? null : new BitmapImage(new Uri(source));
     }
 
+    private byte[]? GetProfilePictureBytes()
+    {
+        if (string.IsNullOrEmpty(_picture)) return null;
+        try
+        {
+            if (File.Exists(_picture))
+            {
+                return File.ReadAllBytes(_picture);
+            }
+            if (Uri.TryCreate(_picture, UriKind.Absolute, out Uri? uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                using var client = new HttpClient();
+                return client.GetByteArrayAsync(uri).GetAwaiter().GetResult();
+            }
+        }
+        catch
+        {
+            // fallback if image cannot be read
+        }
+        return null;
+    }
     // lets the person choose a picture file and returns its path (null if they cancel)
     private async Task<string?> PickPictureAsync()
     {
@@ -248,7 +273,7 @@ public sealed partial class MainWindow : Window
             // CONTROLLER TEAM: store current user identity into session
             _session.CurrentUserId = _userId;
             _session.CurrentUserEmail = mail;
-
+            _session.CurrentUserProfilePicture = GetProfilePictureBytes();
             ShowProfile();
             ShowScreen("dash");
         }
@@ -316,6 +341,13 @@ public sealed partial class MainWindow : Window
                 _userEmail,
                 _userId,
                 _picture);
+
+            byte[]? picBytes = GetProfilePictureBytes();
+            _session.CurrentUserProfilePicture = picBytes;
+            if (_inMeeting)
+            {
+                _meetingService.UpdateProfilePicture(picBytes);
+            }    
         }
     
         ShowProfile();
@@ -409,7 +441,7 @@ public sealed partial class MainWindow : Window
             bool joined = _meetingService.JoinMeeting(id, number);
             if (!joined)
             {
-                error.Text = "Could not connect to meeting at " + id + ":" + port;
+                error.Text = _meetingService.LastErrorMessage ?? ("Could not connect to meeting at " + id + ":" + port);
                 continue;
             }
 

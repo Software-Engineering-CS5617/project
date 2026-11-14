@@ -17,6 +17,7 @@ public sealed class ControllerMeetingService
     private readonly SynchronizationContext? _uiThread = SynchronizationContext.Current;
     public IControllerService? ActiveController => _activeController;
     private readonly List<IUserNotificationHandler> _registeredHandlers = new();
+    public string? LastErrorMessage { get; private set; }
 
     public void RegisterNotificationHandler(IUserNotificationHandler handler)
     {
@@ -51,7 +52,7 @@ public sealed class ControllerMeetingService
         string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
         string localIp = NetworkUtils.GetLocalIpAddress();
-        var hostUser = new ControllerUser(username, email, null, localIp, 0, isHost: true);
+        var hostUser = new ControllerUser(username, email, _session?.CurrentUserProfilePicture, localIp, 0, isHost: true);
 
         var host = ControllerFactory.CreateHost(hostUser);
         _activeController = host;
@@ -80,7 +81,7 @@ public sealed class ControllerMeetingService
         string username = !string.IsNullOrWhiteSpace(_session?.CurrentUserId) ? _session.CurrentUserId : "Participant";
         string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
-        var clientUser = new ControllerUser(username, email, null, NetworkUtils.GetLocalIpAddress(), 0, isHost: false);
+        var clientUser = new ControllerUser(username, email, _session?.CurrentUserProfilePicture, NetworkUtils.GetLocalIpAddress(), 0, isHost: false);
         var client = ControllerFactory.CreateClient(clientUser);
 
         string targetHost = hostIp.Trim();
@@ -92,6 +93,7 @@ public sealed class ControllerMeetingService
         bool joined = client.JoinMeeting(targetHost, hostPort, clientUser);
         if (!joined)
         {
+            LastErrorMessage = (client as ClientController)?.LastErrorMessage;
             client.Dispose();
             return false;
         }
@@ -107,6 +109,17 @@ public sealed class ControllerMeetingService
         return true;
     }
 
+    public void UpdateProfilePicture(byte[]? picture)
+    {
+        if (_activeController != null)
+        {
+            if (_activeController.CurrentUser != null)
+            {
+                _activeController.CurrentUser.ProfilePicture = picture;
+            }
+            UpdateActiveParticipants();
+        }
+    }
     private void OnMeetingStarted(MeetingInfo info)
     {
         if (_session == null) return;
@@ -135,6 +148,15 @@ public sealed class ControllerMeetingService
         controller.UserJoined += OnUserJoined;
         controller.UserLeft += OnUserLeft;
         controller.MeetingEnded += OnRemoteMeetingEnded;
+        if (controller is HostController host)
+        {
+            host.SecurityAlertRaised += OnSecurityAlertRaised;
+        }
+        else if (controller is ClientController client)
+        {
+            client.SecurityAlertRaised += OnSecurityAlertRaised;
+            client.JoinRejected += OnJoinRejected;
+        }
     }
 
     private void UnhookControllerEvents(IControllerService controller)
@@ -142,6 +164,15 @@ public sealed class ControllerMeetingService
         controller.UserJoined -= OnUserJoined;
         controller.UserLeft -= OnUserLeft;
         controller.MeetingEnded -= OnRemoteMeetingEnded;
+         if (controller is HostController host)
+        {
+            host.SecurityAlertRaised -= OnSecurityAlertRaised;
+        }
+        else if (controller is ClientController client)
+        {
+            client.SecurityAlertRaised -= OnSecurityAlertRaised;
+            client.JoinRejected -= OnJoinRejected;
+        }
     }
 
     private void OnUserJoined(object? sender, UserJoinedEventArgs e)
@@ -236,6 +267,20 @@ public sealed class ControllerMeetingService
             UnhookControllerEvents(_activeController);
             _activeController.Dispose();
             _activeController = null;
+        }
+    }
+
+    private void OnSecurityAlertRaised(object? sender, string message)
+    {
+        _session?.RaiseSecurityAlert(message);
+    }
+
+    private void OnJoinRejected(object? sender, string reason)
+    {
+        if (_session != null)
+        {
+            _session.EndReason = reason;
+            PostToUI(() => _session.EndMeeting());
         }
     }
 }

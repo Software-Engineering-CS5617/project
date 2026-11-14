@@ -28,6 +28,7 @@
         <Platform Solution="*|x64" Project="x64" />
         <Platform Solution="Debug|Any CPU" Project="x64" />
     </Project>
+    <Project Path="Controller.Test/Controller.Test.csproj" Id="0d0da0e8-11a3-40b5-aeaf-5e513adf26c1" />
     <Project Path="Controller/Controller.csproj" />
     <Project Path="Filesync.Test/Filesync.Test.csproj" />
     <Project Path="FileSynchroniser.UIharness/FileSynchroniser.UIharness.csproj" Id="2420b872-bb5a-44b9-a6d0-65bebf0c022e">

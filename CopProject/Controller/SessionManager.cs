@@ -18,6 +18,7 @@ public class SessionManager
     //Raised when a user leaves the session.
     public event EventHandler<UserLeftEventArgs>? UserLeft;
 
+    public event EventHandler<ControllerUser>? DuplicateUserDetected;
     // Creates a new session with the given host.
     public SessionInfo? CreateSession(ControllerUser hostUser)
     {
@@ -84,6 +85,12 @@ public class SessionManager
         {
             if (_session == null)
                 return false;
+
+            if (_session.ContainsUser(user.UserKey))
+            {
+                DuplicateUserDetected?.Invoke(this, user);
+                return false;
+            }
 
             if (!_session.AddUser(user))
                 return false;

@@ -21,6 +21,8 @@ public sealed class HostController : IControllerService
     public event EventHandler<MeetingEndedEventArgs>? MeetingEnded;
     public event EventHandler<UserJoinedEventArgs>? UserJoined;
     public event EventHandler<UserLeftEventArgs>? UserLeft;
+    public event EventHandler<string>? SecurityAlertRaised;
+    public event EventHandler<string>? JoinRejected;
 
     public int ListenPort => _communicator.ListenPort;
     public ICommunicator? Communicator => _communicator;
@@ -54,6 +56,8 @@ public sealed class HostController : IControllerService
         _sessionManager.UserJoined += OnUserJoined;
         _sessionManager.UserLeft += OnUserLeft;
         _sessionManager.MeetingEnded += OnMeetingEnded;
+        _sessionManager.DuplicateUserDetected += OnDuplicateUserDetected;
+
     }
 
     // IControllerService functions implementation 
@@ -157,6 +161,17 @@ public sealed class HostController : IControllerService
         MeetingEnded?.Invoke(this, e);
     }
 
+    private void OnDuplicateUserDetected(object? sender, ControllerUser user)
+    {
+        string alert = $"Duplicate join rejected: '{user.Gmail}' attempted to join from {user.Ip} while already in meeting.";
+        Trace.TraceWarning(alert);
+
+        // 1. Raise alert locally on Host UI
+        SecurityAlertRaised?.Invoke(this, alert);
+        // 2. Send explicit rejection so the incoming device gets the exact message
+        string rejectMsg = Protocol.FormatNotification(Protocol.NotifyJoinRejected, $"User with email '{user.Gmail}' is already in this meeting on another device.");
+        Broadcast(rejectMsg);
+    }
     public void Dispose()
     {
         if (_disposed) return;
@@ -165,6 +180,7 @@ public sealed class HostController : IControllerService
         _sessionManager.UserJoined -= OnUserJoined;
         _sessionManager.UserLeft -= OnUserLeft;
         _sessionManager.MeetingEnded -= OnMeetingEnded;
+        _sessionManager.DuplicateUserDetected -= OnDuplicateUserDetected;
 
         _communicator.RemoveSubscriber(Protocol.ControllerSubscriberId);
         Thread.Sleep(150);

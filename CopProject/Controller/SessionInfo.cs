@@ -58,6 +58,13 @@ public sealed class SessionInfo
         }
     }
 
+    public bool ContainsUser(string userKey)
+    {
+        lock (_lock)
+        {
+            return _users.ContainsKey(userKey);
+        }
+    }
     //Removes a participant.
     //True if the user was found and removed.
     public bool RemoveUser(string userKey, out ControllerUser? removedUser)
