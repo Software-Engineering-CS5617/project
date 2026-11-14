@@ -88,7 +88,11 @@ internal static class IncidentFilterHelper
             return true;
         }
 
-        return incident.CreatedBy == filter.CreatedBy;
+        return Regex.IsMatch(
+            incident.CreatedBy,
+            filter.CreatedBy,
+            RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(100));
     }
 
     private static bool MatchesLocation(Incident incident, IncidentFilter filter)

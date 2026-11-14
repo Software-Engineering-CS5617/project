@@ -27,7 +27,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
 
     // Date filters
     private DateTimeOffset? _fromDate;
-    private DateTimeOffset? _toDate;
+    private DateTimeOffset? _toDate = DateTimeOffset.Now;
 
     // User filter
     private string _createdByInput = string.Empty;
