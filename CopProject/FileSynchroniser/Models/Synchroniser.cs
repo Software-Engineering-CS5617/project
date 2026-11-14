@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security;
+using System.Diagnostics;
 
 namespace FileSynchroniser.Models;
 
@@ -306,6 +307,7 @@ public class Synchroniser : ISync, IFileOperations
     /// </summary>
     private void ReportError(Exception ex)
     {
+        Trace.WriteLine($"[Synchroniser] Error: {ex}");
         OnSyncError(ex.Message);
     }
 
