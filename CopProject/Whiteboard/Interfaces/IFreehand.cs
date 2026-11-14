@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿/// Owner   : Karthik Krishna M
+/// LICENSE : MIT
+
+using System.Collections.Generic;
 using Windows.UI;
 
 namespace Whiteboard.Interfaces;

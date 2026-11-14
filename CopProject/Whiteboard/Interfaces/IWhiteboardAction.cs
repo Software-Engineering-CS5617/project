@@ -1,4 +1,7 @@
-﻿using System;
+﻿/// Owner   : Karthik Krishna M
+/// LICENSE : MIT
+
+using System;
 
 namespace Whiteboard.Interfaces;
 

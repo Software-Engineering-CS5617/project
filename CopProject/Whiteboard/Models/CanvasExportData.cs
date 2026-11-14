@@ -1,4 +1,7 @@
-﻿using System;
+﻿/// Owner   : Karthik Krishna M
+/// LICENSE : MIT
+
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Whiteboard.Models;
