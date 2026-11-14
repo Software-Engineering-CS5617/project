@@ -2,6 +2,7 @@
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows.Input;
 using System.Xml.Linq;
@@ -60,6 +61,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
 
         RootDirectory = _files.GetDirectory();
         LoadFiles();
+        Trace.WriteLine($"[FileSyncViewModel] Initialized. RootDirectory='{RootDirectory}'");
     }
 
     /// <summary>
@@ -222,6 +224,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
         HasError = false;
         _sync.Synchronise();   // raises OnSyncComplete / OnSyncError
         LoadFiles();
+        Trace.WriteLine("[FileSyncViewModel] Refresh completed.");
     }
 
     /// <summary>
@@ -231,6 +234,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
     {
         if (SelectedFile is null)
         {
+            Trace.WriteLine("[FileSyncViewModel] Delete requested but no file is selected.");
             return;
         }
 
@@ -241,6 +245,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
 
         if (results.TryGetValue(path, out bool deleted) && deleted)
         {
+            Trace.WriteLine($"[FileSyncViewModel] File deleted successfully: '{path}'");
             StatusMessage = $"Deleted '{path}'.";
             LoadFiles();
         }
@@ -315,6 +320,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            Trace.WriteLine($"[FileSyncViewModel] Failed to load files: {ex}");
             ShowError(ex.Message);
         }
     }
@@ -324,6 +330,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
     /// </summary>
     private void HandleSyncComplete()
     {
+        Trace.WriteLine("[FileSyncViewModel] Sync completed event received.");
         RunOnUi(() => StatusMessage = $"Synchronised at {DateTime.Now:T}.");
     }
 
@@ -332,6 +339,7 @@ public class FileSyncViewModel : INotifyPropertyChanged, IDisposable, IUserNotif
     /// </summary>
     private void HandleSyncError(string message)
     {
+        Trace.WriteLine($"[FileSyncViewModel] Sync error received: {message}");
         RunOnUi(() => ShowError(message));
     }
 

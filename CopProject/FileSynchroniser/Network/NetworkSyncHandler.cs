@@ -2,6 +2,7 @@
 
 using System.Collections.Concurrent;
 using System.Net;
+using System.Diagnostics;
 using System.Text.Json;
 using FileSynchroniser.Models;
 using Networking;
@@ -76,6 +77,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
 
         Directory.CreateDirectory(_rootDir);
         _communicator.AddSubscriber(_moduleId, this);
+        Trace.WriteLine($"[FileSync] NetworkSyncHandler initialized. Local={_localEndpoint}, Host={_isHost}, HostEndpoint={_hostEndpoint}");
     }
 
     /// <summary>the endpoint other participants use to reach this one</summary>
@@ -89,9 +91,11 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
     public void StartSync(IPEndPoint peer)
     {
         ArgumentNullException.ThrowIfNull(peer);
+        Trace.WriteLine($"[FileSync] StartSync: Local={_localEndpoint}, Peer={peer}, IsHost={_isHost}");
 
         if (SameEndpoint(peer, _localEndpoint))
         {
+            Trace.WriteLine($"[FileSync] StartSync rejected: peer {peer} and the local endpoint are same.");
             OnLog?.Invoke("[sync] cannot sync with yourself");
             return;
         }
@@ -102,13 +106,16 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
 
     public void OnMessageReceived(byte[] message)
     {
+        Trace.WriteLine($"[FileSync] Message received. Bytes={message.Length}");
         Envelope? env;
         try
         {
             env = JsonSerializer.Deserialize<Envelope>(message);
+            Trace.WriteLine($"[FileSync] Envelope received: Type={env?.Type}, From={env?.From}, To={env?.To}");
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Trace.WriteLine($"[FileSync] Failed to deserialize incoming message: {ex}");
             return;
         }
 
@@ -116,15 +123,23 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
             || !IPEndPoint.TryParse(env.To, out IPEndPoint? to)
             || !IPEndPoint.TryParse(env.From, out IPEndPoint? from))
         {
+            Trace.WriteLine("[FileSync] Dropping message: invalid envelope or endpoint.");
             return;
         }
 
         if (!SameEndpoint(to, _localEndpoint))
         {
+            Trace.WriteLine($"[FileSync] Routing check: MessageTo={to}, LocalEndpoint={_localEndpoint}, IsHost={_isHost}");
             // not for us: the host relays it, a client drops it
             if (_isHost)
             {
+                Trace.WriteLine($"[FileSync] Host forwarding message: {from} -> {to}");
+
                 _communicator.SendMessage(to, message, _moduleId, Priority);
+            }
+            else
+            {
+                Trace.WriteLine($"[FileSync] Client dropped message not addressed to local endpoint. To={to}");
             }
 
             return;
@@ -132,6 +147,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
 
         try
         {
+            Trace.WriteLine($"[FileSync] Processing message: Type={env.Type}, From={from}, To={to}");
             switch (env.Type)
             {
                 case GetManifestType:
@@ -153,6 +169,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            Trace.WriteLine($"[FileSync] File operation error while processing {env.Type}: {ex}");
             OnLog?.Invoke($"[sync] file error: {ex.Message}");
         }
     }
@@ -160,12 +177,15 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
     private void SendLocalManifest(IPEndPoint to)
     {
         var manifest = new Dictionary<string, DateTime>();
+        Trace.WriteLine($"[FileSync] Building manifest for {to}. Root={_rootDir}");
 
         foreach (string file in Directory.GetFiles(_rootDir, "*", SearchOption.AllDirectories))
         {
             string rel = Path.GetRelativePath(_rootDir, file).Replace('\\', '/');
             manifest[rel] = File.GetLastWriteTimeUtc(file);
         }
+
+        Trace.WriteLine($"[FileSync] Manifest built. Files={manifest.Count}. Sending to {to}");
 
         OnLog?.Invoke($"[sync] sending manifest with {manifest.Count} file(s) to {to}");
         Send(to, ManifestType, JsonSerializer.Serialize(manifest));
@@ -178,13 +198,15 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         {
             remote = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(json);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Trace.WriteLine($"[FileSync] Failed to deserialize manifest from {from}: {ex}");
             return;
         }
 
         if (remote == null)
         {
+            Trace.WriteLine($"[FileSync] Received null manifest from {from}.");
             return;
         }
 
@@ -202,9 +224,14 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
 
             if (!File.Exists(local) || remoteTime > File.GetLastWriteTimeUtc(local))
             {
+                Trace.WriteLine($"[FileSync] Requesting file '{relPath}' from {from}. RemoteTime={remoteTime:O}");
                 OnLog?.Invoke($"[sync] requesting: {relPath}");
                 Send(from, RequestType, relPath);
                 requested++;
+            }
+            else
+            {
+                Trace.WriteLine($"[FileSync] No files need syncing from {from}.");
             }
         }
 
@@ -218,9 +245,11 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
     private void HandleFileRequest(IPEndPoint from, string relPath)
     {
         string? fullPath = ResolveSafePath(relPath);
+        Trace.WriteLine($"[FileSync] File request received from {from}: '{relPath}'");
 
         if (fullPath == null || !File.Exists(fullPath))
         {
+            Trace.WriteLine($"[FileSync] File request rejected. Path='{relPath}', ResolvedPath='{fullPath}'");
             OnLog?.Invoke($"[sync] rejected invalid file request: {relPath}");
             return;
         }
@@ -238,6 +267,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
                 LastModifiedUtc = lastModifiedUtc
             };
 
+            Trace.WriteLine($"[FileSync] Sending chunk {chunk.ChunkNumber}/{chunk.TotalChunks} for '{chunk.FileId}' to {from}. Size={chunk.Data.Length} bytes");
             Send(from, ChunkType, JsonSerializer.Serialize(dto));
         }
 
@@ -247,18 +277,21 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
     private void HandleChunk(IPEndPoint from, string json)
     {
         ChunkDto? dto;
+        Trace.WriteLine($"[FileSync] Chunk received from {from}. JSON size={json.Length}");
         try
         {
             dto = JsonSerializer.Deserialize<ChunkDto>(json);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Trace.WriteLine($"[FileSync] Failed to deserialize chunk from {from}: {ex}");
             return;
         }
 
         string? targetPath = dto == null ? null : ResolveSafePath(dto.FileId);
         if (dto == null || targetPath == null || dto.TotalChunks <= 0)
         {
+            Trace.WriteLine($"[FileSync] Invalid chunk received from {from}. FileId='{dto?.FileId}', Chunk={dto?.ChunkNumber}, TotalChunks={dto?.TotalChunks}");
             return;
         }
 
@@ -267,8 +300,9 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         {
             data = Convert.FromBase64String(dto.Base64Data);
         }
-        catch (FormatException)
+        catch (FormatException ex)
         {
+            Trace.WriteLine($"[FileSync] Invalid Base64 chunk received from {from} for '{dto.FileId}': {ex}");
             return;
         }
 
@@ -280,6 +314,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         {
             if (list.Any(c => c.ChunkNumber == dto.ChunkNumber))
             {
+                Trace.WriteLine($"[FileSync] Duplicate chunk ignored: File='{dto.FileId}', Chunk={dto.ChunkNumber + 1}");
                 return; // duplicate chunk
             }
 
@@ -299,7 +334,9 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
             }
 
             // MergeChunks also restores the last-write time
+            Trace.WriteLine($"[FileSync] All chunks received for '{dto.FileId}'. Starting merge to '{targetPath}'.");
             _chunker.MergeChunks(list, targetPath, dto.LastModifiedUtc);
+            Trace.WriteLine($"[FileSync] Merge completed for '{dto.FileId}'. Sending ACK to {from}.");
             _incomingChunks.TryRemove(key, out _);
         }
 
@@ -324,6 +361,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         // a client can only talk to the host, which forwards by env.To;
         // the host sends straight to the client
         IPEndPoint transportDestination = _isHost ? to : _hostEndpoint!;
+        Trace.WriteLine($"[FileSync] SEND: Type={type}, From={_localEndpoint}, To={to}, TransportDestination={transportDestination}, Module={_moduleId}, Priority={Priority}, PayloadBytes={payload.Length}");
         _communicator.SendMessage(transportDestination, JsonSerializer.SerializeToUtf8Bytes(env), _moduleId, Priority);
     }
 
@@ -334,6 +372,7 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
     {
         if (string.IsNullOrWhiteSpace(relPath) || Path.IsPathRooted(relPath))
         {
+            Trace.WriteLine($"[FileSync] Rejected unsafe path: '{relPath}'");
             return null;
         }
 
@@ -341,7 +380,15 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         string prefix = _rootDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                         + Path.DirectorySeparatorChar;
 
-        return full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? full : null;
+        if (!full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            Trace.WriteLine($"[FileSync] Rejected path escaping root: '{relPath}' -> '{full}'");
+            return null;
+        }
+        else
+        {
+            return full;
+        }
     }
 
     private static IPAddress ToPlainAddress(IPAddress address)
@@ -369,11 +416,12 @@ public sealed class NetworkSyncHandler : IMessageListener, IDisposable
         try
         {
             _communicator.RemoveSubscriber(_moduleId);
+            Trace.WriteLine($"[FileSync] Disposing NetworkSyncHandler. ModuleId={_moduleId}, Local={_localEndpoint}");
         }
         catch (Exception ex)
         {
             // a client's communicator is already disposed when the host ends the meeting
-            System.Diagnostics.Trace.TraceWarning($"FileSync unsubscribe skipped: {ex.Message}");
+            Trace.TraceWarning($"FileSync unsubscribe skipped: {ex.Message}");
         }
     }
 
