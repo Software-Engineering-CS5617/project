@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// Converts Gemini's JSON response into a safe, normalized domain object.
-/// Also tolerates Markdown code fences as a defensive fallback.
+/// Converts Gemini's JSON response into a validated, strongly typed result.
+/// Unsupported geometric shapes are rejected instead of being passed to Whiteboard.
 /// </summary>
 public static class ShapeSuggestionParser
 {
@@ -27,35 +27,89 @@ public static class ShapeSuggestionParser
                 throw new FormatException("Gemini's response must be a JSON object.");
             }
 
-            string categoryText = GetString(root, "category");
-            DrawingCategory category = Enum.TryParse(
-                CleanPlainText(categoryText),
-                ignoreCase: true,
-                out DrawingCategory parsedCategory)
-                ? parsedCategory
-                : DrawingCategory.Unknown;
-
-            string bestMatch = CleanPlainText(GetString(root, "bestMatch"));
-            if (string.IsNullOrWhiteSpace(bestMatch))
-            {
-                bestMatch = "Unclear";
-                category = DrawingCategory.Unknown;
-            }
-
-            List<string> alternatives = GetStringArray(root, "alternatives")
-                .Select(CleanPlainText)
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Where(value => !value.Equals(bestMatch, StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(3)
-                .ToList();
-
-            double confidence = GetNumber(root, "confidence");
-            confidence = double.IsFinite(confidence) ? Math.Clamp(confidence, 0.0, 1.0) : 0.0;
-
+            DrawingCategory category = ParseCategory(GetString(root, "category"));
+            string bestMatchText = CleanPlainText(GetString(root, "bestMatch"));
+            string recognizedText = CleanPlainText(GetString(root, "recognizedText"));
             string explanation = CleanPlainText(GetString(root, "explanation"));
 
-            return new ShapeSuggestion(category, bestMatch, alternatives, confidence, explanation);
+            if (category != DrawingCategory.Shape
+                && !bestMatchText.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateUnknown(
+                    GetNumber(root, "confidence"),
+                    "The response contained an inconsistent drawing category and bestMatch value.");
+            }
+
+            ShapeType shape = ShapeType.Unknown;
+            string? normalizedRecognizedText = null;
+            List<SuggestionCandidate> alternatives = [];
+
+            switch (category)
+            {
+                case DrawingCategory.Shape:
+                    if (!TryParseShape(bestMatchText, out shape))
+                    {
+                        return CreateUnknown(
+                            GetNumber(root, "confidence"),
+                            "The drawing does not match a supported Whiteboard shape.");
+                    }
+
+                    alternatives = ParseAlternatives(
+                        GetStringArray(root, "alternatives"), category, shape);
+                    break;
+
+                case DrawingCategory.Letter:
+                    if (!TryParseLetter(recognizedText, out normalizedRecognizedText))
+                    {
+                        return CreateUnknown(
+                            GetNumber(root, "confidence"),
+                            "The drawing could not be identified as a single capital letter.");
+                    }
+
+                    alternatives = ParseAlternatives(
+                        GetStringArray(root, "alternatives"), category, ShapeType.Unknown,
+                        normalizedRecognizedText);
+                    break;
+
+                case DrawingCategory.Digit:
+                    if (!TryParseDigit(recognizedText, out normalizedRecognizedText))
+                    {
+                        return CreateUnknown(
+                            GetNumber(root, "confidence"),
+                            "The drawing could not be identified as a single digit.");
+                    }
+
+                    alternatives = ParseAlternatives(
+                        GetStringArray(root, "alternatives"), category, ShapeType.Unknown,
+                        normalizedRecognizedText);
+                    break;
+
+                case DrawingCategory.Text:
+                    normalizedRecognizedText = NormalizeRecognizedText(recognizedText);
+                    if (string.IsNullOrWhiteSpace(normalizedRecognizedText))
+                    {
+                        return CreateUnknown(
+                            GetNumber(root, "confidence"),
+                            "No readable handwritten text was identified.");
+                    }
+
+                    alternatives = ParseAlternatives(
+                        GetStringArray(root, "alternatives"), category, ShapeType.Unknown,
+                        normalizedRecognizedText);
+                    break;
+
+                default:
+                    return CreateUnknown(GetNumber(root, "confidence"), explanation);
+            }
+
+            double confidence = ClampConfidence(GetNumber(root, "confidence"));
+            return new ShapeSuggestion(
+                category,
+                shape,
+                normalizedRecognizedText,
+                alternatives,
+                confidence,
+                explanation);
         }
         catch (JsonException exception)
         {
@@ -80,11 +134,171 @@ public static class ShapeSuggestionParser
         result = result.Replace("**", string.Empty, StringComparison.Ordinal)
             .Replace("__", string.Empty, StringComparison.Ordinal)
             .Replace("*", string.Empty, StringComparison.Ordinal)
-            .Replace("_", " ", StringComparison.Ordinal)
             .Replace("`", string.Empty, StringComparison.Ordinal)
             .Replace("#", string.Empty, StringComparison.Ordinal);
 
         return Regex.Replace(result, @"\s+", " ").Trim();
+    }
+
+    private static DrawingCategory ParseCategory(string value)
+    {
+        return Enum.TryParse(value, ignoreCase: true, out DrawingCategory category)
+            && Enum.IsDefined(category)
+                ? category
+                : DrawingCategory.Unknown;
+    }
+
+    private static bool TryParseShape(string value, out ShapeType shape)
+    {
+        string normalized = Regex.Replace(value.Trim(), @"\s+", " ");
+
+        shape = normalized.ToLowerInvariant() switch {
+            "square" => ShapeType.Square,
+            "circle" => ShapeType.Circle,
+            "rectangle" => ShapeType.Rectangle,
+            "ellipse" or "oval" => ShapeType.Ellipse,
+            "equilateral triangle" => ShapeType.EquilateralTriangle,
+            "line" or "line segment" or "arrow" => ShapeType.Line,
+            _ => ShapeType.Unknown
+        };
+
+        return shape != ShapeType.Unknown;
+    }
+
+    private static bool TryParseLetter(string value, out string? letter)
+    {
+        string normalized = RemovePrefix(value, "Letter ").Trim();
+        normalized = normalized.ToUpperInvariant();
+
+        if (normalized.Length == 1 && normalized[0] is >= 'A' and <= 'Z')
+        {
+            letter = normalized;
+            return true;
+        }
+
+        letter = null;
+        return false;
+    }
+
+    private static bool TryParseDigit(string value, out string? digit)
+    {
+        string normalized = RemovePrefix(value, "Digit ").Trim();
+
+        if (normalized.Length == 1 && normalized[0] is >= '0' and <= '9')
+        {
+            digit = normalized;
+            return true;
+        }
+
+        digit = null;
+        return false;
+    }
+
+    private static string NormalizeRecognizedText(string value)
+    {
+        return Regex.Replace(value.Trim(), @"\s+", " ");
+    }
+
+    private static List<SuggestionCandidate> ParseAlternatives(
+        IEnumerable<string> source,
+        DrawingCategory category,
+        ShapeType primaryShape,
+        string? primaryText = null)
+    {
+        var alternatives = new List<SuggestionCandidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GetCandidateKey(category, primaryShape, primaryText)
+        };
+
+        foreach (string rawValue in source)
+        {
+            if (alternatives.Count == 3)
+            {
+                break;
+            }
+
+            string value = CleanPlainText(rawValue);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            ShapeType shape = ShapeType.Unknown;
+            string? text = null;
+
+            switch (category)
+            {
+                case DrawingCategory.Shape:
+                    if (!TryParseShape(value, out shape))
+                    {
+                        continue;
+                    }
+                    break;
+
+                case DrawingCategory.Letter:
+                    if (!TryParseLetter(value, out text))
+                    {
+                        continue;
+                    }
+                    break;
+
+                case DrawingCategory.Digit:
+                    if (!TryParseDigit(value, out text))
+                    {
+                        continue;
+                    }
+                    break;
+
+                case DrawingCategory.Text:
+                    text = NormalizeRecognizedText(value);
+                    break;
+
+                default:
+                    continue;
+            }
+
+            string key = GetCandidateKey(category, shape, text);
+            if (seen.Add(key))
+            {
+                alternatives.Add(new SuggestionCandidate(category, shape, text, false));
+            }
+        }
+
+        return alternatives;
+    }
+
+    private static string GetCandidateKey(
+        DrawingCategory category,
+        ShapeType shape,
+        string? recognizedText)
+    {
+        return category == DrawingCategory.Shape
+            ? $"{category}:{shape}"
+            : $"{category}:{recognizedText}";
+    }
+
+    private static string RemovePrefix(string value, string prefix)
+    {
+        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? value[prefix.Length..]
+            : value;
+    }
+
+    private static ShapeSuggestion CreateUnknown(double confidence, string explanation)
+    {
+        return new ShapeSuggestion(
+            DrawingCategory.Unknown,
+            ShapeType.Unknown,
+            null,
+            Array.Empty<SuggestionCandidate>(),
+            ClampConfidence(confidence),
+            explanation);
+    }
+
+    private static double ClampConfidence(double confidence)
+    {
+        return double.IsFinite(confidence) ? Math.Clamp(confidence, 0.0, 1.0) : 0.0;
     }
 
     private static string ExtractJsonObject(string responseText)

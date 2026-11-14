@@ -1,7 +1,7 @@
 ﻿namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// Resolves common image extensions to MIME types accepted by the demo.
+/// Resolves common image extensions to MIME types accepted by the shape-suggestion service.
 /// </summary>
 public static class ImageMimeTypeResolver
 {

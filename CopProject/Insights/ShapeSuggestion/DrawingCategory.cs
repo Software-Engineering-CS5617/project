@@ -1,12 +1,13 @@
 ﻿namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// Broad category of an object drawn on the whiteboard.
+/// Identifies the kind of drawing recognized in a whiteboard image.
 /// </summary>
 public enum DrawingCategory
 {
+    Unknown = 0,
     Shape,
     Letter,
     Digit,
-    Unknown
+    Text
 }
