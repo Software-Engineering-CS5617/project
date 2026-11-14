@@ -1,123 +1,227 @@
-﻿using WhiteboardSuggestion.Core;
+using WhiteboardSuggestion.Core;
 using Xunit;
 
-namespace WhiteboardSuggestion.Tests;
+namespace Insights.Test;
 
 public sealed class ShapeSuggestionParserTests
 {
     [Fact]
-    public void Parse_ValidJson_ReturnsShapeAndAlternatives()
+    public void Parse_Unknown_ReturnsUnknownResult()
     {
-        const string Json = """
+        ShapeSuggestionResult result = ShapeSuggestionParser.Parse(CreateResponse("Unknown"));
+
+        Assert.IsType<ShapeSuggestionResult.Unknown>(result);
+        Assert.Equal(0.8, result.Confidence);
+    }
+
+    [Fact]
+    public void Parse_Line_ReturnsEndpoints()
+    {
+        const string json = """
         {
-          "category": "Shape",
-          "bestMatch": "Circle",
-          "alternatives": ["Oval", "Ellipse"],
-          "confidence": 0.87,
-          "explanation": "The drawing is almost round."
+          "type": "Line",
+          "confidence": 0.91,
+          "startX": 12.5,
+          "startY": 20,
+          "endX": 180,
+          "endY": 75,
+          "vertices": [],
+          "centerX": 0,
+          "centerY": 0,
+          "radius": 0,
+          "radiusX": 0,
+          "radiusY": 0
         }
         """;
 
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
+        var result = Assert.IsType<ShapeSuggestionResult.Line>(ShapeSuggestionParser.Parse(json));
 
-        Assert.Equal(DrawingCategory.Shape, result.Category);
-        Assert.Equal("Circle", result.BestMatch);
-        Assert.Equal(new[] { "Oval", "Ellipse" }, result.Alternatives);
-        Assert.Equal(0.87, result.Confidence, 2);
+        Assert.Equal((12.5, 20.0), result.Start);
+        Assert.Equal((180.0, 75.0), result.End);
+        Assert.Equal(0.91, result.Confidence);
     }
 
     [Fact]
-    public void Parse_JsonInsideMarkdownFence_StillParses()
+    public void Parse_Polygon_ReturnsVerticesAndRemovesRepeatedClosingPoint()
     {
-        const string Response = """
-        ```json
-        {"category":"Letter","bestMatch":"Letter M","alternatives":["Letter N"],"confidence":0.74,"explanation":"Two peaks are visible."}
-        ```
+        const string json = """
+        {
+          "type": "Polygon",
+          "confidence": 0.94,
+          "startX": 0,
+          "startY": 0,
+          "endX": 0,
+          "endY": 0,
+          "vertices": [
+            { "x": 20, "y": 10 },
+            { "x": 90, "y": 15 },
+            { "x": 75, "y": 80 },
+            { "x": 20, "y": 10 }
+          ],
+          "centerX": 0,
+          "centerY": 0,
+          "radius": 0,
+          "radiusX": 0,
+          "radiusY": 0
+        }
         """;
 
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Response);
+        var result = Assert.IsType<ShapeSuggestionResult.Polygon>(ShapeSuggestionParser.Parse(json));
 
-        Assert.Equal(DrawingCategory.Letter, result.Category);
-        Assert.Equal("Letter M", result.BestMatch);
+        Assert.Equal(3, result.Vertices.Count);
+        Assert.Equal((20.0, 10.0), result.Vertices[0]);
+        Assert.Equal((90.0, 15.0), result.Vertices[1]);
+        Assert.Equal((75.0, 80.0), result.Vertices[2]);
     }
 
     [Fact]
-    public void Parse_UnknownCategory_UsesUnknown()
+    public void Parse_Circle_ReturnsCenterAndRadius()
     {
-        const string Json = """
-        {"category":"Animal","bestMatch":"Cat","alternatives":[],"confidence":0.5,"explanation":"Unexpected category."}
+        const string json = """
+        {
+          "type": "Circle",
+          "confidence": 0.95,
+          "startX": 0,
+          "startY": 0,
+          "endX": 0,
+          "endY": 0,
+          "vertices": [],
+          "centerX": 150,
+          "centerY": 100,
+          "radius": 48.5,
+          "radiusX": 0,
+          "radiusY": 0
+        }
         """;
 
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
+        var result = Assert.IsType<ShapeSuggestionResult.Circle>(ShapeSuggestionParser.Parse(json));
 
-        Assert.Equal(DrawingCategory.Unknown, result.Category);
+        Assert.Equal((150.0, 100.0), result.Center);
+        Assert.Equal(48.5, result.Radius);
     }
 
     [Fact]
-    public void Parse_ClampsConfidenceAboveOne()
+    public void Parse_Ellipse_ReturnsCenterAndBothRadii()
     {
-        const string Json = """
-        {"category":"Digit","bestMatch":"Digit 8","alternatives":[],"confidence":1.7,"explanation":""}
+        const string json = """
+        {
+          "type": "Ellipse",
+          "confidence": 0.89,
+          "startX": 0,
+          "startY": 0,
+          "endX": 0,
+          "endY": 0,
+          "vertices": [],
+          "centerX": 150,
+          "centerY": 100,
+          "radius": 0,
+          "radiusX": 80,
+          "radiusY": 40
+        }
         """;
 
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
+        var result = Assert.IsType<ShapeSuggestionResult.Ellipse>(ShapeSuggestionParser.Parse(json));
+
+        Assert.Equal((150.0, 100.0), result.Center);
+        Assert.Equal(80.0, result.RadiusX);
+        Assert.Equal(40.0, result.RadiusY);
+    }
+
+    [Fact]
+    public void Parse_InvalidLineWithSameEndpoints_ReturnsUnknown()
+    {
+        const string json = """
+        {
+          "type": "Line",
+          "confidence": 0.8,
+          "startX": 20,
+          "startY": 30,
+          "endX": 20,
+          "endY": 30,
+          "vertices": [],
+          "centerX": 0,
+          "centerY": 0,
+          "radius": 0,
+          "radiusX": 0,
+          "radiusY": 0
+        }
+        """;
+
+        Assert.IsType<ShapeSuggestionResult.Unknown>(ShapeSuggestionParser.Parse(json));
+    }
+
+    [Fact]
+    public void Parse_CircleWithNonPositiveRadius_ReturnsUnknown()
+    {
+        string json = CreateResponse("Circle", radius: 0);
+
+        Assert.IsType<ShapeSuggestionResult.Unknown>(ShapeSuggestionParser.Parse(json));
+    }
+
+    [Fact]
+    public void Parse_PolygonWithFewerThanThreeDistinctVertices_ReturnsUnknown()
+    {
+        string json = CreateResponse(
+            "Polygon",
+            vertices: "[{\"x\":1,\"y\":1},{\"x\":2,\"y\":2},{\"x\":1,\"y\":1}]");
+
+        Assert.IsType<ShapeSuggestionResult.Unknown>(ShapeSuggestionParser.Parse(json));
+    }
+
+    [Fact]
+    public void Parse_UnsupportedResultType_ReturnsUnknown()
+    {
+        ShapeSuggestionResult result = ShapeSuggestionParser.Parse(CreateResponse("Pentagon"));
+
+        Assert.IsType<ShapeSuggestionResult.Unknown>(result);
+    }
+
+    [Fact]
+    public void Parse_ClampsConfidenceToRange()
+    {
+        ShapeSuggestionResult result = ShapeSuggestionParser.Parse(CreateResponse("Unknown", confidence: 1.5));
 
         Assert.Equal(1.0, result.Confidence);
     }
 
     [Fact]
-    public void Parse_ClampsConfidenceBelowZero()
+    public void Parse_JsonInsideMarkdownFence_IsAccepted()
     {
-        const string Json = """
-        {"category":"Digit","bestMatch":"Digit 3","alternatives":[],"confidence":-0.4,"explanation":""}
-        """;
+        string json = CreateResponse("Unknown");
+        string response = $"```json\n{json}\n```";
 
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
-
-        Assert.Equal(0.0, result.Confidence);
-    }
-
-    [Fact]
-    public void Parse_RemovesDuplicateAndBestMatchAlternatives()
-    {
-        const string Json = """
-        {"category":"Shape","bestMatch":"Circle","alternatives":["Circle","Oval","oval","Ellipse"],"confidence":0.8,"explanation":""}
-        """;
-
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
-
-        Assert.Equal(new[] { "Oval", "Ellipse" }, result.Alternatives);
-    }
-
-    [Fact]
-    public void Parse_EmptyBestMatch_FallsBackToUnclearAndUnknown()
-    {
-        const string Json = """
-        {"category":"Shape","bestMatch":"  ","alternatives":[],"confidence":0.1,"explanation":"Not enough information."}
-        """;
-
-        ShapeSuggestion result = ShapeSuggestionParser.Parse(Json);
-
-        Assert.Equal(DrawingCategory.Unknown, result.Category);
-        Assert.Equal("Unclear", result.BestMatch);
+        Assert.IsType<ShapeSuggestionResult.Unknown>(ShapeSuggestionParser.Parse(response));
     }
 
     [Theory]
     [InlineData("")]
-    [InlineData("not a JSON response")]
-    public void Parse_InvalidResponse_ThrowsFormatException(string response)
+    [InlineData("not json")]
+    public void Parse_EmptyOrMissingJson_ThrowsFormatException(string response)
     {
         Assert.Throws<FormatException>(() => ShapeSuggestionParser.Parse(response));
     }
 
-    [Fact]
-    public void CleanPlainText_RemovesMarkdownDecoration()
+    private static string CreateResponse(
+        string type,
+        double confidence = 0.8,
+        double radius = 0,
+        string vertices = "[]")
     {
-        string result = ShapeSuggestionParser.CleanPlainText("**## Circle**");
-
-        Assert.Equal("Circle", result);
-        Assert.DoesNotContain("*", result);
-        Assert.DoesNotContain("#", result);
-        Assert.DoesNotContain("`", result);
+        return $$"""
+        {
+          "type": "{{type}}",
+          "confidence": {{confidence}},
+          "startX": 0,
+          "startY": 0,
+          "endX": 1,
+          "endY": 1,
+          "vertices": {{vertices}},
+          "centerX": 10,
+          "centerY": 10,
+          "radius": {{radius}},
+          "radiusX": 5,
+          "radiusY": 4
+        }
+        """;
     }
 }

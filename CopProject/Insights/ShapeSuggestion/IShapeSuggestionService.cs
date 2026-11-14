@@ -1,10 +1,10 @@
-﻿namespace WhiteboardSuggestion.Core;
+namespace WhiteboardSuggestion.Core;
 
 /// <summary>
-/// Reusable interface for a UI or another module to request a drawing suggestion.
-/// Pass the bytes of a cropped image containing one drawing, plus its MIME type.
+/// Recognizes a stroke trajectory and returns its inferred geometric representation.
 /// </summary>
 public interface IShapeSuggestionService
 {
-    Task<ShapeSuggestion> SuggestAsync(byte[] imageBytes, string mimeType);
+    Task<ShapeSuggestionResult> SuggestShapeAsync(
+        StrokeRecognitionRequest request);
 }
