@@ -17,6 +17,7 @@ namespace Incidents.Test.ViewModels;
 [TestClass]
 public sealed class CorrelateIncidentsDialogViewModelTest
 {
+    private readonly string _currentUserId = "test_user_id";
     private IncidentController _incidentController = null!;
 
     private List<Incident> _existingIncidents = [];
@@ -85,6 +86,7 @@ public sealed class CorrelateIncidentsDialogViewModelTest
             new IncidentFileSynchroniser();
 
         _incidentController = await IncidentController.CreateAsync(
+            _currentUserId,
             cloudStorageService,
             fileOperationsService);
     }

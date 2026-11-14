@@ -34,7 +34,7 @@ public class AllIncidentsPageViewModelTests
         IncidentCloudStorageService storageService = new();
         IncidentFileSynchroniser fileSynchroniser = new();
 
-        _controller = await IncidentController.CreateAsync(storageService, fileSynchroniser);
+        _controller = await IncidentController.CreateAsync(_user1, storageService, fileSynchroniser);
 
         // Create incidents through the real controller.
         _vehicleIncident = await CreateTestIncident(

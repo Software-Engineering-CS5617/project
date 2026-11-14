@@ -29,7 +29,7 @@ public class CreateIncidentPageViewModelTest
         IncidentCloudStorageService storageService = new();
         IncidentFileSynchroniser fileSynchroniser = new();
 
-        _controller = await IncidentController.CreateAsync(storageService, fileSynchroniser);
+        _controller = await IncidentController.CreateAsync(_currentUserId, storageService, fileSynchroniser);
         _viewModel = new CreateIncidentPageViewModel(_controller, _currentUserId);
     }
 

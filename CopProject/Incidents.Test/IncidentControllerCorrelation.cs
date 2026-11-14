@@ -20,6 +20,7 @@ namespace Incidents.Test;
 [TestClass]
 public sealed class IncidentControllerCorrelationTest
 {
+    private readonly string _currentUserId = "test_user_id";
     private IncidentController _incidentController = null!;
 
     // Represents existing incidents persisted in the cloud
@@ -137,7 +138,7 @@ public sealed class IncidentControllerCorrelationTest
         await SetupIncidentCloudStorageService(cloudStorageService);
 
         IFileOperations fileOperationsService = new IncidentFileSynchroniser();
-        _incidentController = await IncidentController.CreateAsync(cloudStorageService, fileOperationsService);
+        _incidentController = await IncidentController.CreateAsync(_currentUserId, cloudStorageService, fileOperationsService);
     }
 
     /// <summary>
