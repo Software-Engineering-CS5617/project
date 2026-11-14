@@ -2,17 +2,15 @@
 <RunSettings>
   <DataCollectionRunSettings>
     <DataCollectors>
-
       <!-- GitHub Actions (Coverlet) -->
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[FileSynchroniser]*,[Chat]*,[Networking]*,[Cloud]*,[Incident]*,[Location]*,[Whiteboard]*,[Cloud.Networking.Server]*,[Cloud.UI]*</Include>
+          <Include>[FileSynchroniser]*,[Chat]*,[Networking]*,[Cloud]*,[Incident]*,[Location]*,[Whiteboard]*,[Cloud.Networking.Server]*,[Cloud.UI]*,[Insights]*</Include>
           <ExcludeByAttribute>ExcludeFromCodeCoverage</ExcludeByAttribute>
           <ExcludeByFile>**/obj/**,**/*.g.cs,**/*.g.i.cs,**/*.xaml.cs,**/*.razor,**/*.razor.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
-
     </DataCollectors>
   </DataCollectionRunSettings>
 </RunSettings>
