@@ -80,8 +80,10 @@ public class SendingQueueListenerServer : IDisposable
             Trace.WriteLine($"[Networking] SendingQueueListenerServer.SendDataToClient: Destination client {destination} not found in client map.");
             return;
         }
-        int maxAttempts = 4;
-        int delay = 3000;  // ms
+        int maxAttempts = 7;
+        int delay = 1000;  // ms
+        int currentDelay = delay;
+
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
@@ -94,6 +96,7 @@ public class SendingQueueListenerServer : IDisposable
             {
                 Trace.WriteLine($"[Networking] SendingQueueListenerServer.SendDataToClient: Unable to send data to client {destination} (Attempt {attempt}/{maxAttempts}). Retrying in {delay}ms. Exception: {e.Message}");
                 Thread.Sleep(delay);
+                currentDelay = delay * 2;
             }
         }
         _clientToTcpListenerMap.TryRemove(destination, out _);

@@ -44,6 +44,9 @@ public class LossyCommunicationTests
         return port;
     }
 
+
+
+
     [TestMethod]
     public void SendMessageLossy_ClientToServer_DeliversMessageToLossySubscriber()
     {
@@ -159,11 +162,13 @@ public class LossyCommunicationTests
     }
 
     [TestMethod]
-    public void BroadcastMessageLossy_ClientToServer_ReflectsToOtherClients()
+    public void BroadcastMessageLossy_ClientDirectBroadcast_DeliversToOtherClientsAndServer()
     {
         int port = GetAvailablePort();
         IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
         using CommunicatorServer server = new(serverEndpoint);
+        TestLossyMessageListener serverListener = new();
+        server.AddLossySubscriber(55, serverListener);
 
         using CommunicatorClient clientA = new(serverEndpoint);
         TestLossyMessageListener listenerA = new();
@@ -174,15 +179,20 @@ public class LossyCommunicationTests
         clientB.AddLossySubscriber(55, listenerB);
         Thread.Sleep(250);
 
-        byte[] payload = Encoding.UTF8.GetBytes("Client A Lossy Broadcast");
+        byte[] payload = Encoding.UTF8.GetBytes("Client A Direct Lossy Broadcast");
         clientA.BroadcastMessageLossy(payload, 55, 1);
 
-        // Client B receives the reflected broadcast
+        // Client B receives the direct broadcast
         Assert.IsTrue(listenerB.WaitForMessage(3000));
         CollectionAssert.AreEqual(payload, listenerB.ReceivedData);
 
-        // Client A (the sender) is excluded from receiving its own broadcast
-        Assert.IsFalse(listenerA.WaitForMessage(500));
+        // Server also receives the direct broadcast
+        Assert.IsTrue(serverListener.WaitForMessage(3000));
+        CollectionAssert.AreEqual(payload, serverListener.ReceivedData);
+
+        // Client A (the sender) receives loopback
+        Assert.IsTrue(listenerA.WaitForMessage(3000));
+        CollectionAssert.AreEqual(payload, listenerA.ReceivedData);
     }
 
     [TestMethod]
@@ -214,7 +224,7 @@ public class LossyCommunicationTests
     }
 
     [TestMethod]
-    public void MulticastMessageLossy_ClientToGroupMembers_ReflectsThroughServer()
+    public void MulticastMessageLossy_ClientDirectMulticast_DeliversOnlyToSubscribedMembers()
     {
         int port = GetAvailablePort();
         IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
@@ -226,13 +236,41 @@ public class LossyCommunicationTests
         TestLossyMessageListener listenerB = new();
         clientB.AddLossySubscriber(65, listenerB);
         clientB.JoinMulticastGroup(77, new IPEndPoint(clientB.ListenIpAddress, clientB.ListenPort));
+
+        using CommunicatorClient clientC = new(serverEndpoint);
+        TestLossyMessageListener listenerC = new();
+        clientC.AddLossySubscriber(65, listenerC);
+        // Client C does NOT join group 77
         Thread.Sleep(250);
 
-        byte[] payload = Encoding.UTF8.GetBytes("Client A Multicast to Group 77");
+        byte[] payload = Encoding.UTF8.GetBytes("Client A Direct Multicast to Group 77");
         clientA.MulticastMessageLossy(77, payload, 65, 1);
 
         Assert.IsTrue(listenerB.WaitForMessage(3000));
         CollectionAssert.AreEqual(payload, listenerB.ReceivedData);
+
+        Assert.IsFalse(listenerC.WaitForMessage(500));
+        Assert.IsNull(listenerC.ReceivedData);
+    }
+
+    [TestMethod]
+    public void MulticastMessageLossy_ClientDirectMulticast_DeliversToServerIfJoined()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+        TestLossyMessageListener serverListener = new();
+        server.AddLossySubscriber(66, serverListener);
+        server.JoinMulticastGroup(99, serverEndpoint);
+
+        using CommunicatorClient client = new(serverEndpoint);
+        Thread.Sleep(250);
+
+        byte[] payload = Encoding.UTF8.GetBytes("Client to Server Direct Multicast");
+        client.MulticastMessageLossy(99, payload, 66, 1);
+
+        Assert.IsTrue(serverListener.WaitForMessage(3000));
+        CollectionAssert.AreEqual(payload, serverListener.ReceivedData);
     }
 
     [TestMethod]
@@ -303,5 +341,75 @@ public class LossyCommunicationTests
         Assert.IsTrue(dualListener.LossySignal.Wait(3000));
         CollectionAssert.AreEqual(reliablePayload, dualListener.ReliableData);
         CollectionAssert.AreEqual(lossyPayload, dualListener.LossyData);
+    }
+
+    [TestMethod]
+    [DataRow(0, 239, 255, 0, 1)]
+    [DataRow(1, 239, 255, 0, 1)]
+    [DataRow(256, 239, 255, 1, 0)]
+    [DataRow(65535, 239, 255, 255, 255)]
+    public void GetMulticastAddress_MapsGroupIdToValidClassDMulticastAddress(int groupId, int b1, int b2, int b3, int b4)
+    {
+        IPAddress mapped = CommunicatorServer.GetMulticastAddress(groupId);
+        byte[] bytes = mapped.GetAddressBytes();
+        Assert.HasCount(4, bytes);
+        Assert.AreEqual((byte)b1, bytes[0]);
+        Assert.AreEqual((byte)b2, bytes[1]);
+        Assert.AreEqual((byte)b3, bytes[2]);
+        Assert.AreEqual((byte)b4, bytes[3]);
+        Assert.IsTrue(bytes[0] >= 224 && bytes[0] <= 239);
+    }
+
+    [TestMethod]
+    public void NativeMulticast_DifferentGroups_NoCrossTalk()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+
+        using CommunicatorClient clientGroupA = new(serverEndpoint);
+        TestLossyMessageListener listenerA = new();
+        clientGroupA.AddLossySubscriber(70, listenerA);
+        clientGroupA.JoinMulticastGroup(10, new IPEndPoint(clientGroupA.ListenIpAddress, clientGroupA.ListenPort));
+
+        using CommunicatorClient clientGroupB = new(serverEndpoint);
+        TestLossyMessageListener listenerB = new();
+        clientGroupB.AddLossySubscriber(70, listenerB);
+        clientGroupB.JoinMulticastGroup(20, new IPEndPoint(clientGroupB.ListenIpAddress, clientGroupB.ListenPort));
+        Thread.Sleep(250);
+
+        byte[] payloadA = Encoding.UTF8.GetBytes("Group 10 Payload Only");
+        server.MulticastMessageLossy(10, payloadA, 70, 1);
+
+        Assert.IsTrue(listenerA.WaitForMessage(3000));
+        CollectionAssert.AreEqual(payloadA, listenerA.ReceivedData);
+
+        Assert.IsFalse(listenerB.WaitForMessage(500));
+        Assert.IsNull(listenerB.ReceivedData);
+    }
+
+    [TestMethod]
+    public void NativeBroadcast_MultipleClientsOnSharedPort_BothReceivePacket()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+
+        using CommunicatorClient client1 = new(serverEndpoint);
+        using CommunicatorClient client2 = new(serverEndpoint);
+
+        TestLossyMessageListener listener1 = new();
+        TestLossyMessageListener listener2 = new();
+        client1.AddLossySubscriber(75, listener1);
+        client2.AddLossySubscriber(75, listener2);
+        Thread.Sleep(250);
+
+        byte[] broadcastData = Encoding.UTF8.GetBytes("Native Single-Packet Broadcast");
+        server.BroadcastMessageLossy(broadcastData, 75, 1);
+
+        Assert.IsTrue(listener1.WaitForMessage(3000));
+        Assert.IsTrue(listener2.WaitForMessage(3000));
+        CollectionAssert.AreEqual(broadcastData, listener1.ReceivedData);
+        CollectionAssert.AreEqual(broadcastData, listener2.ReceivedData);
     }
 }

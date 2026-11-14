@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Networking.Packets;
 using Networking.TCPCommunication;
+using Utils;
 
 namespace Networking.Test;
 
@@ -295,10 +297,84 @@ public class CommunicatorTests
         using TcpClient connectedTcp = new();
         connectedTcp.Connect(IPAddress.Loopback, port);
         IPEndPoint clientEp = (IPEndPoint)connectedTcp.Client.LocalEndPoint!;
+        if (clientEp.Address.IsIPv4MappedToIPv6)
+        {
+            clientEp = new IPEndPoint(clientEp.Address.MapToIPv4(), clientEp.Port);
+        }
 
         server.AddClient(clientEp, connectedTcp);
         server.JoinMulticastGroup(505, clientEp);
         server.RemoveClient(clientEp);
+    }
+
+    /// <summary>
+    /// Checks that CommunicatorServer implements IUserNotificationHandler.
+    /// </summary>
+    [TestMethod]
+    public void CommunicatorServer_ImplementsIUserNotificationHandler()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+
+        Assert.IsInstanceOfType<IUserNotificationHandler>(server);
+    }
+
+    /// <summary>
+    /// Checks that OnUserLeft cleans up client maps and multicast memberships.
+    /// </summary>
+    [TestMethod]
+    public void CommunicatorServer_OnUserLeft_RemovesClientFromMapsAndMulticast()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+
+        using TcpClient connectedTcp = new();
+        connectedTcp.Connect(IPAddress.Loopback, port);
+        IPEndPoint clientEp = (IPEndPoint)connectedTcp.Client.LocalEndPoint!;
+        if (clientEp.Address.IsIPv4MappedToIPv6)
+        {
+            clientEp = new IPEndPoint(clientEp.Address.MapToIPv4(), clientEp.Port);
+        }
+
+        server.AddClient(clientEp, connectedTcp);
+        server.JoinMulticastGroup(404, clientEp);
+
+        var tcpMap = (System.Collections.Concurrent.ConcurrentDictionary<IPEndPoint, TcpClient>?)
+            typeof(CommunicatorServer).GetField("_clientToTcpListenerMap", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(server);
+        var multicastMap = (System.Collections.Concurrent.ConcurrentDictionary<int, System.Collections.Concurrent.ConcurrentDictionary<IPEndPoint, byte>>?)
+            typeof(CommunicatorServer).GetField("_multicastGroupMap", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(server);
+
+        Assert.IsNotNull(tcpMap);
+        Assert.IsNotNull(multicastMap);
+        Assert.IsTrue(tcpMap.ContainsKey(clientEp));
+        Assert.IsTrue(multicastMap[404].ContainsKey(clientEp));
+
+        ControllerUser user = new("Bob", "bob@example.com", null, clientEp.Address.ToString(), clientEp.Port);
+        server.OnUserLeft(user);
+
+        Assert.IsFalse(tcpMap.ContainsKey(clientEp));
+        Assert.IsFalse(multicastMap[404].ContainsKey(clientEp));
+    }
+
+    /// <summary>
+    /// Checks that OnUserJoined and OnUserLeft handle null or malformed inputs without throwing.
+    /// </summary>
+    [TestMethod]
+    public void CommunicatorServer_UserNotifications_HandleNullAndInvalidGracefully()
+    {
+        int port = GetAvailablePort();
+        IPEndPoint serverEndpoint = new(IPAddress.Loopback, port);
+        using CommunicatorServer server = new(serverEndpoint);
+
+        server.OnUserJoined(null!);
+        server.OnUserJoined(new ControllerUser("Alice", "alice@example.com", null, "127.0.0.1", 1234));
+
+        server.OnUserLeft(null!);
+        server.OnUserLeft(new ControllerUser { Ip = "not-an-ip", Port = 5000 });
+        server.OnUserLeft(new ControllerUser { Ip = "127.0.0.1", Port = 0 });
+        server.OnUserLeft(new ControllerUser { Ip = "127.0.0.1", Port = -1 });
     }
 
     /// <summary>

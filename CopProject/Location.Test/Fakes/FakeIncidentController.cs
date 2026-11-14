@@ -31,6 +31,12 @@ internal sealed class FakeIncidentController : IIncidentController
     {
         return (Incident)RuntimeHelpers.GetUninitializedObject(typeof(Incident));
     }
+
+    public Task Refresh()
+    {
+        throw new NotSupportedException();
+    }
+
     public Task<List<Incident>> GetAllIncidents(IncidentFilter? filter = null)
     {
         LastFilter = filter;

@@ -202,6 +202,12 @@ public sealed class IncidentControllerTest
         ]);
     }
 
+    [TestMethod]
+    public async Task RefreshIncidents_ReturnsTask()
+    {
+        await _incidentController.Refresh();
+    }
+
     /// <summary>
     /// Get incident by id and check that the retrieved incident matches the created incident.
     /// </summary>

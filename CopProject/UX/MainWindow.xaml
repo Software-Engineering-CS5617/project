@@ -5,7 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:UX"
     xmlns:controller="using:Controller.Views"
->
+    xmlns:chat="using:UI.Views"
+    xmlns:whiteboard="using:Whiteboard.Views"
+    xmlns:screenshare="using:ScreenShare.Views">
 
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
         <Grid.RowDefinitions>
@@ -21,10 +23,12 @@
 
                 <TextBlock x:Name="MeetingInfoText" Foreground="White" FontSize="12"
                            VerticalAlignment="Center" Visibility="Collapsed"/>
-                <Button Content="Incidents" Click="Incidents_Click" Foreground="White"
-                        Background="#1F4A78"/>
-                <Button Content="Location" Click="Location_Click" Foreground="White"
-                        Background="#1F4A78"/>
+               <Button x:Name="IncidentsTopBtn" Content="Incidents" Click="Incidents_Click"
+       Foreground="White" Background="#1F4A78"/>
+               <Button x:Name="LocationTopBtn" Content="Location" Click="Location_Click"
+       Foreground="White" Background="#1F4A78"/>
+               <Button x:Name="CloudTopBtn" Content="Cloud" Click="Cloud_Click"
+       Foreground="White" Background="#1F4A78"/>
                 <PersonPicture x:Name="ProfilePic" Width="30" Height="30"/>
                 <TextBlock x:Name="ProfileName" Foreground="White" VerticalAlignment="Center"/>
                 <Button Content="Edit profile" Click="EditProfile_Click" Foreground="White"
@@ -41,13 +45,6 @@
                 <StackPanel Spacing="16">
                     <TextBlock Text="Welcome" FontSize="28" FontWeight="SemiBold"
                                HorizontalAlignment="Center"/>
-                    <PersonPicture x:Name="LoginPic" Width="90" Height="90"
-                                   HorizontalAlignment="Center"/>
-                    <Button Content="Add profile picture" Click="PickLoginPicture_Click"
-                            HorizontalAlignment="Center"/>
-                    <TextBox x:Name="UserIdBox" Header="User ID"
-                             PlaceholderText="Choose your User ID"/>
-
                     <TextBlock x:Name="LoginError" Foreground="Red" TextWrapping="Wrap"
                                Visibility="Collapsed"/>
                     <Button x:Name="SignInBtn" Content="Sign in with Google" Click="SignIn_Click"
@@ -71,24 +68,12 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
 
                 <Button Content="Start Meeting" Click="Start_Click" Height="100"
                         Background="#0F5FC2" Foreground="White"
                         FontSize="20" HorizontalAlignment="Stretch"/>
                 <Button Grid.Column="1" Content="Join with ID" Click="Join_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="2" Content="Incidents" Click="Incidents_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="3" Content="Location" Click="Location_Click"
-                        Height="100" FontSize="20" Background="White"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="4" Content="Cloud" Click="Cloud_Click"
                         Height="100" FontSize="20" Background="White"
                         HorizontalAlignment="Stretch"/>
             </Grid>
@@ -174,15 +159,12 @@
                 <Border x:Name="SharePanel" Background="White" CornerRadius="10" Visibility="Collapsed">
                     <StackPanel Padding="20">
                         <!-- SCREEN SHARING TEAM: add your UI here -->
-                        <TextBlock Text="Screen sharing module goes here"/>
+                        <screenshare:ScreenShareGridView x:Name="ScreenShareView"/>
                     </StackPanel>
                 </Border>
 
                 <Border x:Name="BoardPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
-                    <StackPanel Padding="20">
-                        <!-- WHITEBOARD TEAM: add your UI here -->
-                        <TextBlock Text="Whiteboard module goes here"/>
-                    </StackPanel>
+                    <whiteboard:WhiteBoardView x:Name="WhiteboardViewControl"/>
                 </Border>
 
                 <!-- FILE SYNC TEAM: Hosting FileSync inside meeting workspace -->
@@ -220,9 +202,7 @@
             <Border x:Name="ChatPanel" Grid.Column="1" Grid.RowSpan="2" Width="320"
                     Background="White" CornerRadius="10" Margin="0,16,16,16"
                     Visibility="Collapsed">
-                <StackPanel Padding="16" Spacing="12">
-                    <TextBlock Text="Meeting Chat" FontSize="20" FontWeight="SemiBold"/>
-                </StackPanel>
+                <chat:ChatPanel x:Name="MeetingChatPanel"/>
             </Border>
             <local:ResizeHandle x:Name="ChatResizer" Grid.Column="1" Grid.RowSpan="2" Width="10"
                                 HorizontalAlignment="Left" Margin="0,16,0,16"

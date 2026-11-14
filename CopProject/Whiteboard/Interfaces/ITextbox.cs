@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -14,7 +14,17 @@ public interface ITextbox : IItem
     /// <summary>
     /// Center of the textbox
     /// </summary>
-    public Point2D Center { get; init; }
+    public Point2D Center { get; }
+
+    /// <summary>
+    /// Width of the textbox
+    /// </summary>
+    public double Width { get; set; }
+
+    /// <summary>
+    /// Height of the textbox
+    /// </summary>
+    public double Height { get; set; }
 
     /// <summary>
     /// Content of the textbox

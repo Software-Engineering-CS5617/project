@@ -2,70 +2,43 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using Windows.Foundation;
+using System;
+using Whiteboard.Client;
+using Whiteboard.Interfaces;
 
 namespace Whiteboard.ViewModels;
 
-/// <summary>
-/// Represents the state when the Eraser tool is selected.
-/// </summary>
-[ExcludeFromCodeCoverage]
-// Temporary exclusion from code coverage
 public class EraserState : IViewModelState
 {
-    private readonly Canvas _canvas;
+    private readonly IWhiteboardClient _whiteboardClient;
 
-    public EraserState(Canvas canvas)
+    public EraserState(IWhiteboardClient whiteboardClient)
     {
-        _canvas = canvas;
+        ArgumentNullException.ThrowIfNull(whiteboardClient);
+
+        _whiteboardClient = whiteboardClient;
     }
 
-    public void PointerPressed(object sender, PointerRoutedEventArgs e)
+    public void PointerPressed(Point2D point)
     {
-        Point point = e.GetCurrentPoint(_canvas).Position;
-        IEnumerable<UIElement> hitElements = VisualTreeHelper.FindElementsInHostCoordinates(point, _canvas);
-
-        foreach (UIElement element in hitElements)
+        IItem? item = _whiteboardClient.Canvas.HitTestTopmost(new Point2D(point.X, point.Y));
+        if (item is null)
         {
-            UIElement? canvasChild = GetCanvasChild(element);
-            if (canvasChild is null)
-            {
-                continue;
-            }
-
-            _canvas.Children.Remove(canvasChild);
-            e.Handled = true;
             return;
         }
+
+        _whiteboardClient.DeleteItem(item.Id);
     }
 
-    public void PointerMoved(object sender, PointerRoutedEventArgs e)
+    public void PointerMoved(Point2D point)
     {
     }
 
-    public void PointerReleased(object sender, PointerRoutedEventArgs e)
+    public void PointerReleased(Point2D point)
     {
     }
 
-    public void PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    public void PointerCaptureLost(Point2D point)
     {
-    }
-
-    private UIElement? GetCanvasChild(UIElement element)
-    {
-        DependencyObject current = element;
-
-        while (VisualTreeHelper.GetParent(current) is DependencyObject parent && parent != _canvas)
-        {
-            current = parent;
-        }
-
-        return VisualTreeHelper.GetParent(current) == _canvas ? current as UIElement : null;
     }
 }

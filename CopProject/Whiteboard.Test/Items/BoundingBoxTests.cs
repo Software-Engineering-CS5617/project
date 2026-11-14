@@ -1,9 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
 using System.Linq;
 using Whiteboard.Interfaces.Shapes;
+using Whiteboard.Interfaces;
 using Whiteboard.Test.RandomGenerators;
 
 namespace Whiteboard.Test.Items;
@@ -30,6 +31,19 @@ public class BoundingBoxTests : BaseGenerator
     /// <summary>
     /// Test bounding box for ellipse is calculated properly
     /// </summary>
+    [Fact]
+    public void CircleBoundingBox_CalculatesFromCenterAndRadius()
+    {
+        Whiteboard.Items.Shapes.Circle circle = new() {
+            Center = new Point2D(40, 55),
+            Radius = 15
+        };
+
+        Assert.Equal(25, circle.Left);
+        Assert.Equal(40, circle.Top);
+        Assert.Equal(15, circle.Radius);
+    }
+
     [Fact]
     public void Ellipse()
     {

@@ -186,6 +186,7 @@ public sealed class AllIncidentsPageViewModel : ViewModelBase
     /// </summary>
     public async Task LoadAsync()
     {
+        await _incidentController.Refresh();
         _allIncidents = await _incidentController.GetAllIncidents();
         ApplyFilter();
     }

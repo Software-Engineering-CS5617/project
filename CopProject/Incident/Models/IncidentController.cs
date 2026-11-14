@@ -6,7 +6,6 @@ using Incidents;
 
 public class IncidentController : IIncidentController
 {
-    // TODO(@shreesh): IControllerService is to be used for getting Guid of the user using the Controller.
     private readonly string _relativePath = "Incidents";
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
@@ -52,8 +51,7 @@ public class IncidentController : IIncidentController
                 }
                 catch (Exception)
                 {
-                    // todo(@shreesh): Improve error handling here. For now, we just skip the incident if deserialization fails.
-                    // throw new InvalidOperationException($"Failed to deserialize incident with ID {id}: ", ex);
+
                 }
             }
 
@@ -86,7 +84,6 @@ public class IncidentController : IIncidentController
         }
         catch (Exception)
         {
-            // Redaction is best-effort; report the directory as inconsistent.
             return false;
         }
     }
@@ -170,6 +167,48 @@ public class IncidentController : IIncidentController
         return _incidentMap.Values.
             Where(i => filter is null || IncidentFilterHelper.Matches(i, filter)).
             ToList();
+    }
+
+    /// <summary>
+    /// Refetches Incidents from Cloud Storage and updates the local cache.
+    /// </summary>
+    public async Task Refresh()
+    {
+        try
+        {
+            (bool success, List<string> keys) = await _cloudStorageService.GetAllKeys();
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to refresh from cloud storage.");
+            }
+
+            (success, Dictionary<string, byte[]> data) = await _cloudStorageService.ReadAll(keys.ToArray());
+
+            if (!success)
+            {
+                throw new InvalidOperationException("Failed to refresh from cloud storage.");
+            }
+
+            _incidentMap.Clear();
+
+            foreach ((string id, byte[] incidentBytes) in data)
+            {
+                try
+                {
+                    Incident incident = Incidents.IncidentSerializer.Deserialize(incidentBytes);
+                    _incidentMap[incident.Id] = incident;
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to refresh from cloud storage: ", ex);
+        }
     }
 
     private Incident? FindIncident(Guid id)
@@ -487,7 +526,6 @@ public class IncidentController : IIncidentController
 
         bool success = Incident.AddAdjacentIncident(incident1Clone, incident2Clone, "");
 
-        // TODO(@shreesh): Change the signature to void and throw error
         if (!success)
         {
             return false;

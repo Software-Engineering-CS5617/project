@@ -1,139 +1,93 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+﻿/// Owner   : Raagam Hitesh Parmar
+/// LICENSE : MIT
 
 using System;
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Shapes;
+using System.Threading.Tasks;
 using Whiteboard.Client;
-using Windows.Foundation;
+using Whiteboard.Interfaces;
+using Whiteboard.Interfaces.Shapes;
+using Whiteboard.Items.Shapes;
 
 namespace Whiteboard.ViewModels;
 
 /// <summary>
 /// Represents the state when the Shape Square tool is selected
 /// </summary>
-[ExcludeFromCodeCoverage]
-// Temporary exclusion from code coverage
-public class ShapeSquareState : IViewModelState
+/// <inheritdoc/>
+public class ShapeSquareState : ViewModelStateBase
 {
-    /// <summary>
-    /// The whiteboard client
-    /// </summary>
-    private readonly IWhiteboardClient _whiteboardClient;
-
-    /// <summary>
-    /// The canvas UI
-    /// </summary>
-    private readonly Canvas _canvas;
-
-    /// <summary>
-    /// Current toolbar information
-    /// </summary>
-    private readonly ToolbarInfo _toolbarInfo;
-
-    /// <summary>
-    /// Flag to check whether the user is currently drawing on screen
-    /// </summary>
-    private bool _isDrawing = false;
-
     /// <summary>
     /// Start point of the square
     /// </summary>
-    private Point _startPoint;
+    private Point2D _startPoint = new(0, 0);
 
     /// <summary>
-    /// Active square
+    /// Active square being previewed
     /// </summary>
-    private Rectangle _square;
+    private ISquare? _square;
 
-    public ShapeSquareState(IWhiteboardClient whiteboardClient, Canvas canvas, ToolbarInfo toolbarInfo)
-    {
-        ArgumentNullException.ThrowIfNull(whiteboardClient);
-        ArgumentNullException.ThrowIfNull(canvas);
-        ArgumentNullException.ThrowIfNull(toolbarInfo);
-
-        _whiteboardClient = whiteboardClient;
-        _canvas = canvas;
-        _toolbarInfo = toolbarInfo;
+    public ShapeSquareState(IWhiteboardClient whiteboardClient, ICanvasPreview preview, ToolbarInfo toolbarInfo) : base(whiteboardClient, preview, toolbarInfo) {
     }
 
-    public void PointerPressed(object sender, PointerRoutedEventArgs e)
+    public override void PointerPressed(Point2D point)
     {
-        // Try capturing the pointer
-        if (!_canvas.CapturePointer(e.Pointer))
-        {
-            return;
-        }
-
         // Set flag to begin drawing
         _isDrawing = true;
 
         // Record the location where the pointer was pressed
-        _startPoint = e.GetCurrentPoint(_canvas).Position;
+        _startPoint = point;
 
         // Create a new square with brush and fill properties taken from the toolbar
-        _square = new Rectangle {
-            Stroke = _toolbarInfo.BorderBrush,
-            StrokeThickness = _toolbarInfo.StrokeThickness,
-            Fill = _toolbarInfo.FillBrush,
-            IsHitTestVisible = false
+        _square = new Square {
+            CreatedBy = WhiteboardClient.UserId,
+
+            BorderColor = ToolbarInfo.BorderColor,
+            BorderWidth = ToolbarInfo.BorderWidth,
+            FillColor = ToolbarInfo.FillColor,
+
+            Center = new(_startPoint.X, _startPoint.Y),
+            SideLegth = 0,
+
+            // Add the Z index information
+            Zindex = GetNextZIndex()
         };
 
-        // Set the top, left, width and height properties of the square
-        Canvas.SetLeft(_square, _startPoint.X);
-        Canvas.SetTop(_square, _startPoint.Y);
-        _square.Width = 0;
-        _square.Height = 0;
-
-        // Add the square to the canvas for rendering
-        _canvas.Children.Add(_square);
-
-        // Mark the event as handled
-        e.Handled = true;
+        // Preview the square
+        Preview.ShowPreview(_square);
     }
 
-    public void PointerMoved(object sender, PointerRoutedEventArgs e)
+    public override void PointerMoved(Point2D point)
     {
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _square is null)
         {
             return;
         }
 
-        if (_square is not null)
-        {
-            // Get the current pointer position
-            Point currentPoint = e.GetCurrentPoint(_canvas).Position;
+        // Compute side length as the minimum of the X and Y distances
+        double side = Math.Min(
+            Math.Abs(point.X - _startPoint.X),
+            Math.Abs(point.Y - _startPoint.Y)
+        );
 
-            // Compute side length as the minimum of the X and Y distances
-            double side = Math.Min(
-                Math.Abs(currentPoint.X - _startPoint.X),
-                Math.Abs(currentPoint.Y - _startPoint.Y)
-            );
+        // Calculate center X and Y
+        double centerX = point.X >= _startPoint.X ? _startPoint.X + (side / 2.0) : _startPoint.X - (side / 2.0);
+        double centerY = point.Y >= _startPoint.Y ? _startPoint.Y + (side / 2.0) : _startPoint.Y - (side / 2.0);
 
-            // Adjust X and Y based on drag direction (quadrants)
-            double x = currentPoint.X >= _startPoint.X ? _startPoint.X : _startPoint.X - side;
-            double y = currentPoint.Y >= _startPoint.Y ? _startPoint.Y : _startPoint.Y - side;
+        // Set square center
+        _square.MoveBy(centerX - _square.Center.X, centerY - _square.Center.Y);
 
-            // Apply position and equal width/height
-            Canvas.SetLeft(_square, x);
-            Canvas.SetTop(_square, y);
-            _square.Width = side;
-            _square.Height = side;
-        }
+        // Set square side length
+        _square.SideLegth = side;
 
-        // Mark the event as handled
-        e.Handled = true;
+        // Preview the square
+        Preview.ShowPreview(_square);
     }
 
-    public void PointerReleased(object sender, PointerRoutedEventArgs e)
+    public override void PointerReleased(Point2D point)
     {
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _square is null)
         {
             return;
         }
@@ -141,32 +95,25 @@ public class ShapeSquareState : IViewModelState
         // Unset flag to stop drawing
         _isDrawing = false;
 
-        // Release the captured pointer
-        _canvas.ReleasePointerCapture(e.Pointer);
+        // Stop preview
+        Preview.ClearPreview();
 
-        if (_square is not null)
+        // Send to whiteboard client state manager off the UI thread
+        // But only if it has a non zero length
+        if (_square.SideLegth > 0)
         {
-            // Add tooltip
-            ToolTip toolTip = new(_whiteboardClient.UserId, DateTime.Now);
-            ToolTipService.SetToolTip(_square, toolTip);
-
-            // Enable hit testing on the square
-            _square.IsHitTestVisible = true;
-
+            ISquare item = _square;
+            Task.Run(() => WhiteboardClient.AddItem(item));
         }
 
         // Reset square state back to null
         _square = null;
-
-        // Mark the event as handled
-        e.Handled = true;
     }
 
-    public void PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    public override void PointerCaptureLost(Point2D point)
     {
-
         // Return early if the user is not drawing
-        if (!_isDrawing)
+        if (!_isDrawing || _square is null)
         {
             return;
         }
@@ -174,11 +121,8 @@ public class ShapeSquareState : IViewModelState
         // Unset flag to stop drawing
         _isDrawing = false;
 
-        if (_square is not null)
-        {
-            // Remove partially formed square from the canvas
-            _canvas.Children.Remove(_square);
-        }
+        // Remove partially formed square from the canvas
+        Preview.ClearPreview();
 
         // Reset square state back to null
         _square = null;

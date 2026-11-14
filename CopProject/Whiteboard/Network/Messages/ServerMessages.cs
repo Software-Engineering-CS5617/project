@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Whiteboard.Network.Dtos;
+using System.Collections.Generic;
 
 namespace Whiteboard.Network.Messages;
 
@@ -17,6 +18,7 @@ namespace Whiteboard.Network.Messages;
 [JsonDerivedType(typeof(ResAddItem), "res_add_item")]
 [JsonDerivedType(typeof(ResDeleteItem), "res_delete_item")]
 [JsonDerivedType(typeof(ResUpdateItem), "res_update_item")]
+[JsonDerivedType(typeof(ResHistory), "res_history")]
 [ExcludeFromCodeCoverage]
 public abstract record ServerMessage
 {
@@ -51,4 +53,21 @@ public abstract record ServerMessage
     /// <param name="Item">Updated item</param>
     [ExcludeFromCodeCoverage]
     public sealed record ResUpdateItem(Guid Id, ItemDto Item) : ServerMessage;
+
+    /// <summary>
+    /// Supplies the server's current undo and redo history for one user.
+    /// Clients keep only the history matching their own user ID.
+    /// </summary>
+    /// <param name="UserId">User who owns this history.</param>
+    /// <param name="Undo">
+    /// Available undo entries. The last entry is the next action to undo.
+    /// </param>
+    /// <param name="Redo">
+    /// Available redo entries. The last entry is the next action to redo.
+    /// </param>
+    [ExcludeFromCodeCoverage]
+    public sealed record ResHistory(
+        string UserId,
+        List<HistoryEntryDto> Undo,
+        List<HistoryEntryDto> Redo) : ServerMessage;
 }

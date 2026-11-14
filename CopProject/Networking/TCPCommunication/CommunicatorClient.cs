@@ -27,11 +27,13 @@ public class CommunicatorClient : ICommunicator, IDisposable
     private readonly Serializer<NetworkMessage> _networkMessageSerializer = new Serializer<NetworkMessage>();
 
     private UdpClient? _udpClient;
+    private UdpClient? _multicastUdpClient;
     private readonly SendingQueue _sendingQueueLossy = new SendingQueue();
     private readonly ReceivingQueue _receivingQueueLossy = new ReceivingQueue();
     private readonly SendingQueueListenerLossy? _sendingQueueListenerLossy;
     private readonly ReceivingQueueListenerLossy _receivingQueueListenerLossy;
     private readonly UdpSocketListener? _udpSocketListener;
+    private readonly UdpSocketListener? _multicastSocketListener;
     private readonly ConcurrentDictionary<int, IMessageListenerLossy> _moduleToLossyMessageListenerMap = new ConcurrentDictionary<int, IMessageListenerLossy>();
 
     public CommunicatorClient(IPEndPoint serverIp)
@@ -50,13 +52,35 @@ public class CommunicatorClient : ICommunicator, IDisposable
             try
             {
                 int localPort = ListenPort;
-                IPAddress localAddress = ListenIpAddress;
-                _udpClient = new UdpClient(new IPEndPoint(localAddress, localPort));
+                _udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, localPort)) {
+                    EnableBroadcast = true,
+                    MulticastLoopback = true
+                };
             }
             catch (Exception ex)
             {
                 Trace.WriteLine($"[Networking] CommunicatorClient: Binding to local TCP port failed, using dynamic UDP port. Exception: {ex.Message}");
-                _udpClient = new UdpClient(new IPEndPoint(ListenIpAddress, 0));
+                _udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) {
+                    EnableBroadcast = true,
+                    MulticastLoopback = true
+                };
+            }
+
+            try
+            {
+                Socket multicastSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                multicastSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                multicastSocket.Bind(new IPEndPoint(IPAddress.Any, _serverIp.Port));
+                _multicastUdpClient = new UdpClient {
+                    Client = multicastSocket,
+                    EnableBroadcast = true,
+                    MulticastLoopback = true
+                };
+                _multicastSocketListener = new UdpSocketListener(_receivingQueueLossy, _multicastUdpClient);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"[Networking] CommunicatorClient: Failed to initialize multicast UDP listener on port {_serverIp.Port}: {ex.Message}");
             }
 
             _sendingQueueListenerLossy = new SendingQueueListenerLossy(_sendingQueueLossy, _udpClient);
@@ -133,10 +157,8 @@ public class CommunicatorClient : ICommunicator, IDisposable
     {
         try
         {
-            IPEndPoint clientEndpoint = new IPEndPoint(ListenIpAddress, ListenPort);
-            BroadcastPacket packet = new BroadcastPacket(message, module, priority, clientEndpoint);
-            byte[] serialized = _networkMessageSerializer.Serialize(packet);
-            SendMessageLossy(_serverIp, serialized, CommunicatorServer.NetworkingModuleId, priority);
+            IPEndPoint broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, _serverIp.Port);
+            SendMessageLossy(broadcastEndpoint, message, module, priority);
         }
         catch (Exception e)
         {
@@ -148,6 +170,16 @@ public class CommunicatorClient : ICommunicator, IDisposable
     {
         try
         {
+            try
+            {
+                IPAddress groupAddress = CommunicatorServer.GetMulticastAddress(multicastGroup);
+                _multicastUdpClient?.JoinMulticastGroup(groupAddress);
+            }
+            catch (Exception mEx)
+            {
+                Trace.WriteLine($"[Networking] CommunicatorClient.JoinMulticastGroup: Native join failed: {mEx.Message}");
+            }
+
             JoinGroupPacket packet = new JoinGroupPacket(multicastGroup, clientIp);
             byte[] serialized = _networkMessageSerializer.Serialize(packet);
             SendMessage(_serverIp, serialized, CommunicatorServer.NetworkingModuleId, 1);
@@ -162,6 +194,16 @@ public class CommunicatorClient : ICommunicator, IDisposable
     {
         try
         {
+            try
+            {
+                IPAddress groupAddress = CommunicatorServer.GetMulticastAddress(multicastGroup);
+                _multicastUdpClient?.DropMulticastGroup(groupAddress);
+            }
+            catch (Exception mEx)
+            {
+                Trace.WriteLine($"[Networking] CommunicatorClient.LeaveMulticastGroup: Native drop failed: {mEx.Message}");
+            }
+
             LeaveGroupPacket packet = new LeaveGroupPacket(multicastGroup, clientIp);
             byte[] serialized = _networkMessageSerializer.Serialize(packet);
             SendMessage(_serverIp, serialized, CommunicatorServer.NetworkingModuleId, 1);
@@ -191,10 +233,9 @@ public class CommunicatorClient : ICommunicator, IDisposable
     {
         try
         {
-            IPEndPoint clientEndpoint = new IPEndPoint(ListenIpAddress, ListenPort);
-            MulticastPacket packet = new MulticastPacket(multicastGroup, message, module, priority, clientEndpoint);
-            byte[] serialized = _networkMessageSerializer.Serialize(packet);
-            SendMessageLossy(_serverIp, serialized, CommunicatorServer.NetworkingModuleId, priority);
+            IPAddress groupAddress = CommunicatorServer.GetMulticastAddress(multicastGroup);
+            IPEndPoint multicastEndpoint = new IPEndPoint(groupAddress, _serverIp.Port);
+            SendMessageLossy(multicastEndpoint, message, module, priority);
         }
         catch (Exception e)
         {
@@ -238,6 +279,8 @@ public class CommunicatorClient : ICommunicator, IDisposable
         _socketListener?.Dispose();
         _receivingQueueListener.Dispose();
         _receivingQueueListenerLossy.Dispose();
+        _multicastSocketListener?.Dispose();
+        _multicastUdpClient?.Dispose();
         _udpSocketListener?.Dispose();
         _udpClient?.Dispose();
         _tcpClient.Close();

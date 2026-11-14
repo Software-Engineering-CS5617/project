@@ -11,10 +11,11 @@ using System.Threading.Tasks;
 using Networking.Packets;
 using Networking.Queues;
 using Networking.Sockets;
+using Utils;
 
 namespace Networking.TCPCommunication;
 
-public class CommunicatorServer : ICommunicator, IDisposable
+public class CommunicatorServer : ICommunicator, IUserNotificationHandler, IDisposable
 {
     public const int NetworkingModuleId = 13;
     public const int NetworkModuleId = 13;
@@ -71,7 +72,15 @@ public class CommunicatorServer : ICommunicator, IDisposable
 
             try
             {
-                _udpClient = new UdpClient(new IPEndPoint(ipEndPoint.Address, ipEndPoint.Port));
+                Socket udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                udpSocket.Bind(new IPEndPoint(IPAddress.Any, ipEndPoint.Port));
+                _udpClient = new UdpClient {
+                    Client = udpSocket,
+                    EnableBroadcast = true,
+                    MulticastLoopback = true
+                };
+
                 _sendingQueueListenerLossy = new SendingQueueListenerLossy(_sendingQueueLossy, _udpClient);
                 _udpSocketListener = new UdpSocketListener(_receivingQueueLossy, _udpClient);
                 _receivingQueueListenerLossy = new ReceivingQueueListenerLossy(_receivingQueueLossy, _moduleToLossyMessageListenerMap);
@@ -82,18 +91,10 @@ public class CommunicatorServer : ICommunicator, IDisposable
             }
 
             AddSubscriber(NetworkingModuleId, new NetworkMessageListener(this));
-            AddLossySubscriber(NetworkingModuleId, new LossyNetworkMessageListener(this));
 
             _isRunning = true;
             _clientConnectionListenerThread = new Thread(AcceptClientConnections) { IsBackground = true };
             _clientConnectionListenerThread.Start();
-            // using (_tcpClientRequestListener)
-            // using (_sendingQueueListenerServer)
-            // using (_receivingQueueListener)
-            // {
-            //     _isRunning = true;
-            //     _clientConnectionListenerThread.Start();
-            // }
         }
         catch (Exception e)
         {
@@ -165,6 +166,11 @@ public class CommunicatorServer : ICommunicator, IDisposable
     {
         try
         {
+            if (clientIp.Address.IsIPv4MappedToIPv6)
+            {
+                clientIp = new IPEndPoint(clientIp.Address.MapToIPv4(), clientIp.Port);
+            }
+
             _clientToTcpListenerMap[clientIp] = tcpClient;
             _clientToSocketListenerMap[clientIp] = new SocketListener(_receivingQueue, tcpClient);
         }
@@ -178,18 +184,59 @@ public class CommunicatorServer : ICommunicator, IDisposable
     {
         try
         {
-            SocketListener socketListener = _clientToSocketListenerMap[clientIp];
-            _clientToSocketListenerMap.TryRemove(clientIp, out _);
-            _clientToTcpListenerMap.TryRemove(clientIp, out _);
+            if (clientIp.Address.IsIPv4MappedToIPv6)
+            {
+                clientIp = new IPEndPoint(clientIp.Address.MapToIPv4(), clientIp.Port);
+            }
+
+            if (_clientToSocketListenerMap.TryRemove(clientIp, out SocketListener? socketListener))
+            {
+                socketListener.Dispose();
+            }
+
+            if (_clientToTcpListenerMap.TryRemove(clientIp, out TcpClient? tcpClient))
+            {
+                tcpClient.Close();
+                tcpClient.Dispose();
+            }
+
             foreach (ConcurrentDictionary<IPEndPoint, byte> group in _multicastGroupMap.Values)
             {
                 group.TryRemove(clientIp, out _);
             }
-            socketListener.Dispose();
         }
         catch (Exception e)
         {
             Trace.WriteLine($"[Networking] CommunicatorServer.RemoveClient: Failed to remove client {clientIp}. Exception: {e.Message}");
+        }
+    }
+
+    public void OnUserJoined(ControllerUser user)
+    {
+        if (user == null)
+        {
+            return;
+        }
+
+        Trace.WriteLine($"[Networking] CommunicatorServer.OnUserJoined: User '{user.Username}' ({user.Gmail}) joined at {user.Ip}:{user.Port}");
+    }
+
+    public void OnUserLeft(ControllerUser user)
+    {
+        if (user == null)
+        {
+            return;
+        }
+
+        if (IPAddress.TryParse(user.Ip, out IPAddress? ip) && user.Port > 0)
+        {
+            IPEndPoint clientEp = new IPEndPoint(ip, user.Port);
+            RemoveClient(clientEp);
+            Trace.WriteLine($"[Networking] CommunicatorServer.OnUserLeft: Cleaned up client {clientEp} for user '{user.Username}'");
+        }
+        else
+        {
+            Trace.WriteLine($"[Networking] CommunicatorServer.OnUserLeft: Invalid endpoint '{user.Ip}:{user.Port}' for user '{user.Username}'");
         }
     }
 
@@ -267,6 +314,22 @@ public class CommunicatorServer : ICommunicator, IDisposable
     }
 
 
+    public static IPAddress GetMulticastAddress(int multicastGroup)
+    {
+        int normalized = Math.Abs(multicastGroup);
+        if (normalized == 0)
+        {
+            normalized = 1;
+        }
+        byte high = (byte)((normalized >> 8) & 0xFF);
+        byte low = (byte)(normalized & 0xFF);
+        if (high == 0 && low == 0)
+        {
+            low = 1;
+        }
+        return new IPAddress(new byte[] { 239, 255, high, low });
+    }
+
     public void JoinMulticastGroup(int multicastGroup, IPEndPoint clientIp)
     {
         if (clientIp.Address.IsIPv4MappedToIPv6)
@@ -279,6 +342,15 @@ public class CommunicatorServer : ICommunicator, IDisposable
             _ => new ConcurrentDictionary<IPEndPoint, byte>()
         );
         group.TryAdd(clientIp, 0);
+
+        try
+        {
+            _udpClient?.JoinMulticastGroup(GetMulticastAddress(multicastGroup));
+        }
+        catch (Exception e)
+        {
+            Trace.WriteLine($"[Networking] CommunicatorServer.JoinMulticastGroup: Failed to join native multicast group. Exception: {e.Message}");
+        }
     }
 
     public void LeaveMulticastGroup(int multicastGroup, IPEndPoint clientIp)
@@ -301,6 +373,15 @@ public class CommunicatorServer : ICommunicator, IDisposable
             {
                 _multicastGroupMap.TryRemove(multicastGroup, out _);
             }
+        }
+
+        try
+        {
+            _udpClient?.DropMulticastGroup(GetMulticastAddress(multicastGroup));
+        }
+        catch (Exception e)
+        {
+            Trace.WriteLine($"[Networking] CommunicatorServer.LeaveMulticastGroup: Failed to drop native multicast group. Exception: {e.Message}");
         }
     }
 
@@ -328,21 +409,21 @@ public class CommunicatorServer : ICommunicator, IDisposable
 
     public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority)
     {
-        MulticastMessageLossy(multicastGroup, message, module, priority, null);
-    }
-
-    public void MulticastMessageLossy(int multicastGroup, byte[] message, int module, int priority, IPEndPoint? excludeClient)
-    {
-        if (_multicastGroupMap.TryGetValue(multicastGroup, out ConcurrentDictionary<IPEndPoint, byte>? group))
+        if (_thisIpEndPoint == null)
         {
-            foreach (IPEndPoint clientEp in group.Keys)
-            {
-                if (excludeClient != null && EndPointsEqual(clientEp, excludeClient))
-                {
-                    continue;
-                }
-                SendMessageLossy(clientEp, message, module, priority);
-            }
+            return;
+        }
+
+        try
+        {
+            IPAddress groupAddress = GetMulticastAddress(multicastGroup);
+            IPEndPoint multicastEndpoint = new IPEndPoint(groupAddress, _thisIpEndPoint.Port);
+            Packet packet = new Packet(message, multicastEndpoint, module, priority);
+            _sendingQueueLossy.Enqueue(packet);
+        }
+        catch (Exception e)
+        {
+            Trace.WriteLine($"[Networking] CommunicatorServer.MulticastMessageLossy: Failed to multicast to group {multicastGroup}. Exception: {e.Message}");
         }
     }
 
@@ -365,18 +446,20 @@ public class CommunicatorServer : ICommunicator, IDisposable
 
     public void BroadcastMessageLossy(byte[] message, int module, int priority)
     {
-        BroadcastMessageLossy(message, module, priority, null);
-    }
-
-    public void BroadcastMessageLossy(byte[] message, int module, int priority, IPEndPoint? excludeClient)
-    {
-        foreach (IPEndPoint clientEp in _clientToTcpListenerMap.Keys)
+        if (_thisIpEndPoint == null)
         {
-            if (excludeClient != null && EndPointsEqual(clientEp, excludeClient))
-            {
-                continue;
-            }
-            SendMessageLossy(clientEp, message, module, priority);
+            return;
+        }
+
+        try
+        {
+            IPEndPoint broadcastEndpoint = new IPEndPoint(IPAddress.Broadcast, _thisIpEndPoint.Port);
+            Packet packet = new Packet(message, broadcastEndpoint, module, priority);
+            _sendingQueueLossy.Enqueue(packet);
+        }
+        catch (Exception e)
+        {
+            Trace.WriteLine($"[Networking] CommunicatorServer.BroadcastMessageLossy: Failed to broadcast. Exception: {e.Message}");
         }
     }
 
@@ -431,42 +514,6 @@ public class CommunicatorServer : ICommunicator, IDisposable
             catch (Exception e)
             {
                 Trace.WriteLine($"[Networking] CommunicatorServer.NetworkMessageListener: Failed to process message. Exception: {e.Message}");
-            }
-        }
-    }
-
-    public class LossyNetworkMessageListener : IMessageListenerLossy
-    {
-        private readonly CommunicatorServer _server;
-        private readonly Serializer<NetworkMessage> _serializer;
-
-        public LossyNetworkMessageListener(CommunicatorServer server)
-        {
-            _server = server;
-            _serializer = new Serializer<NetworkMessage>();
-        }
-
-        public void OnMessageReceivedLossy(byte[] message)
-        {
-            try
-            {
-                NetworkMessage? packet = _serializer.Deserialize(message);
-                switch (packet)
-                {
-                    case BroadcastPacket broadcast:
-                        _server.BroadcastMessageLossy(broadcast.Message, broadcast.Module, broadcast.Priority, broadcast.ClientIp);
-                        break;
-                    case MulticastPacket multicast:
-                        _server.MulticastMessageLossy(multicast.MulticastGroup, multicast.Message, multicast.Module, multicast.Priority);
-                        break;
-                    default:
-                        Trace.WriteLine("[Networking] CommunicatorServer.LossyNetworkMessageListener: Unknown or null message type.");
-                        break;
-                }
-            }
-            catch (Exception e)
-            {
-                Trace.WriteLine($"[Networking] CommunicatorServer.LossyNetworkMessageListener: Failed to process lossy message. Exception: {e.Message}");
             }
         }
     }
