@@ -53,7 +53,7 @@ public sealed partial class MainWindow : Window
         };
         _session.MeetingEnded += () =>
         {
-            DispatcherQueue.TryEnqueue(() =>
+            DispatcherQueue.TryEnqueue(async () =>
             {
                 if (_inMeeting)
                 {
@@ -182,7 +182,7 @@ public sealed partial class MainWindow : Window
             bool joined = _meetingService.JoinMeeting(id, number);
             if (!joined)
             {
-                error.Text = "Could not connect to meeting at " + id + ":" + port;
+                error.Text = _meetingService.LastErrorMessage ?? ("Could not connect to meeting at " + id + ":" + port);
                 continue;
             }
 

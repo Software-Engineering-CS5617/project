@@ -13,6 +13,10 @@ public interface IControllerService : IDisposable
     event EventHandler<UserLeftEventArgs>? UserLeft;
     // Event Fired when the Meeting is Ended. 
     event EventHandler<MeetingEndedEventArgs>? MeetingEnded;
+    // Event will be fired when another device joins in same meeting.
+    event EventHandler<string>? SecurityAlertRaised;
+    // Event checks join rejetion.
+     event EventHandler<string>? JoinRejected;
     // returns True if the meeting was created and started successfully.
     bool StartMeeting();
 

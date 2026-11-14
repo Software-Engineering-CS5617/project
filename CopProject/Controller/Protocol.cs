@@ -15,7 +15,8 @@ public static class Protocol
     public const string NotifyUserJoined   = "USER_JOINED";
     public const string NotifyUserLeft     = "USER_LEFT";
     public const string NotifySessionEnded = "SESSION_ENDED";
-
+    public const string NotifySecurityAlert = "SECURITY_ALERT";
+    public const string NotifyJoinRejected = "JOIN_REJECTED";
     public const char Separator = '|';
 
     // Format helpers 

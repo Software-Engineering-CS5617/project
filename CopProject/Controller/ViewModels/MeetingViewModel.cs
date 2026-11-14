@@ -80,6 +80,16 @@ public sealed class MeetingViewModel : ObservableObject
             }
             Refresh();
         };
+        session.SecurityAlertReceived += alert =>
+        {
+            AlertMessage = alert;
+            AuditLogs.Insert(0, new SecurityAuditEvent
+            {
+                User = "System",
+                Activity = alert,
+                Status = "Blocked"
+            });
+        };
     }
 
     public string MeetingId => session.Meeting?.Id ?? "";
@@ -108,6 +118,20 @@ public sealed class MeetingViewModel : ObservableObject
     public ObservableCollection<ParticipantDataPoint> GraphPoints { get; } = new();
     public ObservableCollection<SecurityAuditEvent> AuditLogs { get; } = new();
     public event Action? ChartUpdated;
+
+    // In-meeting Security Alert Banner
+    private string? _alertMessage;
+    public string? AlertMessage
+    {
+        get => _alertMessage;
+        set
+        {
+            _alertMessage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasAlert));
+        }
+    }
+    public bool HasAlert => !string.IsNullOrEmpty(_alertMessage);
 
     // View mode: 0 = Normal, 1 = Graph Maximized, 2 = Audit Maximized
     private int _maximizedView = 0;

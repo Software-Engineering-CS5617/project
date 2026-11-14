@@ -17,6 +17,7 @@ public sealed class ControllerMeetingService
     private readonly SynchronizationContext? _uiThread = SynchronizationContext.Current;
     public IControllerService? ActiveController => _activeController;
     private readonly List<IUserNotificationHandler> _registeredHandlers = new();
+    public string? LastErrorMessage { get; private set; }
 
     public void RegisterNotificationHandler(IUserNotificationHandler handler)
     {
@@ -92,6 +93,7 @@ public sealed class ControllerMeetingService
         bool joined = client.JoinMeeting(targetHost, hostPort, clientUser);
         if (!joined)
         {
+            LastErrorMessage = (client as ClientController)?.LastErrorMessage;
             client.Dispose();
             return false;
         }
@@ -135,6 +137,8 @@ public sealed class ControllerMeetingService
         controller.UserJoined += OnUserJoined;
         controller.UserLeft += OnUserLeft;
         controller.MeetingEnded += OnRemoteMeetingEnded;
+        controller.SecurityAlertRaised += OnSecurityAlertRaised;
+        controller.JoinRejected += OnJoinRejected;
     }
 
     private void UnhookControllerEvents(IControllerService controller)
@@ -142,6 +146,8 @@ public sealed class ControllerMeetingService
         controller.UserJoined -= OnUserJoined;
         controller.UserLeft -= OnUserLeft;
         controller.MeetingEnded -= OnRemoteMeetingEnded;
+        controller.SecurityAlertRaised -= OnSecurityAlertRaised;
+        controller.JoinRejected -= OnJoinRejected;
     }
 
     private void OnUserJoined(object? sender, UserJoinedEventArgs e)
@@ -236,6 +242,20 @@ public sealed class ControllerMeetingService
             UnhookControllerEvents(_activeController);
             _activeController.Dispose();
             _activeController = null;
+        }
+    }
+
+    private void OnSecurityAlertRaised(object? sender, string message)
+    {
+        _session?.RaiseSecurityAlert(message);
+    }
+
+    private void OnJoinRejected(object? sender, string reason)
+    {
+        if (_session != null)
+        {
+            _session.EndReason = reason;
+            PostToUI(() => _session.EndMeeting());
         }
     }
 }
