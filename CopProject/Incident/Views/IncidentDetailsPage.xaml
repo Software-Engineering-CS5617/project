@@ -267,16 +267,25 @@
                             <ListView ItemsSource="{Binding Evidences}" SelectionMode="None" MaxHeight="200">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Padding="4" ColumnSpacing="12">
-                                            <StackPanel Spacing="2">
-                                                <TextBlock Text="{Binding StoragePath}" TextTrimming="CharacterEllipsis" />
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <TextBlock Text="Uploaded by:" FontWeight="SemiBold"  />
-                                                    <TextBlock Text="{Binding UploadedBy}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <Button
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Stretch"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="4"
+                                            Click="Evidence_Click"
+                                        >
+                                            <Grid ColumnSpacing="12">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{Binding StoragePath}" TextTrimming="CharacterEllipsis" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <TextBlock Text="Uploaded by:" FontWeight="SemiBold"  />
+                                                        <TextBlock Text="{Binding UploadedBy}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                        </Grid>
+                                            </Grid>
+                                        </Button>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
                             </ListView>

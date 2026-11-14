@@ -7,6 +7,8 @@ using Incidents.ViewModels.Utils;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage;
+using Windows.System;
 
 namespace Incidents.Views;
 
@@ -90,6 +92,39 @@ public sealed partial class IncidentDetailsPage : Page
             IncidentEvidence evidence = res.Evidence;
             byte[] content = res.Content;
             await ViewModel.AddEvidenceItemsAsync([(evidence, content)]);
+        }
+    }
+
+    /// <summary>
+    /// Opens the evidence in a default application in the system
+    /// </summary>
+    private async void Evidence_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button &&
+           button.DataContext is IncidentEvidence evidence)
+        {
+            string? storagePath = evidence.StoragePath;
+
+            if (string.IsNullOrWhiteSpace(storagePath))
+            {
+                return;
+            }
+
+            try
+            {
+                IStorageFile file = await StorageFile.GetFileFromPathAsync(storagePath);
+                bool launched = await Launcher.LaunchFileAsync(file);
+
+                if (!launched)
+                {
+                    Trace.TraceWarning($"[Incidents]: Failed to launch evidence file at {storagePath}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError(
+                    $"[Incidents]: An error occurred while opening evidence file at {storagePath}: {ex}");
+            }
         }
     }
 

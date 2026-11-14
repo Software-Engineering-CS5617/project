@@ -7,6 +7,7 @@ using FileSynchroniser.Models;
 public class IncidentController : IIncidentController
 {
     private readonly string _currentUserId;
+    private readonly string _fileSynchronizerDirectory;
     private readonly string _relativePath = "Incidents";
     private readonly IStorage _cloudStorageService;
     private readonly IFileOperations _fileSynchronizerService;
@@ -23,6 +24,7 @@ public class IncidentController : IIncidentController
         _cloudStorageService = cloudStorageService;
         _fileSynchronizerService = fileSynchronizerService;
         _incidentMap = incidentMap;
+        _fileSynchronizerDirectory = fileSynchronizerService.GetDirectory();
     }
 
     public async static Task<IncidentController> CreateAsync(string currentUserId, IStorage cloudStorageService, IFileOperations fileSynchronizerService)
@@ -110,7 +112,10 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = request.Evidences.ToDictionary(
-                e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
+                e => Path.Combine(
+                        _relativePath,
+                        $"{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}"
+                        ),
                 e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} evidence files to file synchronizer service for incident with title {request.Title} created by {request.CreatedBy}");
@@ -125,7 +130,12 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = request.Evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
+                ? e.Item1 with {
+                    StoragePath = Path.Combine(
+                    _fileSynchronizerDirectory,
+                    _relativePath,
+                    $"{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}")
+                }
                 : e.Item1).ToList();
 
             Incident incident = new Incident(
@@ -288,7 +298,10 @@ public class IncidentController : IIncidentController
         try
         {
             Dictionary<string, byte[]> files = evidences.ToDictionary(
-                    e => $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}",
+                    e => Path.Combine(
+                        _relativePath,
+                        $"{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}"
+                        ),
                     e => e.Item2);
 
             Trace.TraceInformation($"[Incidents]: Saving {files.Count} new evidence files to file synchronizer service.");
@@ -303,7 +316,12 @@ public class IncidentController : IIncidentController
             // set storage path in which files will be stored by file synchronizer service.
             List<IncidentEvidence> evidenceMeta = evidences.Select(e =>
                 e.Item1.FilePath is not null
-                ? e.Item1 with { StoragePath = $"{_relativePath}/{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}" }
+                ? e.Item1 with {
+                    StoragePath = Path.Combine(
+                    _fileSynchronizerDirectory,
+                    _relativePath,
+                    $"{e.Item1.Id}{Path.GetExtension(e.Item1.FilePath)}")
+                }
                 : e.Item1).ToList();
 
             clone.AddEvidence(evidenceMeta);
