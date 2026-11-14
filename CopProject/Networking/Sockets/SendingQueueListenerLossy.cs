@@ -12,7 +12,7 @@ public class SendingQueueListenerLossy : IDisposable
 {
     private readonly SendingQueue _sendingQueue;
     private readonly UdpClient _udpClient;
-    private readonly PacketSerializer _packetSerializer = new();
+    private readonly BinarySerialization _binarySerializer = new();
     private readonly Thread _listeningThread;
     private readonly object _isRunningLock = new();
     private bool _isRunning;
@@ -38,7 +38,7 @@ public class SendingQueueListenerLossy : IDisposable
         }
         catch (Exception ex)
         {
-            Trace.WriteLine($"[Networking] SendingQueueListenerLossy: Could not configure broadcast/multicast options: {ex.Message}");
+            Trace.TraceWarning($"[Networking] SendingQueueListenerLossy: Could not configure broadcast/multicast options: {ex.Message}");
         }
 
         _isRunning = true;
@@ -57,7 +57,7 @@ public class SendingQueueListenerLossy : IDisposable
             }
 
             Packet packet = _sendingQueue.Dequeue()!;
-            byte[] data = _packetSerializer.PacketToBytes(packet);
+            byte[] data = _binarySerializer.Serialize(packet);
 
             try
             {
@@ -71,7 +71,7 @@ public class SendingQueueListenerLossy : IDisposable
             }
             catch (Exception e)
             {
-                Trace.WriteLine($"[Networking] SendingQueueListenerLossy: Error sending UDP packet to {packet.Destination}: {e.Message}");
+                Trace.TraceError($"[Networking] SendingQueueListenerLossy: Error sending UDP packet to {packet.Destination}: {e.Message}");
             }
         }
     }
