@@ -3,7 +3,7 @@ using Networking;
 
 namespace ScreenShare;
 
-internal sealed class ScreenShareMessageListener : IMessageListener, IMessageListenerLossy
+internal sealed class ScreenShareMessageListener : IMessageListener
 {
     private readonly Action<IScreenShareMessage, byte[]> _onMessage;
     public ScreenShareMessageListener(Action<IScreenShareMessage, byte[]> onMessage)
@@ -23,10 +23,5 @@ internal sealed class ScreenShareMessageListener : IMessageListener, IMessageLis
         {
             Trace.WriteLine($"[ScreenShare] dropped a bad message of {message?.Length ?? 0} bytes");
         }
-    }
-
-    public void OnMessageReceivedLossy(byte[] message)
-    {
-        OnMessageReceived(message);
     }
 }

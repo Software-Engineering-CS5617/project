@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Net;
+﻿using System.Net;
 using Screenshare;
 
 namespace ScreenShare;
@@ -75,8 +74,6 @@ public sealed partial class ScreenShareNode
         }
     }
 
-    private bool _relayFallbackActive;
-
     /// <summary>
     /// sends a message from this participant's sender or receiver to the host's relay.
     /// safe from any thread.
@@ -90,28 +87,6 @@ public sealed partial class ScreenShareNode
             // queued rather than called directly, so the relay is never re-entered
             _dispatcher.Post(() => _host.Handle(message, bytes));
         }
-        else if (message.Kind == ScreenShareMessageKind.Data)
-        {
-            if (!_relayFallbackActive)
-            {
-                try
-                {
-                    _communicator.MulticastMessageLossy(
-                        ScreenShareModule.MulticastGroup,
-                        bytes,
-                        ScreenShareModule.ModuleId,
-                        ScreenShareModule.PriorityFor(message));
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Trace.WriteLine($"[ScreenShare] Direct multicast failed, falling back to host relay: {ex.Message}");
-                    _relayFallbackActive = true;
-                }
-            }
-
-            _communicator.SendMessageLossy(_session.HostEndpoint, bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
-        }
         else
         {
             _communicator.SendMessage(_session.HostEndpoint, bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
@@ -123,11 +98,6 @@ public sealed partial class ScreenShareNode
     /// </summary>
     private void OnNetworkMessage(IScreenShareMessage message, byte[] bytes)
     {
-        if (message is ScreenDataPacket packet && packet.StreamId == LocalParticipant.Id)
-        {
-            return;
-        }
-
         if (_host != null)
         {
             _dispatcher.Post(() => _host.Handle(message, bytes));
@@ -186,10 +156,6 @@ public sealed partial class ScreenShareNode
             {
                 _node._dispatcher.Post(() => _node.HandleFromHost(message));
             }
-            else if (message.Kind == ScreenShareMessageKind.Data)
-            {
-                _node._communicator.SendMessageLossy(to, bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
-            }
             else
             {
                 _node._communicator.SendMessage(to, bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
@@ -199,15 +165,7 @@ public sealed partial class ScreenShareNode
         public void Broadcast(IScreenShareMessage message, byte[] bytes)
         {
             // Networking's broadcast reaches every connected client but not the host itself
-            if (message.Kind == ScreenShareMessageKind.Data)
-            {
-                _node._communicator.BroadcastMessageLossy(bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
-            }
-            else
-            {
-                _node._communicator.BroadcastMessage(bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
-            }
-
+            _node._communicator.BroadcastMessage(bytes, ScreenShareModule.ModuleId, ScreenShareModule.PriorityFor(message));
             _node._dispatcher.Post(() => _node.HandleFromHost(message));
         }
     }

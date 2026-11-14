@@ -8,8 +8,6 @@ public static class ScreenShareModule
 {
     public const int ModuleId = 8;
 
-    public const int MulticastGroup = 8;
-
     public const int ControlPriority = 3;
 
     public const int DataPriority = 1;
