@@ -18,6 +18,7 @@ using Whiteboard.Network.Serializations;
 using System.Linq;
 using System.IO;
 using Whiteboard.Network.Dtos;
+using System.Diagnostics;
 
 namespace Whiteboard.Services;
 
@@ -89,6 +90,7 @@ public sealed class SharedWhiteboardHistoryService
 
         if (_canvas.Items.ContainsKey(item.Id))
         {
+            Trace.TraceWarning($"[SharedWhiteboardHistoryService][Warning] Add ignored: item already exists. User={userId}, Item={item.Id}");
             return;
         }
 
@@ -108,6 +110,7 @@ public sealed class SharedWhiteboardHistoryService
     {
         if (!_canvas.Items.ContainsKey(itemId))
         {
+            Trace.TraceWarning($"[SharedWhiteboardHistoryService][Warning] Delete ignored: item does not exist. User={userId}, Item={itemId}");
             return;
         }
 
@@ -126,6 +129,7 @@ public sealed class SharedWhiteboardHistoryService
 
         if (!_canvas.Items.TryGetValue(item.Id, out IItem? original))
         {
+            Trace.TraceWarning($"[SharedWhiteboardHistoryService][Warning] Edit ignored: item does not exist. User={userId}, Item={item.Id}");
             return;
         }
 
@@ -244,8 +248,10 @@ public sealed class SharedWhiteboardHistoryService
 
         if (!_histories.TryGetValue(userId, out UserHistory? history))
         {
+
             history = new UserHistory();
             _histories.Add(userId, history);
+            Trace.TraceInformation($"[SharedWhiteboardHistoryService] History created. User={userId}, Undo=0, Redo=0");
         }
 
         return history;
@@ -273,16 +279,20 @@ public sealed class SharedWhiteboardHistoryService
         // An identical edit is not another undo step.
         if (Serialize(before) == Serialize(after))
         {
+            Trace.TraceInformation($"[SharedWhiteboardHistoryService] Change skipped: item state is unchanged. User={userId}, Item={itemId}");
             return;
         }
 
-        Apply(itemId, after);
+        Apply(userId, itemId, after);
 
         history.Undo.Add(new Change(itemId, before, after));
         // A new operation replaces only this actor's previous redo path.
+        int clearedRedo = history.Redo.Count;
         history.Redo.Clear();
 
         InvalidateOtherHistories(userId, itemId);
+        string operationName = before is null ? "Add" : after is null ? "Delete" : "Edit";
+        Trace.TraceInformation($"[SharedWhiteboardHistoryService] {operationName} completed. User={userId}, Item={itemId}, Undo={history.Undo.Count}, Redo={history.Redo.Count}, ClearedRedo={clearedRedo}");
     }
 
     /// <summary>
@@ -300,12 +310,14 @@ public sealed class SharedWhiteboardHistoryService
     {
         if (source.Count == 0)
         {
+            Trace.TraceInformation($"[SharedWhiteboardHistoryService] {(undo ? "Undo" : "Redo")} skipped: history is empty. User={userId}");
             return;
         }
 
         Change change = source[source.Count - 1];
 
         Apply(
+            userId,
             change.ItemId,
             undo ? change.Before : change.After);
 
@@ -314,6 +326,7 @@ public sealed class SharedWhiteboardHistoryService
         destination.Add(change);
 
         InvalidateOtherHistories(userId, change.ItemId);
+        Trace.TraceInformation($"[SharedWhiteboardHistoryService] {(undo ? "Undo" : "Redo")} completed. User={userId}, Item={change.ItemId}, Undo={(undo ? source.Count : destination.Count)}, Redo={(undo ? destination.Count : source.Count)}");
     }
 
     /// <summary>
@@ -321,24 +334,32 @@ public sealed class SharedWhiteboardHistoryService
     /// </summary>
     /// <param name="itemId">ID of the affected item.</param>
     /// <param name="snapshot">State to restore, or null when the item should be absent.</param>
-    private void Apply(Guid itemId, IItem? snapshot)
+    private void Apply(string userId, Guid itemId, IItem? snapshot)
     {
-        if (snapshot is null)
+        try
         {
-            _canvas.DeleteItem(itemId);
-            return;
-        }
+            if (snapshot is null)
+            {
+                _canvas.DeleteItem(itemId);
+                return;
+            }
 
-        // Live items must not share mutable data with saved history.
-        IItem item = ItemSnapshot.Copy(snapshot);
+            // Live items must not share mutable data with saved history.
+            IItem item = ItemSnapshot.Copy(snapshot);
 
-        if (_canvas.Items.ContainsKey(itemId))
-        {
-            _canvas.EditItem(item);
+            if (_canvas.Items.ContainsKey(itemId))
+            {
+                _canvas.EditItem(item);
+            }
+            else
+            {
+                _canvas.AddItem(item);
+            }
         }
-        else
+        catch (Exception exception)
         {
-            _canvas.AddItem(item);
+            Trace.TraceError($"[SharedWhiteboardHistoryService][Error] Applying item state failed. User={userId}, Item={itemId}. {exception}");
+            throw;
         }
     }
 
@@ -363,11 +384,17 @@ public sealed class SharedWhiteboardHistoryService
 
             // Prevent an older undo/redo from overwriting another
             // user's newer change to this same item.
-            pair.Value.Undo.RemoveAll(
+            int removedUndo = pair.Value.Undo.RemoveAll(
                 change => change.ItemId == itemId);
 
-            pair.Value.Redo.RemoveAll(
+            int removedRedo = pair.Value.Redo.RemoveAll(
                 change => change.ItemId == itemId);
+
+            // Report only histories that actually lost conflicting entries.
+            if (removedUndo > 0 || removedRedo > 0)
+            {
+                Trace.TraceInformation($"[SharedWhiteboardHistoryService] Conflicting history removed. Actor={userId}, AffectedUser={pair.Key}, Item={itemId}, RemovedUndo={removedUndo}, RemovedRedo={removedRedo}, Undo={pair.Value.Undo.Count}, Redo={pair.Value.Redo.Count}");
+            }
         }
 #pragma warning restore IDE0008 // Use explicit type
     }
@@ -393,6 +420,7 @@ public sealed class SharedWhiteboardHistoryService
 
         if(restoredItems.Select(item => item.Id).Distinct().Count() != restoredItems.Length)
         {
+            Trace.TraceError($"[SharedWhiteboardHistoryService][Error] Restore rejected: snapshot contains duplicate item IDs. User={userId}, Items={restoredItems.Length}");
             throw new InvalidDataException("Snapshot contains duplicate item IDs");
         }
 
@@ -413,5 +441,6 @@ public sealed class SharedWhiteboardHistoryService
         {
             _canvas.AddItem(item);
         }
+        Trace.TraceInformation($"[SharedWhiteboardHistoryService] Snapshot restored; all user histories cleared. User={userId}, Items={restoredItems.Length}, Histories={_histories.Count}");
     }
 }

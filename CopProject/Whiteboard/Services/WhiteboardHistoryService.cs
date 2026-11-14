@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
 
 using Whiteboard.Interfaces;
 
@@ -53,6 +54,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
 
         _whiteboard = whiteboard;
         _userId = userId;
+        Trace.TraceInformation($"[WhiteboardHistoryService] History created. User={_userId}, Undo=0, Redo=0");
     }
 
     /// <summary>
@@ -63,7 +65,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        ChangeHistory(() => {
+        ChangeHistory("Execute", () => {
             ValidateUser(action);
 
             // Update history only after the action and its inverse succeed.
@@ -73,7 +75,9 @@ public class WhiteboardHistoryService : IWhiteboardHistory
             _undo.Push(inverse);
 
             // A new action replaces the previous redo path.
+            int clearedRedo = _redo.Count;
             _redo.Clear();
+            Trace.TraceInformation($"[WhiteboardHistoryService] Action recorded. User={_userId}, Action={action.ActionId}, ClearedRedo={clearedRedo}");
         });
     }
 
@@ -84,10 +88,11 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         if (!CanUndo)
         {
+            Trace.TraceInformation($"[WhiteboardHistoryService] Undo skipped: history is empty. User={_userId}");
             return;
         }
 
-        ChangeHistory(() => Transfer(_undo, _redo));
+        ChangeHistory("Undo", () => Transfer(_undo, _redo));
     }
 
     /// <summary>
@@ -97,10 +102,11 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         if (!CanRedo)
         {
+            Trace.TraceInformation($"[WhiteboardHistoryService] Redo skipped: history is empty. User={_userId}");
             return;
         }
 
-        ChangeHistory(() => Transfer(_redo, _undo));
+        ChangeHistory("Redo", () => Transfer(_redo, _undo));
     }
 
     /// <summary>
@@ -161,10 +167,11 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     /// Runs a history operation and notifies listeners when it succeeds.
     /// </summary>
     /// <param name="operation">History operation to run.</param>
-    private void ChangeHistory(Action operation)
+    private void ChangeHistory(string operationName, Action operation)
     {
         if (_isChangingHistory)
         {
+            Trace.TraceError($"[WhiteboardHistoryService][Error] {operationName} rejected: another history operation is running. User={_userId}");
             throw new InvalidOperationException(
                 "Another history operation is already running.");
         }
@@ -175,12 +182,18 @@ public class WhiteboardHistoryService : IWhiteboardHistory
         {
             operation();
         }
+        catch (Exception exception)
+        {
+            Trace.TraceError($"[WhiteboardHistoryService][Error] {operationName} failed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}. {exception}");
+            throw;
+        }
         finally
         {
             // Allow future operations even if this one fails.
             _isChangingHistory = false;
         }
 
+        Trace.TraceInformation($"[WhiteboardHistoryService] {operationName} completed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}");
         HistoryChanged();
     }
 }
