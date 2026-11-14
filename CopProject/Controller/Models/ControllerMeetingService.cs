@@ -137,8 +137,15 @@ public sealed class ControllerMeetingService
         controller.UserJoined += OnUserJoined;
         controller.UserLeft += OnUserLeft;
         controller.MeetingEnded += OnRemoteMeetingEnded;
-        controller.SecurityAlertRaised += OnSecurityAlertRaised;
-        controller.JoinRejected += OnJoinRejected;
+        if (controller is HostController host)
+        {
+            host.SecurityAlertRaised += OnSecurityAlertRaised;
+        }
+        else if (controller is ClientController client)
+        {
+            client.SecurityAlertRaised += OnSecurityAlertRaised;
+            client.JoinRejected += OnJoinRejected;
+        }
     }
 
     private void UnhookControllerEvents(IControllerService controller)
@@ -146,8 +153,15 @@ public sealed class ControllerMeetingService
         controller.UserJoined -= OnUserJoined;
         controller.UserLeft -= OnUserLeft;
         controller.MeetingEnded -= OnRemoteMeetingEnded;
-        controller.SecurityAlertRaised -= OnSecurityAlertRaised;
-        controller.JoinRejected -= OnJoinRejected;
+         if (controller is HostController host)
+        {
+            host.SecurityAlertRaised -= OnSecurityAlertRaised;
+        }
+        else if (controller is ClientController client)
+        {
+            client.SecurityAlertRaised -= OnSecurityAlertRaised;
+            client.JoinRejected -= OnJoinRejected;
+        }
     }
 
     private void OnUserJoined(object? sender, UserJoinedEventArgs e)
