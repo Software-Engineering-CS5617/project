@@ -1,21 +1,20 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace ScreenShare.Models;
 
 public class ParticipantTile : INotifyPropertyChanged
 {
-    private WriteableBitmap? _bitmap;
+    private readonly Func<int, int, ITileSurface> _createSurface;
+    private ITileSurface? _surface;
     private readonly FpsCounter _fps = new();
 
     public string Id { get; }
     public string Name { get; }
 
     // null until the first frame arrives; replaced only when the stream's size changes
-    public ImageSource? Frame => _bitmap;
+    public ImageSource? Frame => _surface?.Source;
 
     /// <summary>pictures drawn per second, as of the last SampleFps, e.g. "23.8 fps"</summary>
     public string FpsText => $"{_fps.FramesPerSecond:0.0} fps";
@@ -37,25 +36,34 @@ public class ParticipantTile : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ParticipantTile(string id, string name) { Id = id; Name = name; }
+    public ParticipantTile(string id, string name)
+        : this(id, name, (width, height) => new BitmapTileSurface(width, height))
+    {
+    }
 
-    // Call on the UI thread. Copies the raw pixels straight into the bitmap, no decoding needed.
+    /// <param name="createSurface">makes the picture for a given width and height</param>
+    /// <exception cref="ArgumentNullException">createSurface is null</exception>
+    internal ParticipantTile(string id, string name, Func<int, int, ITileSurface> createSurface)
+    {
+        ArgumentNullException.ThrowIfNull(createSurface);
+
+        Id = id;
+        Name = name;
+        _createSurface = createSurface;
+    }
+
+    // Call on the UI thread.
     public void UpdateFrame(ScreenFrame frame)
     {
         try
         {
-            if (_bitmap == null || _bitmap.PixelWidth != frame.Width || _bitmap.PixelHeight != frame.Height)
+            if (_surface == null || _surface.PixelWidth != frame.Width || _surface.PixelHeight != frame.Height)
             {
-                _bitmap = new WriteableBitmap(frame.Width, frame.Height);
+                _surface = _createSurface(frame.Width, frame.Height);
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Frame)));
             }
 
-            using (Stream pixels = _bitmap.PixelBuffer.AsStream())
-            {
-                pixels.Write(frame.Pixels, 0, frame.Pixels.Length);
-            }
-
-            _bitmap.Invalidate();
+            _surface.WritePixels(frame.Pixels);
             _fps.RecordFrame();
         }
         catch (Exception e)
