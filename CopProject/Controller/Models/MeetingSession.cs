@@ -13,7 +13,8 @@ public sealed class MeetingSession
 
     public string CurrentUserId { get; set; } = string.Empty;
     public string CurrentUserEmail { get; set; } = string.Empty;
-
+    public byte[]? CurrentUserProfilePicture { get; set; }
+    
     public MeetingInfo? Meeting { get; private set; }
     public bool InMeeting => Meeting != null;
     public DateTime? MeetingStartTime { get; private set; }

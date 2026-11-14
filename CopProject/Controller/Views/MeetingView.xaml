@@ -133,9 +133,10 @@
 
                                         <!-- Avatar -->
                                         <PersonPicture Grid.RowSpan="2" 
-                                                       DisplayName="{x:Bind Username}" 
-                                                       Width="36" Height="36" 
-                                                       VerticalAlignment="Center"/>
+                                                    DisplayName="{x:Bind Username}" 
+                                                    ProfilePicture="{x:Bind AvatarImage, Mode=OneWay}"
+                                                    Width="36" Height="36" 
+                                                    VerticalAlignment="Center"/>
 
                                         <!-- Username -->
                                         <TextBlock Grid.Row="0" Grid.Column="1" 

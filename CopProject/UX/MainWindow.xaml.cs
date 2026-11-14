@@ -168,6 +168,28 @@ public sealed partial class MainWindow : Window
         pic.ProfilePicture = string.IsNullOrEmpty(source) ? null : new BitmapImage(new Uri(source));
     }
 
+    private byte[]? GetProfilePictureBytes()
+    {
+        if (string.IsNullOrEmpty(_picture)) return null;
+        try
+        {
+            if (File.Exists(_picture))
+            {
+                return File.ReadAllBytes(_picture);
+            }
+            if (Uri.TryCreate(_picture, UriKind.Absolute, out Uri? uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                using var client = new HttpClient();
+                return client.GetByteArrayAsync(uri).GetAwaiter().GetResult();
+            }
+        }
+        catch
+        {
+            // fallback if image cannot be read
+        }
+        return null;
+    }
     // lets the person choose a picture file and returns its path (null if they cancel)
     private async Task<string?> PickPictureAsync()
     {
@@ -248,7 +270,7 @@ public sealed partial class MainWindow : Window
             // CONTROLLER TEAM: store current user identity into session
             _session.CurrentUserId = _userId;
             _session.CurrentUserEmail = mail;
-
+            _session.CurrentUserProfilePicture = GetProfilePictureBytes();
             ShowProfile();
             ShowScreen("dash");
         }
@@ -316,6 +338,13 @@ public sealed partial class MainWindow : Window
                 _userEmail,
                 _userId,
                 _picture);
+
+            byte[]? picBytes = GetProfilePictureBytes();
+            _session.CurrentUserProfilePicture = picBytes;
+            if (_inMeeting)
+            {
+                _meetingService.UpdateProfilePicture(picBytes);
+            }    
         }
     
         ShowProfile();

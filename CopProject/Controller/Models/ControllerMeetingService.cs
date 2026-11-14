@@ -52,7 +52,7 @@ public sealed class ControllerMeetingService
         string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
         string localIp = NetworkUtils.GetLocalIpAddress();
-        var hostUser = new ControllerUser(username, email, null, localIp, 0, isHost: true);
+        var hostUser = new ControllerUser(username, email, _session?.CurrentUserProfilePicture, localIp, 0, isHost: true);
 
         var host = ControllerFactory.CreateHost(hostUser);
         _activeController = host;
@@ -81,7 +81,7 @@ public sealed class ControllerMeetingService
         string username = !string.IsNullOrWhiteSpace(_session?.CurrentUserId) ? _session.CurrentUserId : "Participant";
         string email = !string.IsNullOrWhiteSpace(_session?.CurrentUserEmail) ? _session.CurrentUserEmail : $"{username}@smail.iitpkd.ac.in";
 
-        var clientUser = new ControllerUser(username, email, null, NetworkUtils.GetLocalIpAddress(), 0, isHost: false);
+        var clientUser = new ControllerUser(username, email, _session?.CurrentUserProfilePicture, NetworkUtils.GetLocalIpAddress(), 0, isHost: false);
         var client = ControllerFactory.CreateClient(clientUser);
 
         string targetHost = hostIp.Trim();
@@ -109,6 +109,17 @@ public sealed class ControllerMeetingService
         return true;
     }
 
+    public void UpdateProfilePicture(byte[]? picture)
+    {
+        if (_activeController != null)
+        {
+            if (_activeController.CurrentUser != null)
+            {
+                _activeController.CurrentUser.ProfilePicture = picture;
+            }
+            UpdateActiveParticipants();
+        }
+    }
     private void OnMeetingStarted(MeetingInfo info)
     {
         if (_session == null) return;
