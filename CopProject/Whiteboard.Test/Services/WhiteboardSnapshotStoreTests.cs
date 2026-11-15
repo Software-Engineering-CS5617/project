@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cloud.Persistence;
+using Whiteboard.Models;
 using Whiteboard.Network.Dtos;
 using Whiteboard.Services;
 using Xunit;
