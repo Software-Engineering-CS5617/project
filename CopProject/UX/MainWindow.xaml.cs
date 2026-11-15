@@ -527,7 +527,7 @@ public sealed partial class MainWindow : Window
     {
         ShowPanel("incident");
     }
-    private void LocationBtn_Click(object sender, RoutedEventArgs e)
+    private async void LocationBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
