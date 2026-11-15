@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Chat\UI\UI.csproj" />
     <ProjectReference Include="..\Cloud.UI\Cloud.UI.csproj" />
     <ProjectReference Include="..\Cloud\Cloud.csproj" />
+    <ProjectReference Include="..\Utils\Diagnosis\Diagnosis.UI.csproj" />
     <ProjectReference Include="..\FileSynchroniser\FileSynchroniser.csproj" />
     <ProjectReference Include="..\Incident\Incident.csproj" />
     <ProjectReference Include="..\Location\Location.csproj" />

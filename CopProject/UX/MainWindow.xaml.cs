@@ -156,6 +156,7 @@ public sealed partial class MainWindow : Window
         LocationView.Visibility = Vis(screen == "location");
         CloudView.Visibility = Vis(screen == "cloud");
         CrashHandlerView.Visibility = Vis(screen == "crashhandler");
+        DiagnosisView.Visibility = Vis(screen == "diagnosis");
         UserPanel.Visibility = Vis(screen != "login");
         MeetingInfoText.Visibility = Vis(_inMeeting);
     }
@@ -215,6 +216,7 @@ public sealed partial class MainWindow : Window
         LocationTopBtn.Visibility = Vis(!_inMeeting);
         CloudTopBtn.Visibility = Vis(!_inMeeting);
         CrashHandlerTopBtn.Visibility = Vis(!_inMeeting);
+        DiagnosisTopBtn.Visibility = Vis(!_inMeeting);
 
         // CONTROLLER TEAM: store current user identity into session
         _session.CurrentUserId = _userId;
@@ -484,11 +486,19 @@ public sealed partial class MainWindow : Window
         SharePanel.Visibility = Vis(which == "share");
         BoardPanel.Visibility = Vis(which == "board");
         FileSyncView.Visibility = Vis(which == "filesync");
+        CloudMeetingPanel.Visibility = Vis(which == "cloud");
+        DiagnosisPanel.Visibility = Vis(which == "diagnosis");
+        LocationPanel.Visibility = Vis(which == "location");
+        IncidentsPanel.Visibility = Vis(which == "incident");
 
         HomeBtn.IsChecked = which == "home";
         ShareBtn.IsChecked = which == "share";
         BoardBtn.IsChecked = which == "board";
         FileSyncBtn.IsChecked = which == "filesync";
+        CloudBtn.IsChecked = which == "cloud";
+        DiagnosisBtn.IsChecked = which == "diagnosis";
+        LocationBtn.IsChecked = which == "location";
+        IncidentsBtn.IsChecked = which == "incident";
     }
 
     private void HomeBtn_Click(object sender, RoutedEventArgs e)
@@ -505,6 +515,36 @@ public sealed partial class MainWindow : Window
     {
         ShowPanel("board");
     }
+    private void CloudBtn_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPanel("cloud");
+    }
+    private void DiagnosisBtn_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPanel("diagnosis");
+    }
+    private void IncidentsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        ShowPanel("incident");
+    }
+    private async void LocationBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            IncidentPageContext context = await GetIncidentContextAsync();
+            var geocoding = new NominatimGeocodingService(new HttpClient());
+            var map = new LocationMapView(new MapService(context.IncidentController, geocoding));
+            map.IncidentSelected += LocationIncidentSelected;
+            map.LocationSelected += LocationSelectedOnMap;
+            LocationMeetingHost.Content = map;
+            ShowPanel("location");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to load location", ex.Message);
+        }
+    }
+
 
     private void FileSyncBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -901,6 +941,15 @@ public sealed partial class MainWindow : Window
             CloseButtonText = "OK",
             XamlRoot = Root.XamlRoot
         }.ShowAsync();
+    }
+    private void Diagnosis_Click(object sender, RoutedEventArgs e)
+    {
+        ShowScreen("diagnosis");
+    }
+
+    private void DiagnosisBack_Click(object sender, RoutedEventArgs e)
+    {
+        ShowScreen(_inMeeting ? "meeting" : "dash");
     }
 
     private void IncidentsBack_Click(object sender, RoutedEventArgs e)

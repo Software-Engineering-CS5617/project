@@ -31,6 +31,8 @@
        Foreground="White" Background="#1F4A78"/>
                 <Button x:Name="CrashHandlerTopBtn" Content="CrashHandler" Click="CrashHandler_Click"
        Foreground="White" Background="#1F4A78"/>
+                <Button x:Name="DiagnosisTopBtn" Content="Diagnosis" Click="Diagnosis_Click"
+       Foreground="White" Background="#1F4A78"/>
                 <PersonPicture x:Name="ProfilePic" Width="30" Height="30"/>
                 <TextBlock x:Name="ProfileName" Foreground="White" VerticalAlignment="Center"/>
                 <Button Content="Edit profile" Click="EditProfile_Click" Foreground="White"
@@ -163,6 +165,25 @@
             </Border>
         </Grid>
 
+        <!-- Diagnosis page -->
+        <Grid x:Name="DiagnosisView" Grid.Row="1" Padding="40,24" RowSpacing="20" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Button Content="Back" Click="DiagnosisBack_Click" Background="White"/>
+                <TextBlock Text="Diagnosis" FontSize="32" FontWeight="SemiBold"/>
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
+                <Grid>
+                    <!-- Diagnosis: WRITE YOUR XAML CODE INSIDE THIS GRID -->
+                </Grid>
+            </Border>
+        </Grid>
+
         <!-- Meeting screen -->
         <Grid x:Name="MeetingView" Grid.Row="1" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
@@ -202,6 +223,34 @@
                         <Frame x:Name="FileSyncFrame" Grid.Row="1"/>
                     </Grid>
                 </Border>
+                <!-- CLOUD TEAM: Hosting Cloud inside meeting workspace -->
+                <Border x:Name="CloudMeetingPanel" Background="White" CornerRadius="10" Visibility="Collapsed" Padding="20">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Cloud" FontSize="24" FontWeight="SemiBold"/>
+                        <Grid x:Name="CloudMeetingHost" Grid.Row="1"/>
+                    </Grid>
+                </Border>
+                <Border x:Name="DiagnosisPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
+                    <StackPanel Padding="20">
+                        <!-- Diagnosis UI goes here -->
+                        <TextBlock Text="Diagnosis module goes here"/>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="IncidentsPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
+                    <StackPanel Padding="20">
+                        <!-- Incident UI goes here -->
+                        <TextBlock Text="Incident module goes here"/>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="LocationPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
+                <ContentControl x:Name="LocationMeetingHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
+                </Border>
             </Grid>
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
@@ -217,9 +266,10 @@
                 <!-- FILE SYNC TEAM: Toggle button inside meeting controls -->
                 <ToggleButton x:Name="FileSyncBtn" Content="FileSync" Click="FileSyncBtn_Click"
                               Width="90" Height="50"/>
-                <Button Content="Incidents" Click="Incidents_Click" Width="90" Height="50"/>
-                <Button Content="Location" Click="Location_Click" Width="90" Height="50"/>
-                <Button Content="Cloud" Click="Cloud_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="CloudBtn" Content="Cloud" Click="CloudBtn_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="IncidentsBtn" Content="Incidents" Click="IncidentsBtn_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="LocationBtn" Content="Location" Click="LocationBtn_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="DiagnosisBtn" Content="Diagnosis" Click="DiagnosisBtn_Click" Width="90" Height="50"/>
                 <Button x:Name="EndBtn" Content="End Meeting" Click="End_Click" Width="110" Height="50"
                         Background="#D13438" Foreground="White"/>
             </StackPanel>
