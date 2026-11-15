@@ -241,10 +241,7 @@
                     </StackPanel>
                 </Border>
                 <Border x:Name="IncidentsPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
-                    <StackPanel Padding="20">
-                        <!-- Incident UI goes here -->
-                        <TextBlock Text="Incident module goes here"/>
-                    </StackPanel>
+                    <Frame x:Name="MeetingIncidentsFrame"/>
                 </Border>
                 <Border x:Name="LocationPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
                 <ContentControl x:Name="LocationMeetingHost"
