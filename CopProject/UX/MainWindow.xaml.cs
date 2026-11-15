@@ -529,7 +529,20 @@ public sealed partial class MainWindow : Window
     }
     private void LocationBtn_Click(object sender, RoutedEventArgs e)
     {
-        ShowPanel("diagnosis");
+        try
+        {
+            IncidentPageContext context = await GetIncidentContextAsync();
+            var geocoding = new NominatimGeocodingService(new HttpClient());
+            var map = new LocationMapView(new MapService(context.IncidentController, geocoding));
+            map.IncidentSelected += LocationIncidentSelected;
+            map.LocationSelected += LocationSelectedOnMap;
+            LocationMeetingHost.Content = map;
+            ShowPanel("location");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to load location", ex.Message);
+        }
     }
 
 

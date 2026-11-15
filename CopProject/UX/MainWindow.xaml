@@ -247,10 +247,9 @@
                     </StackPanel>
                 </Border>
                 <Border x:Name="LocationPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
-                    <StackPanel Padding="20">
-                        <!-- Location UI goes here -->
-                        <TextBlock Text="Location module goes here"/>
-                    </StackPanel>
+                <ContentControl x:Name="LocationMeetingHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
                 </Border>
             </Grid>
 
