@@ -1,4 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+Owner   : Raagam Hitesh Parmar, Sasi Kiran, Sangam,    Karthik Krishna M, Vignesh
+Roll No : 112301024,            112301033,  112201006, 112301014,         112301034
+LICENSE : MIT
+-->
 <UserControl
     x:Name="foo"
     x:Class="Whiteboard.Views.WhiteBoardView"
@@ -46,6 +51,13 @@
                             Click="ButtonPen_Click">
                             <FontIcon Glyph="&#xF67B;"/>
                         </Button>
+
+                        <ToggleButton
+                            x:Name="ButtonSmartShape"
+                            ToolTipService.ToolTip="Smart Shape Recognition (AI Auto-Convert)"
+                            Click="ButtonSmartShape_Click">
+                            <FontIcon Glyph="&#xE946;"/>
+                        </ToggleButton>
 
                         <Button
                             x:Name="ButtonUndo"

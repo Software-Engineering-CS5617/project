@@ -1,4 +1,5 @@
-﻿/// Owner   : Raagam Hitesh Parmar
+﻿/// Owner   : Raagam Hitesh Parmar, Sasi Kiran, Sangam,    Karthik Krishna M, Vignesh
+/// Roll No : 112301024,            112301033,  112201006, 112301014,         112301034
 /// LICENSE : MIT
 
 using System;
@@ -14,7 +15,6 @@ using Whiteboard.Network.Dtos;
 using Whiteboard.Network.Mappers;
 using Whiteboard.Services;
 using Whiteboard.Interfaces;
-using Whiteboard.Services;
 using Whiteboard.Views;
 
 namespace Whiteboard.ViewModels;
@@ -52,6 +52,7 @@ public partial class WhiteBoardViewModel : IDisposable
     private readonly IWhiteboardClient _whiteboardClient;
     private readonly WhiteboardSession? _session;
     private readonly DispatcherQueue? _dispatcherQueue;
+    private readonly IShapeRecognitionService _shapeRecognitionService;
     private WhiteboardRenderer _renderer;
 
     private IViewModelState _currentState;
@@ -94,22 +95,38 @@ public partial class WhiteBoardViewModel : IDisposable
         remove => _whiteboardClient.HistoryChanged -= value;
     }
 
-    public WhiteBoardViewModel(IWhiteboardClient whiteboardClient, string sessionId)
+    /// <summary>
+    /// Gets or sets whether automatic shape recognition is enabled for strokes drawn with the Pen tool.
+    /// </summary>
+    public bool IsSmartShapeEnabled
+    {
+        get => _shapeRecognitionService.IsEnabled;
+        set => _shapeRecognitionService.IsEnabled = value;
+    }
+
+    /// <summary>
+    /// Gets the shape recognition service associated with this view model.
+    /// </summary>
+    public IShapeRecognitionService ShapeRecognitionService => _shapeRecognitionService;
+
+    public WhiteBoardViewModel(IWhiteboardClient whiteboardClient, string sessionId, IShapeRecognitionService? shapeRecognitionService = null)
     {
         ArgumentNullException.ThrowIfNull(whiteboardClient);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
 
         _whiteboardClient = whiteboardClient;
         _sessionId = sessionId;
+        _shapeRecognitionService = shapeRecognitionService ?? new ShapeRecognitionService();
     }
 
-    public WhiteBoardViewModel(WhiteboardSession session, DispatcherQueue? dispatcherQueue = null)
+    public WhiteBoardViewModel(WhiteboardSession session, DispatcherQueue? dispatcherQueue = null, IShapeRecognitionService? shapeRecognitionService = null)
     {
         ArgumentNullException.ThrowIfNull(session);
 
         _session = session;
         _dispatcherQueue = dispatcherQueue;
         _whiteboardClient = session.Client;
+        _shapeRecognitionService = shapeRecognitionService ?? new ShapeRecognitionService();
 
         _session.UserLeft += OnSessionUserLeft;
     }
@@ -134,7 +151,7 @@ public partial class WhiteBoardViewModel : IDisposable
         }
 
         CanvasPreview preview = new(canvas);
-        _penState = new PenState(_whiteboardClient, preview, toolbarInfo);
+        _penState = new PenState(_whiteboardClient, preview, toolbarInfo, _shapeRecognitionService);
         _squareState = new ShapeSquareState(_whiteboardClient, preview, toolbarInfo);
         _rectangleState = new ShapeRectangleState(_whiteboardClient, preview, toolbarInfo);
         _circleState = new ShapeCircleState(_whiteboardClient, preview, toolbarInfo);

@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Cloud\Cloud.csproj" />
+    <ProjectReference Include="..\Insights\Insights.csproj" />
   </ItemGroup>
 
   <ItemGroup>

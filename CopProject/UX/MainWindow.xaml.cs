@@ -1,4 +1,6 @@
-﻿using System;
+// Authors: Aashritha.Y, Kalyani (UX part)
+// Roll numbers: 112301038, 112301016
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Collections.ObjectModel;
@@ -74,6 +76,7 @@ public sealed partial class MainWindow : Window
     // CLOUD TEAM: created on first visit to the Cloud page and kept, so the connection
     // and the notification list survive pressing Back and coming back.
     private NotificationServiceViewModel? _cloudViewModel;
+    private NotificationServiceViewModel? _cloudMeetingViewModel;
 
 
     public MainWindow()
@@ -512,12 +515,18 @@ public sealed partial class MainWindow : Window
         BoardPanel.Visibility = Vis(which == "board");
         FileSyncView.Visibility = Vis(which == "filesync");
         IncidentsPanel.Visibility = Vis(which == "incidents");
+        CloudMeetingPanel.Visibility = Vis(which == "cloud");
+        DiagnosisPanel.Visibility = Vis(which == "diagnosis");
+        LocationPanel.Visibility = Vis(which == "location");
 
         HomeBtn.IsChecked = which == "home";
         ShareBtn.IsChecked = which == "share";
         BoardBtn.IsChecked = which == "board";
         FileSyncBtn.IsChecked = which == "filesync";
         IncidentsBtn.IsChecked = which == "incidents";
+        CloudBtn.IsChecked = which == "cloud";
+        DiagnosisBtn.IsChecked = which == "diagnosis";
+        LocationBtn.IsChecked = which == "location";
     }
 
     private void HomeBtn_Click(object sender, RoutedEventArgs e)
@@ -533,6 +542,58 @@ public sealed partial class MainWindow : Window
     private void BoardBtn_Click(object sender, RoutedEventArgs e)
     {
         ShowPanel("board");
+    }
+    private async void CloudBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_cloudMeetingViewModel is null)
+            {
+                _cloudMeetingViewModel =
+                    new NotificationServiceViewModel(
+                        MessengerFactory.GetMessenger);
+        
+                CloudMeetingHost.Children.Add(
+                    new NotificationServiceView(_cloudMeetingViewModel));
+            }
+            ShowPanel("cloud");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to load meeting Cloud", ex.Message);
+        }
+    }
+    private void DiagnosisBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (DiagnosisMeetingFrame.Content is not DiagnosisPage)
+            {
+                DiagnosisMeetingFrame.Navigate(typeof(DiagnosisPage));
+            }
+            ShowPanel("diagnosis");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Unable to load meeting Diagnosis: {ex}");
+        }
+    }
+    private async void LocationBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            IncidentPageContext context = await GetIncidentContextAsync();
+            var geocoding = new NominatimGeocodingService(new HttpClient());
+            var map = new LocationMapView(new MapService(context.IncidentController, geocoding));
+            map.IncidentSelected += LocationIncidentSelected;
+            map.LocationSelected += LocationSelectedOnMap;
+            LocationMeetingHost.Content = map;
+            ShowPanel("location");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Unable to load location", ex.Message);
+        }
     }
 
     private void FileSyncBtn_Click(object sender, RoutedEventArgs e)

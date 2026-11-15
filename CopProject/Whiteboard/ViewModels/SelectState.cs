@@ -1,4 +1,5 @@
 //owner : U Sai Vignesh
+//roll number : 112301034
 // License : MIT
 
 using System;
@@ -41,6 +42,8 @@ public sealed class SelectState : ViewModelStateBase
     /// Whether the item actually moved during the current drag (a plain click does not).
     /// </summary>
     private bool _hasMoved;
+    private bool _isResizing;
+    private IItem? _resizeOriginalItem;
 
     public SelectState(IWhiteboardClient whiteboardClient, ICanvasPreview preview, ToolbarInfo toolbarInfo)
         : base(whiteboardClient, preview, toolbarInfo)
@@ -69,6 +72,48 @@ public sealed class SelectState : ViewModelStateBase
         SelectedItemId is Guid id && WhiteboardClient.Canvas.Items.TryGetValue(id, out IItem? item)
             ? item
             : null;
+
+    public bool BeginResize()
+    {
+        if (SelectedItem is not IItem selected)
+        {
+            return false;
+        }
+
+        _isResizing = true;
+        _resizeOriginalItem = ItemSnapshot.Copy(selected);
+        return true;
+    }
+
+    public void Resize(Point2D point)
+    {
+        if (!_isResizing || _resizeOriginalItem is null)
+        {
+            return;
+        }
+
+        _selectionService.ResizeSelected(_resizeOriginalItem, point, WhiteboardClient.UserId);
+    }
+
+    public void EndResize(bool commit)
+    {
+        if (!_isResizing)
+        {
+            return;
+        }
+
+        if (commit && SelectedItem is IItem resized)
+        {
+            WhiteboardClient.EditItem(resized);
+        }
+        else if (_resizeOriginalItem is not null)
+        {
+            WhiteboardClient.Canvas.EditItem(_resizeOriginalItem);
+        }
+
+        _isResizing = false;
+        _resizeOriginalItem = null;
+    }
 
     public override void PointerPressed(Point2D point)
     {
@@ -116,7 +161,7 @@ public sealed class SelectState : ViewModelStateBase
         }
 
         // Local only; the final position is sent once on release
-        if (_selectionService.MoveSelected(dx, dy, WhiteboardClient.UserId))
+        if (_selectionService.MoveSelected(dx, dy))
         {
             _hasMoved = true;
         }

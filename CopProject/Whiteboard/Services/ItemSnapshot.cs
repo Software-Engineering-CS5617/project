@@ -15,15 +15,12 @@ using System.Linq;
 using Whiteboard.Interfaces;
 using Whiteboard.Items;
 using Whiteboard.Items.Shapes;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Whiteboard.Services;
 
 /// <summary>
 /// Creates independent copies of items for undo and redo.
 /// </summary>
-[ExcludeFromCodeCoverage]
-// Temporary exclusion from code coverage
 public static class ItemSnapshot
 {
     /// <summary>
@@ -130,3 +127,4 @@ public static class ItemSnapshot
         return points?.Select(CopyPoint).ToList();
     }
 }
+

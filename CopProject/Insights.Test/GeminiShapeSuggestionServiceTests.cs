@@ -1,3 +1,6 @@
+// Author: Hariram S
+// Roll Number: 112614008
+
 using Google.GenAI.Types;
 using WhiteboardSuggestion.Core;
 using Xunit;

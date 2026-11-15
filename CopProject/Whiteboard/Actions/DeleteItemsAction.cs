@@ -59,7 +59,7 @@ public class DeleteItemsAction : IWhiteboardAction
 
         if (_itemIds.Length == 0)
         {
-            Trace.TraceError($"[DeleteItemsAction][Error] Cannot create an empty delete action. User={userId}, Action={ActionId}");
+            Trace.TraceError($"[Whiteboard][DeleteItemsAction][Error] Cannot create an empty delete action. User={userId}, Action={ActionId}");
             throw new ArgumentException(
                 "A delete action needs at least one item ID.",
                 nameof(itemIds));
@@ -83,7 +83,7 @@ public class DeleteItemsAction : IWhiteboardAction
         {
             if (!whiteboard.Items.TryGetValue(id, out IItem item))
             {
-                Trace.TraceError($"[DeleteItemsAction][Error] Deletion rejected: item does not exist. User={UserId}, Action={ActionId}, Item={id}");
+                Trace.TraceError($"[Whiteboard][DeleteItemsAction][Error] Deletion rejected: item does not exist. User={UserId}, Action={ActionId}, Item={id}");
                 throw new InvalidOperationException(
                     $"Item {id} does not exist.");
             }
@@ -95,14 +95,14 @@ public class DeleteItemsAction : IWhiteboardAction
         {
             if (!whiteboard.DeleteItem(id))
             {
-                Trace.TraceError($"[DeleteItemsAction][Error] Item could not be deleted. User={UserId}, Action={ActionId}, Item={id}");
+                Trace.TraceError($"[Whiteboard][DeleteItemsAction][Error] Item could not be deleted. User={UserId}, Action={ActionId}, Item={id}");
                 throw new InvalidOperationException(
                     $"Item {id} could not be deleted.");
             }
         }
 
         _deletedSnapshots = snapshots.ToArray();
-        Trace.TraceInformation($"[DeleteItemsAction] Deletion completed. User={UserId}, Action={ActionId}, Items={_deletedSnapshots.Length}");
+        Trace.TraceInformation($"[Whiteboard][DeleteItemsAction] Deletion completed. User={UserId}, Action={ActionId}, Items={_deletedSnapshots.Length}");
     }
 
     /// <summary>
@@ -113,7 +113,7 @@ public class DeleteItemsAction : IWhiteboardAction
     {
         if (_deletedSnapshots.Length == 0)
         {
-            Trace.TraceInformation($"[DeleteItemsAction] Deletion completed. User={UserId}, Action={ActionId}, Items={_deletedSnapshots.Length}");
+            Trace.TraceInformation($"[Whiteboard][DeleteItemsAction] Deletion completed. User={UserId}, Action={ActionId}, Items={_deletedSnapshots.Length}");
             throw new InvalidOperationException(
                 "Perform the deletion before creating its inverse.");
         }

@@ -8,7 +8,10 @@
     xmlns:chat="using:UI.Views"
     xmlns:whiteboard="using:Whiteboard.Views"
     xmlns:screenshare="using:ScreenShare.Views">
-
+<!-- 
+Authors = Aashritha.y, Kalyani
+Roll numbers = 112301038, 112301016 
+-->
     <Grid x:Name="Root" RequestedTheme="Light" Background="#EEF3F9">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -171,8 +174,17 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <Button Content="Back" Click="DiagnosisBack_Click" Background="White" HorizontalAlignment="Left"/>
-            <Frame x:Name="DiagnosisFrame" Grid.Row="1"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Button Content="Back" Click="DiagnosisBack_Click" Background="White" HorizontalAlignment="Left"/>
+                <Frame x:Name="DiagnosisFrame" Grid.Row="1"/>
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="20">
+                <Grid>
+                    <!-- Diagnosis: WRITE YOUR XAML CODE INSIDE THIS GRID -->
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- Meeting screen -->
@@ -214,10 +226,30 @@
                         <Frame x:Name="FileSyncFrame" Grid.Row="1"/>
                     </Grid>
                 </Border>
+                <!-- CLOUD TEAM: Hosting Cloud inside meeting workspace -->
+                <Border x:Name="CloudMeetingPanel" Background="White" CornerRadius="10" Visibility="Collapsed" Padding="20">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Cloud" FontSize="24" FontWeight="SemiBold"/>
+                        <Grid x:Name="CloudMeetingHost" Grid.Row="1"/>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="DiagnosisPanel" Background="White" CornerRadius="10" Visibility="Collapsed" Padding="20">
+                    <Frame x:Name="DiagnosisMeetingFrame" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                </Border>
 
                 <!-- INCIDENTS TEAM: Hosting Incidents inside meeting workspace -->
                 <Border x:Name="IncidentsPanel" Background="White" CornerRadius="10" Visibility="Collapsed" Padding="20">
                     <Frame x:Name="MeetingIncidentsFrame"/>
+                </Border>
+                <Border x:Name="LocationPanel" Background="White" CornerRadius="10" Visibility="Collapsed">
+                <ContentControl x:Name="LocationMeetingHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"/>
                 </Border>
             </Grid>
 
@@ -236,10 +268,9 @@
                               Width="90" Height="50"/>
                 <ToggleButton x:Name="IncidentsBtn" Content="Incidents" Click="IncidentsBtn_Click" 
                               Width="90" Height="50"/>
-                <Button Content="Location" Click="Location_Click" Width="90" Height="50"/>
-                <Button Content="Cloud" Click="Cloud_Click" Width="90" Height="50"/>
-                <!-- DIAGNOSIS : Run diagnosis inside the meeting -->
-                <Button Content="Diagnosis" Click="Diagnosis_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="CloudBtn" Content="Cloud" Click="CloudBtn_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="LocationBtn" Content="Location" Click="LocationBtn_Click" Width="90" Height="50"/>
+                <ToggleButton x:Name="DiagnosisBtn" Content="Diagnosis" Click="DiagnosisBtn_Click" Width="90" Height="50"/>
                 <Button x:Name="EndBtn" Content="End Meeting" Click="End_Click" Width="110" Height="50"
                         Background="#D13438" Foreground="White"/>
             </StackPanel>

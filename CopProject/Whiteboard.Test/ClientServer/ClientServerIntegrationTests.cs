@@ -1,16 +1,21 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+﻿/// Owner   : Raagam Hitesh Parmar, Sangam
+/// Roll No : 112301024, 112201006
+/// LICENSE : MIT
 
 using Whiteboard.Client;
 using Whiteboard.Interfaces;
+using Whiteboard.Items.Shapes;
 using Whiteboard.Network.Mappers;
 using Whiteboard.Server;
+using Whiteboard.Services;
 using Whiteboard.Test.Mocks.Networking;
 using Whiteboard.Test.RandomGenerators;
 
 namespace Whiteboard.Test.ClientServer;
 
+/// <summary>
+/// Tests shared canvas updates and history synchronization between users.
+/// </summary>
 public class ClientServerIntegrationTests
 {
     [Fact]
@@ -124,5 +129,90 @@ public class ClientServerIntegrationTests
         Assert.Equal(expectedIds.OrderBy(id => id), client1.Canvas.Items.Keys.OrderBy(id => id));
         Assert.Equal(expectedIds.OrderBy(id => id), client2.Canvas.Items.Keys.OrderBy(id => id));
         Assert.Equal(expectedIds.OrderBy(id => id), client3.Canvas.Items.Keys.OrderBy(id => id));
+    }
+
+    /// <summary>
+    /// Checks that host undo and redo update every canvas without undoing client work.
+    /// </summary>
+    [Fact]
+    public void HostUndoRedoUpdatesBothUsers()
+    {
+        var factory = new MockCommunicatorFactory();
+        var server = WhiteboardFactory.GetServerWhiteboard(factory.GetServerCommunicator());
+        var host = WhiteboardFactory.CreateClientWhiteboard(
+            factory.CreateClientCommunicator(), factory.ServerEndPoint, "Host");
+        var client = WhiteboardFactory.CreateClientWhiteboard(
+            factory.CreateClientCommunicator(), factory.ServerEndPoint, "Client");
+
+        var hostItem = new Square();
+        var clientItem = new Square();
+        host.AddItem(hostItem);
+        client.AddItem(clientItem);
+
+        host.Undo();
+
+        foreach (var board in new[] { server.Canvas, host.Canvas, client.Canvas })
+        {
+            Assert.False(board.Items.ContainsKey(hostItem.Id));
+            Assert.True(board.Items.ContainsKey(clientItem.Id));
+        }
+
+        Assert.False(host.CanUndo);
+        Assert.True(host.CanRedo);
+        Assert.True(client.CanUndo);
+        Assert.False(client.CanRedo);
+
+        host.Redo();
+
+        foreach (var board in new[] { server.Canvas, host.Canvas, client.Canvas })
+        {
+            Assert.True(board.Items.ContainsKey(hostItem.Id));
+            Assert.True(board.Items.ContainsKey(clientItem.Id));
+        }
+
+        Assert.True(host.CanUndo);
+        Assert.False(host.CanRedo);
+    }
+
+    /// <summary>
+    /// Checks that a client's edit updates both the canvas and personal histories.
+    /// </summary>
+    [Fact]
+    public void ClientEditUpdatesHostHistory()
+    {
+        var factory = new MockCommunicatorFactory();
+        var server = WhiteboardFactory.GetServerWhiteboard(factory.GetServerCommunicator());
+        var host = WhiteboardFactory.CreateClientWhiteboard(
+            factory.CreateClientCommunicator(), factory.ServerEndPoint, "Host");
+        var client = WhiteboardFactory.CreateClientWhiteboard(
+            factory.CreateClientCommunicator(), factory.ServerEndPoint, "Client");
+
+        var item = new Square { SideLegth = 40 };
+        host.AddItem(item);
+
+        var edited = (Square)ItemSnapshot.Copy(client.Canvas.Items[item.Id]);
+        edited.SideLegth = 80;
+        client.EditItem(edited);
+
+        foreach (var board in new[] { server.Canvas, host.Canvas, client.Canvas })
+        {
+            Assert.Equal(80, Assert.IsType<Square>(board.Items[item.Id]).SideLegth);
+            Assert.Equal("Host", board.Items[item.Id].CreatedBy);
+        }
+
+        Assert.False(host.CanUndo);
+        Assert.True(client.CanUndo);
+
+        // The client's undo restores the shape but not the host's old history.
+        client.Undo();
+
+        foreach (var board in new[] { server.Canvas, host.Canvas, client.Canvas })
+        {
+            Assert.Equal(40, Assert.IsType<Square>(board.Items[item.Id]).SideLegth);
+        }
+
+        Assert.False(host.CanUndo);
+        Assert.False(client.CanUndo);
+        Assert.True(client.CanRedo);
     }
 }

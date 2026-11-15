@@ -1,4 +1,5 @@
-﻿//owner : U Sai Vignesh
+﻿//owner : U Sai Vignesh, Raagam Hitesh Parmar, Sasi Kiran
+//roll number : 112301034, 112301024, 112301033
 // License : MIT
 
 // Licensed to the .NET Foundation under one or more agreements.
@@ -11,6 +12,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Input;
 using Whiteboard.Interfaces;
 using XamlPolyline = Microsoft.UI.Xaml.Shapes.Polyline;
 using XamlRectangle = Microsoft.UI.Xaml.Shapes.Rectangle;
@@ -37,14 +39,16 @@ internal sealed class WhiteboardRenderer : IDisposable
 
     /// <summary>
     /// Z-index for the selection outline so it sits above every item.
-    /// WinUI only accepts Canvas.ZIndex values within ±1,000,000.
+    /// Leave the maximum valid WinUI Canvas.ZIndex available for the resize handle.
     /// </summary>
-    private const int SelectionOutlineZIndex = 1_000_000;
+    private const int SelectionOutlineZIndex = 999_999;
 
     /// <summary>
     /// Dashed outline drawn around the selected item; null when nothing is selected
     /// </summary>
     private XamlRectangle? _selectionOutline;
+    private XamlRectangle? _resizeHandle;
+    private bool _isResizing;
 
     public WhiteboardRenderer(IWhiteboard board, Canvas canvas, TextboxState textboxState, SelectState selectState)
     {
@@ -144,6 +148,12 @@ internal sealed class WhiteboardRenderer : IDisposable
                 _selectionOutline = null;
             }
 
+            if (_resizeHandle is not null)
+            {
+                _canvas.Children.Remove(_resizeHandle);
+                _resizeHandle = null;
+            }
+
             return;
         }
 
@@ -162,6 +172,23 @@ internal sealed class WhiteboardRenderer : IDisposable
             _canvas.Children.Add(_selectionOutline);
         }
 
+        if (_resizeHandle is null)
+        {
+            _resizeHandle = new XamlRectangle {
+                Width = 12,
+                Height = 12,
+                Fill = new SolidColorBrush(Microsoft.UI.Colors.White),
+                Stroke = new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue),
+                StrokeThickness = 2,
+                IsHitTestVisible = true
+            };
+            _resizeHandle.PointerPressed += ResizeHandle_PointerPressed;
+            _resizeHandle.PointerMoved += ResizeHandle_PointerMoved;
+            _resizeHandle.PointerReleased += ResizeHandle_PointerReleased;
+            Canvas.SetZIndex(_resizeHandle, SelectionOutlineZIndex + 1);
+            _canvas.Children.Add(_resizeHandle);
+        }
+
         Rect2D box = selected.BoundingBox;
         double height = box.Height;
 
@@ -177,6 +204,41 @@ internal sealed class WhiteboardRenderer : IDisposable
         _selectionOutline.Height = height + (2 * SelectionPadding);
         Canvas.SetLeft(_selectionOutline, box.Left - SelectionPadding);
         Canvas.SetTop(_selectionOutline, box.Top - SelectionPadding);
+        Canvas.SetLeft(_resizeHandle, box.Left + box.Width - 6);
+        Canvas.SetTop(_resizeHandle, box.Top + height - 6);
+    }
+
+    private void ResizeHandle_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_selectState.BeginResize())
+        {
+            _isResizing = true;
+            _resizeHandle?.CapturePointer(e.Pointer);
+            e.Handled = true;
+        }
+    }
+
+    private void ResizeHandle_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizing)
+        {
+            return;
+        }
+
+        Point point = e.GetCurrentPoint(_canvas).Position;
+        _selectState.Resize(new Point2D(point.X, point.Y));
+        e.Handled = true;
+    }
+
+    private void ResizeHandle_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_isResizing)
+        {
+            _selectState.EndResize(commit: true);
+            _isResizing = false;
+            _resizeHandle.ReleasePointerCapture(e.Pointer);
+            e.Handled = true;
+        }
     }
 
     /// <summary>

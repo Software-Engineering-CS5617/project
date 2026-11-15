@@ -1,3 +1,6 @@
+// Author: Adwaith Nath R
+// Roll Number: 112614010
+
 namespace Insights.LogAnalysis;
 
 /// <summary>

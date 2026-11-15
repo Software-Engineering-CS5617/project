@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Whiteboard\Whiteboard.csproj" />
+    <ProjectReference Include="..\Insights\Insights.csproj" />
   </ItemGroup>
 
   <ItemGroup>

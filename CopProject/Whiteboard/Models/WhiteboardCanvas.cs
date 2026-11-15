@@ -1,4 +1,5 @@
 ﻿//owner : U Sai Vignesh
+//roll number : 112301034
 // License : MIT
 
 using System;
@@ -59,7 +60,7 @@ public class WhiteboardCanvas : IWhiteboard
         return true;
     }
 
-    // Optional compatibility helper if older call-sites still use RemoveItem
+
     public bool RemoveItem(IItem item)
     {
         if (item is null)

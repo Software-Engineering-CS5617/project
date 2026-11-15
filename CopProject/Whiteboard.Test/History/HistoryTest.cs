@@ -4,7 +4,7 @@
 
 
 /****
-    * Filename  : HistoryTests.cs
+    * Filename  : HistoryTest.cs
     * Owner     : Sangam
     * Roll No   : 112201006
 ****/
@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Whiteboard.Actions;
 using Whiteboard.Interfaces;
 using Whiteboard.Items;
@@ -21,11 +22,13 @@ using Whiteboard.Services;
 using Xunit;
 
 using RectangleItem = Whiteboard.Items.Shapes.Rectangle;
+using SquareItem = Whiteboard.Items.Shapes.Square;
+using Windows.UI;
 
 namespace Whiteboard.Test.History;
 
 /// <summary>
-/// Tests local undo, redo, and saved item state.
+/// Tests local and shared undo, redo, edits, and separate user histories.
 /// </summary>
 public class HistoryTests
 {
@@ -236,5 +239,176 @@ public class HistoryTests
         Assert.Empty(board.Items);
         Assert.False(history.CanUndo);
         Assert.False(history.CanRedo);
+    }
+
+    /// <summary>
+    /// Checks that successful local operations notify the view once.
+    /// </summary>
+    [Fact]
+    public void HistoryChangedAfterSuccessfulOperations()
+    {
+        var history = new WhiteboardHistoryService(new WhiteboardCanvas(), User);
+        int notifications = 0;
+        history.HistoryChanged += () => notifications++;
+
+        history.Undo();
+        Assert.Equal(0, notifications);
+
+        history.Execute(new AddItemAction(new RectangleItem(), User));
+        history.Undo();
+        history.Redo();
+
+        Assert.Equal(3, notifications);
+    }
+
+    /// <summary>
+    /// Checks that host and client can undo their own independent drawings.
+    /// </summary>
+    [Fact]
+    public void UsersHaveSeparateHistory()
+    {
+        var board = new WhiteboardCanvas();
+        var history = new SharedWhiteboardHistoryService(board);
+        var hostItem = new SquareItem();
+        var clientItem = new SquareItem();
+
+        history.AddItem("Host", hostItem);
+        history.AddItem("Client", clientItem);
+        history.Undo("Host");
+
+        Assert.False(board.Items.ContainsKey(hostItem.Id));
+        Assert.True(board.Items.ContainsKey(clientItem.Id));
+
+        var host = history.GetHistorySnapshots().Single(state => state.UserId == "Host");
+        var client = history.GetHistorySnapshots().Single(state => state.UserId == "Client");
+
+        Assert.Empty(host.Undo);
+        Assert.Single(host.Redo);
+        Assert.Single(client.Undo);
+        Assert.Empty(client.Redo);
+
+        history.Redo("Host");
+        Assert.Equal(2, board.Items.Count);
+    }
+
+    /// <summary>
+    /// Checks color, movement, and size edits through undo and redo.
+    /// </summary>
+    [Fact]
+    public void UndoRedoRestoresModifiedItem()
+    {
+        var board = new WhiteboardCanvas();
+        var history = new SharedWhiteboardHistoryService(board);
+        var red = Color.FromArgb(255, 255, 0, 0);
+        var blue = Color.FromArgb(255, 0, 0, 255);
+        var item = new SquareItem {
+            Center = new Point2D(100, 100), SideLegth = 40, FillColor = red
+        };
+
+        history.AddItem("Host", item);
+
+        // Edit a copy so the original state can still be saved for undo.
+        var edited = (SquareItem)ItemSnapshot.Copy(board.Items[item.Id]);
+        edited.FillColor = blue;
+        edited.SideLegth = 80;
+        edited.MoveBy(20, 10);
+        history.EditItem("Host", edited);
+
+        history.Undo("Host");
+        var restored = Assert.IsType<SquareItem>(board.Items[item.Id]);
+        Assert.Equal(red, restored.FillColor);
+        Assert.Equal(40, restored.SideLegth);
+        Assert.Equal(new Point2D(100, 100), restored.Center);
+
+        history.Redo("Host");
+        restored = Assert.IsType<SquareItem>(board.Items[item.Id]);
+        Assert.Equal(blue, restored.FillColor);
+        Assert.Equal(80, restored.SideLegth);
+        Assert.Equal(new Point2D(120, 110), restored.Center);
+    }
+
+    /// <summary>
+    /// Checks that another user's edit removes only conflicting history.
+    /// </summary>
+    [Fact]
+    public void OtherUserEditRemovesOldUndoAndRedo()
+    {
+        var board = new WhiteboardCanvas();
+        var history = new SharedWhiteboardHistoryService(board);
+        var item = new SquareItem { SideLegth = 40 };
+        var separateItem = new SquareItem();
+
+        history.AddItem("Host", item);
+        history.AddItem("Host", separateItem);
+
+        var resized = (SquareItem)ItemSnapshot.Copy(board.Items[item.Id]);
+        resized.SideLegth = 80;
+        history.EditItem("Host", resized);
+        history.Undo("Host");
+
+        // Host now has an undo and a redo entry for the same item.
+        var moved = ItemSnapshot.Copy(board.Items[item.Id]);
+        moved.MoveBy(20, 10);
+        history.EditItem("Client", moved);
+
+        var host = history.GetHistorySnapshots().Single(state => state.UserId == "Host");
+        Assert.Equal(separateItem.Id, Assert.Single(host.Undo).ItemId);
+        Assert.Empty(host.Redo);
+        Assert.Equal("Host", board.Items[item.Id].CreatedBy);
+
+        history.Undo("Client");
+        var restored = Assert.IsType<SquareItem>(board.Items[item.Id]);
+        Assert.Equal(new Point2D(0, 0), restored.Center);
+        Assert.Equal(40, restored.SideLegth);
+
+        // Undoing the client's edit does not bring back the host's removed history.
+        host = history.GetHistorySnapshots().Single(state => state.UserId == "Host");
+        Assert.Equal(separateItem.Id, Assert.Single(host.Undo).ItemId);
+        Assert.Empty(host.Redo);
+    }
+
+    /// <summary>
+    /// Checks that the person deleting an item can undo and redo that deletion.
+    /// </summary>
+    [Fact]
+    public void ClientCanUndoDeletingHostItem()
+    {
+        var board = new WhiteboardCanvas();
+        var history = new SharedWhiteboardHistoryService(board);
+        var item = new SquareItem();
+
+        history.AddItem("Host", item);
+        history.DeleteItem("Client", item.Id);
+        Assert.Empty(board.Items);
+
+        history.Undo("Client");
+        Assert.Equal("Host", board.Items[item.Id].CreatedBy);
+        Assert.False(history.GetHistoryStates().Single(state => state.UserId == "Host").CanUndo);
+
+        history.Redo("Client");
+        Assert.Empty(board.Items);
+    }
+
+    /// <summary>
+    /// Checks that a new drawing clears only its user's redo stack.
+    /// </summary>
+    [Fact]
+    public void NewActionClearsOnlyOwnRedo()
+    {
+        var history = new SharedWhiteboardHistoryService(new WhiteboardCanvas());
+
+        history.AddItem("Host", new SquareItem());
+        history.AddItem("Client", new SquareItem());
+        history.Undo("Host");
+        history.Undo("Client");
+
+        history.AddItem("Host", new SquareItem());
+
+        var host = history.GetHistorySnapshots().Single(state => state.UserId == "Host");
+        var client = history.GetHistorySnapshots().Single(state => state.UserId == "Client");
+        Assert.Single(host.Undo);
+        Assert.Empty(host.Redo);
+        Assert.Empty(client.Undo);
+        Assert.Single(client.Redo);
     }
 }

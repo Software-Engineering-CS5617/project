@@ -2,10 +2,12 @@
 /// LICENSE : MIT
 
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Whiteboard.Client;
 using Whiteboard.Interfaces;
 using Whiteboard.Items;
+using Whiteboard.Services;
 
 namespace Whiteboard.ViewModels;
 
@@ -15,13 +17,20 @@ namespace Whiteboard.ViewModels;
 /// <inheritdoc/>
 public class PenState : ViewModelStateBase
 {
+    private readonly IShapeRecognitionService? _shapeRecognitionService;
+
     /// <summary>
     /// Active polyline
     /// </summary>
     private IFreehand? _freehand;
 
-    public PenState(IWhiteboardClient whiteboardClient, ICanvasPreview preview, ToolbarInfo toolbarInfo) : base(whiteboardClient, preview, toolbarInfo)
+    public PenState(
+        IWhiteboardClient whiteboardClient,
+        ICanvasPreview preview,
+        ToolbarInfo toolbarInfo,
+        IShapeRecognitionService? shapeRecognitionService = null) : base(whiteboardClient, preview, toolbarInfo)
     {
+        _shapeRecognitionService = shapeRecognitionService;
     }
 
     public override void PointerPressed(Point2D point)
@@ -80,7 +89,26 @@ public class PenState : ViewModelStateBase
         if (_freehand.Points.Count >= 2)
         {
             IFreehand item = _freehand;
-            Task.Run(() => WhiteboardClient.AddItem(item));
+            Task.Run(async () => {
+                WhiteboardClient.AddItem(item);
+
+                if (_shapeRecognitionService?.IsEnabled == true)
+                {
+                    try
+                    {
+                        IItem? recognizedShape = await _shapeRecognitionService.TryRecognizeShapeAsync(item).ConfigureAwait(false);
+                        if (recognizedShape is not null)
+                        {
+                            WhiteboardClient.DeleteItem(item.Id);
+                            WhiteboardClient.AddItem(recognizedShape);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceWarning($"[Whiteboard] Auto shape recognition failed: {ex.Message}");
+                    }
+                }
+            });
         }
 
         // Reset polyline state back to null
