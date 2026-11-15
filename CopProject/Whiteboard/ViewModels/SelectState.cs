@@ -92,7 +92,7 @@ public sealed class SelectState : ViewModelStateBase
             return;
         }
 
-        _selectionService.ResizeSelected(_resizeOriginalItem, point, WhiteboardClient.UserId);
+        _selectionService.ResizeSelected(_resizeOriginalItem, point);
     }
 
     public void EndResize(bool commit)

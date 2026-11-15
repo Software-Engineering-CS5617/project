@@ -68,7 +68,7 @@ public class SelectionService : ISelectionService
         return moved;
     }
 
-    public bool ResizeSelected(IItem originalItem, Point2D pointer, string modifiedBy = "system")
+    public bool ResizeSelected(IItem originalItem, Point2D pointer)
     {
         ArgumentNullException.ThrowIfNull(originalItem);
 
