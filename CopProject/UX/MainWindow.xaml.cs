@@ -489,7 +489,7 @@ public sealed partial class MainWindow : Window
         CloudMeetingPanel.Visibility = Vis(which == "cloud");
         DiagnosisPanel.Visibility = Vis(which == "diagnosis");
         LocationPanel.Visibility = Vis(which == "location");
-        IncidentsPanel.Visibility = Vis(which == "incident");
+        IncidentsPanel.Visibility = Vis(which == "incidents");
 
         HomeBtn.IsChecked = which == "home";
         ShareBtn.IsChecked = which == "share";
@@ -498,7 +498,7 @@ public sealed partial class MainWindow : Window
         CloudBtn.IsChecked = which == "cloud";
         DiagnosisBtn.IsChecked = which == "diagnosis";
         LocationBtn.IsChecked = which == "location";
-        IncidentsBtn.IsChecked = which == "incident";
+        IncidentsBtn.IsChecked = which == "incidents";
     }
 
     private void HomeBtn_Click(object sender, RoutedEventArgs e)
@@ -525,7 +525,7 @@ public sealed partial class MainWindow : Window
     }
     private void IncidentsBtn_Click(object sender, RoutedEventArgs e)
     {
-        ShowPanel("incident");
+        ShowPanel("incidents");
     }
     private async void LocationBtn_Click(object sender, RoutedEventArgs e)
     {
