@@ -54,7 +54,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
 
         _whiteboard = whiteboard;
         _userId = userId;
-        Trace.TraceInformation($"[WhiteboardHistoryService] History created. User={_userId}, Undo=0, Redo=0");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardHistoryService] History created. User={_userId}, Undo=0, Redo=0");
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
             // A new action replaces the previous redo path.
             int clearedRedo = _redo.Count;
             _redo.Clear();
-            Trace.TraceInformation($"[WhiteboardHistoryService] Action recorded. User={_userId}, Action={action.ActionId}, ClearedRedo={clearedRedo}");
+            Trace.TraceInformation($"[Whiteboard][WhiteboardHistoryService] Action recorded. User={_userId}, Action={action.ActionId}, ClearedRedo={clearedRedo}");
         });
     }
 
@@ -88,7 +88,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         if (!CanUndo)
         {
-            Trace.TraceInformation($"[WhiteboardHistoryService] Undo skipped: history is empty. User={_userId}");
+            Trace.TraceInformation($"[Whiteboard][WhiteboardHistoryService] Undo skipped: history is empty. User={_userId}");
             return;
         }
 
@@ -102,7 +102,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         if (!CanRedo)
         {
-            Trace.TraceInformation($"[WhiteboardHistoryService] Redo skipped: history is empty. User={_userId}");
+            Trace.TraceInformation($"[Whiteboard][WhiteboardHistoryService] Redo skipped: history is empty. User={_userId}");
             return;
         }
 
@@ -171,7 +171,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
     {
         if (_isChangingHistory)
         {
-            Trace.TraceError($"[WhiteboardHistoryService][Error] {operationName} rejected: another history operation is running. User={_userId}");
+            Trace.TraceError($"[Whiteboard][WhiteboardHistoryService][Error] {operationName} rejected: another history operation is running. User={_userId}");
             throw new InvalidOperationException(
                 "Another history operation is already running.");
         }
@@ -184,7 +184,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
         }
         catch (Exception exception)
         {
-            Trace.TraceError($"[WhiteboardHistoryService][Error] {operationName} failed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}. {exception}");
+            Trace.TraceError($"[Whiteboard][WhiteboardHistoryService][Error] {operationName} failed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}. {exception}");
             throw;
         }
         finally
@@ -193,7 +193,7 @@ public class WhiteboardHistoryService : IWhiteboardHistory
             _isChangingHistory = false;
         }
 
-        Trace.TraceInformation($"[WhiteboardHistoryService] {operationName} completed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardHistoryService] {operationName} completed. User={_userId}, Undo={_undo.Count}, Redo={_redo.Count}");
         HistoryChanged();
     }
 }

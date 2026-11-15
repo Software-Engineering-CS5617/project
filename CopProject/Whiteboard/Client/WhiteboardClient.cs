@@ -83,14 +83,14 @@ public class WhiteboardClient : IWhiteboardClient
         }
         catch (Exception exception)
         {
-            Trace.TraceError($"[WhiteboardClient][Error] Request serialization or send failed. User={UserId}. {exception}");
+            Trace.TraceError($"[Whiteboard][WhiteboardClient][Error] Request serialization or send failed. User={UserId}. {exception}");
             throw;
         }
     }
 
     public void RequestSync()
     {
-        Trace.TraceInformation($"[WhiteboardClient] Canvas synchronization requested. User={UserId}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Canvas synchronization requested. User={UserId}");
         SendToServer(new ClientMessage.ReqUpdate());
     }
 
@@ -99,14 +99,14 @@ public class WhiteboardClient : IWhiteboardClient
         ArgumentNullException.ThrowIfNull(item);
 
         Canvas.AddItem(item);
-        Trace.TraceInformation($"[WhiteboardClient] Add requested. User={UserId}, Item={item.Id}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Add requested. User={UserId}, Item={item.Id}");
         SendToServer(new ClientMessage.ReqAddItem(item.Id, ItemMapper.ToDto(item)));
     }
 
     public void DeleteItem(Guid id)
     {
         Canvas.DeleteItem(id);
-        Trace.TraceInformation($"[WhiteboardClient] Delete requested. User={UserId}, Item={id}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Delete requested. User={UserId}, Item={id}");
         SendToServer(new ClientMessage.ReqDeleteItem(id));
     }
 
@@ -115,21 +115,21 @@ public class WhiteboardClient : IWhiteboardClient
         ArgumentNullException.ThrowIfNull(item);
 
         Canvas.EditItem(item);
-        Trace.TraceInformation($"[WhiteboardClient] Edit requested. User={UserId}, Item={item.Id}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Edit requested. User={UserId}, Item={item.Id}");
         SendToServer(new ClientMessage.ReqUpdateItem(item.Id, ItemMapper.ToDto(item)));
     }
 
     /// <inheritdoc/>
     public void Undo()
     {
-        Trace.TraceInformation($"[WhiteboardClient] Undo requested. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Undo requested. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
         SendToServer(new ClientMessage.ReqUndo());
     }
 
     /// <inheritdoc/>
     public void Redo()
     {
-        Trace.TraceInformation($"[WhiteboardClient] Redo requested. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Redo requested. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
         SendToServer(new ClientMessage.ReqRedo());
     }
 
@@ -165,7 +165,7 @@ public class WhiteboardClient : IWhiteboardClient
                             Canvas.AddItem(item);
                         }
 
-                        Trace.TraceInformation($"[WhiteboardClient] Server canvas applied. User={UserId}, Items={items.Length}");
+                        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Server canvas applied. User={UserId}, Items={items.Length}");
                         break;
                     }
 
@@ -181,7 +181,7 @@ public class WhiteboardClient : IWhiteboardClient
 
                     _undo = undo;
                     _redo = redo;
-                    Trace.TraceInformation($"[WhiteboardClient] Personal history updated. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
+                    Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Personal history updated. User={UserId}, Undo={_undo.Count}, Redo={_redo.Count}");
                     HistoryChanged();
                     break;
 
@@ -190,13 +190,13 @@ public class WhiteboardClient : IWhiteboardClient
                     break;
 
                 default:
-                    Trace.TraceWarning($"[WhiteboardClient][Warning] Empty or unsupported server response ignored. User={UserId}");
+                    Trace.TraceWarning($"[Whiteboard][WhiteboardClient][Warning] Empty or unsupported server response ignored. User={UserId}");
                     break;
             }
         }
         catch (Exception exception)
         {
-            Trace.TraceError($"[WhiteboardClient][Error] Server response processing failed. User={UserId}. {exception}");
+            Trace.TraceError($"[Whiteboard][WhiteboardClient][Error] Server response processing failed. User={UserId}. {exception}");
             throw;
         }
     }
@@ -204,7 +204,7 @@ public class WhiteboardClient : IWhiteboardClient
     public void RestoreSnapshot(WhiteboardDto whiteboard)
     {
         ArgumentNullException.ThrowIfNull(whiteboard);
-        Trace.TraceInformation($"[WhiteboardClient] Snapshot restoration requested. User={UserId}, Items={whiteboard.Items.Count}");
+        Trace.TraceInformation($"[Whiteboard][WhiteboardClient] Snapshot restoration requested. User={UserId}, Items={whiteboard.Items.Count}");
         SendToServer(new ClientMessage.ReqRestoreSnapshot(whiteboard));
     }
 }

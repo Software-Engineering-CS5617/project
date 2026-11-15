@@ -58,7 +58,7 @@ public class AddItemAction : IWhiteboardAction
 
         if (suppliedItems.Length == 0)
         {
-            Trace.TraceError($"[AddItemAction][Error] Cannot create an empty add action. User={userId}, Action={ActionId}");
+            Trace.TraceError($"[Whiteboard][AddItemAction][Error] Cannot create an empty add action. User={userId}, Action={ActionId}");
             throw new ArgumentException(
                 "An add action needs at least one item.",
                 nameof(items));
@@ -66,7 +66,7 @@ public class AddItemAction : IWhiteboardAction
 
         if (suppliedItems.Any(item => item is null))
         {
-            Trace.TraceError($"[AddItemAction][Error] Add action contains a null item. User={userId}, Action={ActionId}");
+            Trace.TraceError($"[Whiteboard][AddItemAction][Error] Add action contains a null item. User={userId}, Action={ActionId}");
             throw new ArgumentException(
                 "An add action cannot contain a null item.",
                 nameof(items));
@@ -75,7 +75,7 @@ public class AddItemAction : IWhiteboardAction
         if (suppliedItems.Select(item => item.Id).Distinct().Count()
             != suppliedItems.Length)
         {
-            Trace.TraceError($"[AddItemAction][Error] Addition rejected: item already exists. User={UserId}, Action={ActionId}");
+            Trace.TraceError($"[Whiteboard][AddItemAction][Error] Addition rejected: item already exists. User={UserId}, Action={ActionId}");
             throw new ArgumentException(
                 "An add action cannot contain duplicate item IDs.",
                 nameof(items));
@@ -100,7 +100,7 @@ public class AddItemAction : IWhiteboardAction
         {
             if (whiteboard.Items.ContainsKey(snapshot.Id))
             {
-                Trace.TraceError($"[AddItemAction][Error] Addition rejected: item already exists. User={UserId}, Action={ActionId}, Item={snapshot.Id}");
+                Trace.TraceError($"[Whiteboard][AddItemAction][Error] Addition rejected: item already exists. User={UserId}, Action={ActionId}, Item={snapshot.Id}");
                 throw new InvalidOperationException(
                     $"Item {snapshot.Id} already exists.");
             }
@@ -115,7 +115,7 @@ public class AddItemAction : IWhiteboardAction
         {
             whiteboard.AddItem(item);
         }
-        Trace.TraceInformation($"[AddItemAction] Addition completed. User={UserId}, Action={ActionId}, Items={itemsToAdd.Length}");
+        Trace.TraceInformation($"[Whiteboard][AddItemAction] Addition completed. User={UserId}, Action={ActionId}, Items={itemsToAdd.Length}");
     }
 
     /// <summary>
