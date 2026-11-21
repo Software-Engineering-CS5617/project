@@ -98,4 +98,44 @@ public class ModelTests
         Assert.NotEqual(pt1, pt3);
         Assert.Equal(30.0, pt3.X);
     }
+
+    [Fact]
+    public void WhiteboardCanvas_NullItems_AreHandled()
+    {
+        // check how the canvas handles null items.
+        WhiteboardCanvas canvas = new();
+
+        Assert.Throws<ArgumentNullException>(() => canvas.AddItem(null!));
+        Assert.Throws<ArgumentNullException>(() => canvas.EditItem(null!));
+        Assert.False(canvas.RemoveItem(null!));
+    }
+
+    [Fact]
+    public void WhiteboardCanvas_SelectionQueries_OrderByDescendingZIndex()
+    {
+        // check that higher z-index items come first.
+        WhiteboardCanvas canvas = new();
+        Rectangle lower = new() {
+            Center = new Point2D(0, 0),
+            Width = 20,
+            Height = 20,
+            Zindex = 1
+        };
+        Rectangle upper = new() {
+            Center = new Point2D(0, 0),
+            Width = 20,
+            Height = 20,
+            Zindex = 2
+        };
+        canvas.AddItem(lower);
+        canvas.AddItem(upper);
+
+        List<IItem> hits = canvas.HitTestAll(new Point2D(0, 0));
+        List<IItem> overlaps = canvas.InRect(new Rect2D(-5, -5, 10, 10));
+
+        Assert.Equal(upper.Id, hits[0].Id);
+        Assert.Equal(lower.Id, hits[1].Id);
+        Assert.Equal(upper.Id, overlaps[0].Id);
+        Assert.Equal(lower.Id, overlaps[1].Id);
+    }
 }
